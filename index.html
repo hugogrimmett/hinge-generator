@@ -1,73 +1,31 @@
 <!DOCTYPE html>
 <html>
 <head>
-    <title>4-Bar Linkage Solver</title>
+    <title>Hinge Box Solver</title>
     <style>
         body {
             font-family: Arial, sans-serif;
             margin: 20px;
-            display: flex;
-            flex-direction: column;
-            align-items: center;
         }
-        .parameter-group {
+        .container {
             display: flex;
-            align-items: center;
-            margin: 10px 0;
+            gap: 20px;
         }
-        .parameter-group label {
+        .controls {
+            width: 300px;
+        }
+        .control-group {
+            margin-bottom: 15px;
+        }
+        label {
+            display: block;
+            margin-bottom: 5px;
+        }
+        input[type="range"] {
+            width: 200px;
+        }
+        input[type="number"] {
             width: 60px;
-            margin-right: 10px;
-        }
-        .parameter-group input[type="range"] {
-            flex: 1;
-            margin-right: 10px;
-        }
-        .parameter-group input[type="number"] {
-            width: 70px;
-        }
-        .parameter-group span {
-            width: 50px;
-            text-align: right;
-        }
-        #debug {
-            font-family: monospace;
-            white-space: pre-wrap;
-            padding: 10px;
-            background: #f5f5f5;
-            border-radius: 4px;
-            position: relative;
-        }
-        #copyDebug {
-            position: absolute;
-            top: 5px;
-            right: 5px;
-            padding: 5px;
-            background: #fff;
-            border: 1px solid #ddd;
-            border-radius: 4px;
-            cursor: pointer;
-        }
-        #copyDebug:hover {
-            background: #f0f0f0;
-        }
-        .error {
-            color: #d00;
-        }
-        .success {
-            color: #0a0;
-        }
-        .checkbox-control {
-            margin: 10px 0;
-            display: flex;
-            align-items: center;
-            gap: 10px;
-        }
-        .view-mode {
-            margin: 10px 0;
-        }
-        .animation-controls {
-            margin: 10px 0;
         }
         canvas {
             border: 1px solid #ccc;
@@ -75,72 +33,118 @@
     </style>
 </head>
 <body>
-    <h1>4-Bar Linkage Solver</h1>
-    
-    <div id="parameters">
-        <div class="parameter-group">
-            <label for="height">Height:</label>
-            <input type="range" id="height" min="50" max="200" value="100">
-            <input type="number" id="heightNum" min="50" max="200" value="100">
-            <span id="heightValue">100</span>
+    <div class="container">
+        <div class="controls">
+            <h2>Parameters</h2>
+            
+            <div class="control-group">
+                <label for="heightSlider">Height:</label>
+                <input type="range" id="heightSlider" min="10" max="200" value="100">
+                <input type="number" id="heightInput" value="100">
+            </div>
+            
+            <div class="control-group">
+                <label for="widthSlider">Width:</label>
+                <input type="range" id="widthSlider" min="10" max="200" value="150">
+                <input type="number" id="widthInput" value="150">
+            </div>
+            
+            <div class="control-group">
+                <label for="depthSlider">Depth:</label>
+                <input type="range" id="depthSlider" min="10" max="200" value="50">
+                <input type="number" id="depthInput" value="50">
+            </div>
+            
+            <div class="control-group">
+                <label for="alphaSlider">Alpha (degrees):</label>
+                <input type="range" id="alphaSlider" min="0" max="90" value="30">
+                <input type="number" id="alphaInput" value="30">
+            </div>
+            
+            <div class="control-group">
+                <label for="gapSlider">Gap:</label>
+                <input type="range" id="gapSlider" min="0" max="50" value="5">
+                <input type="number" id="gapInput" value="5">
+            </div>
         </div>
         
-        <div class="parameter-group">
-            <label for="width">Width:</label>
-            <input type="range" id="width" min="50" max="200" value="150">
-            <input type="number" id="widthNum" min="50" max="200" value="150">
-            <span id="widthValue">150</span>
-        </div>
-        
-        <div class="parameter-group">
-            <label for="depth">Depth:</label>
-            <input type="range" id="depth" min="1" max="100" value="50">
-            <input type="number" id="depthNum" min="1" max="100" value="50">
-            <span id="depthValue">50</span>
-        </div>
-        
-        <div class="parameter-group">
-            <label for="alpha">Alpha:</label>
-            <input type="range" id="alpha" min="5" max="110" value="30">
-            <input type="number" id="alphaNum" min="5" max="110" value="30">
-            <span id="alphaValue">30</span>
-        </div>
-        
-        <div class="parameter-group">
-            <label for="gap">Gap:</label>
-            <input type="range" id="gap" min="0" max="50" value="5">
-            <input type="number" id="gapNum" min="0" max="50" value="5">
-            <span id="gapValue">5</span>
+        <div class="visualization">
+            <canvas id="canvas" width="800" height="600"></canvas>
         </div>
     </div>
-    
-    <div class="checkbox-control">
-        <input type="checkbox" id="preferEqualLengths" checked>
-        <label for="preferEqualLengths">Prefer equal rod lengths</label>
-    </div>
-    
-    <div class="view-mode">
-        <input type="radio" id="closedView" name="viewMode" value="closed" checked>
-        <label for="closedView">Closed</label>
-        
-        <input type="radio" id="openView" name="viewMode" value="open">
-        <label for="openView">Open</label>
-    </div>
-    
-    <div class="animation-controls">
-        <button id="animateBtn">Animate</button>
-        <button id="stopBtn">Stop</button>
-    </div>
-    
-    <canvas id="canvas" width="800" height="600"></canvas>
-    
-    <div id="debug">
-        <button id="copyDebug">📋 Copy</button>
-        <div id="debugContent"></div>
-    </div>
-    
+
     <script src="solver.js"></script>
     <script src="animation.js"></script>
-    <script src="mechanism.js"></script>
+    <script>
+        // Wait for DOM to be ready
+        let mechanismAnimation;
+        
+        document.addEventListener('DOMContentLoaded', () => {
+            // Initialize visualization
+            const canvas = document.getElementById('canvas');
+            mechanismAnimation = new MechanismAnimation(
+                canvas,
+                100,  // height
+                150,  // width
+                50,   // depth
+                30,   // alpha
+                5     // gap
+            );
+            
+            // Setup all controls
+            setupControls();
+        });
+        
+        // Helper function to update visualization
+        function updateVisualization() {
+            const params = {
+                height: parseFloat(document.getElementById('heightSlider').value),
+                width: parseFloat(document.getElementById('widthSlider').value),
+                depth: parseFloat(document.getElementById('depthSlider').value),
+                alpha: parseFloat(document.getElementById('alphaSlider').value),
+                gap: parseFloat(document.getElementById('gapSlider').value)
+            };
+            
+            mechanismAnimation.updateParameters(
+                params.height,
+                params.width,
+                params.depth,
+                params.alpha,
+                params.gap
+            );
+        }
+        
+        // Helper function to setup all controls
+        function setupControls() {
+            const controls = [
+                { name: 'Height', min: 10, max: 200 },
+                { name: 'Width', min: 10, max: 200 },
+                { name: 'Depth', min: 10, max: 200 },
+                { name: 'Alpha', min: 0, max: 90 },
+                { name: 'Gap', min: 0, max: 50 }
+            ];
+            
+            controls.forEach(control => {
+                const slider = document.getElementById(control.name.toLowerCase() + 'Slider');
+                const input = document.getElementById(control.name.toLowerCase() + 'Input');
+                
+                if (slider && input) {
+                    slider.addEventListener('input', () => {
+                        const value = parseFloat(slider.value);
+                        input.value = value;
+                        updateVisualization();
+                    });
+                    
+                    input.addEventListener('change', () => {
+                        let value = parseFloat(input.value);
+                        value = Math.max(control.min, Math.min(control.max, value));
+                        input.value = value;
+                        slider.value = value;
+                        updateVisualization();
+                    });
+                }
+            });
+        }
+    </script>
 </body>
 </html>
