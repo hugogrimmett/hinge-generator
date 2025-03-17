@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html>
 <head>
-    <title>Hinge Box Solver</title>
+    <title>Box and Lid Geometry</title>
     <style>
         body {
             font-family: Arial, sans-serif;
@@ -35,7 +35,7 @@
 <body>
     <div class="container">
         <div class="controls">
-            <h2>Parameters</h2>
+            <h2>Box Parameters</h2>
             
             <div class="control-group">
                 <label for="heightSlider">Height:</label>
@@ -57,8 +57,8 @@
             
             <div class="control-group">
                 <label for="alphaSlider">Alpha (degrees):</label>
-                <input type="range" id="alphaSlider" min="0" max="90" value="30">
-                <input type="number" id="alphaInput" value="30">
+                <input type="range" id="alphaSlider" min="0" max="90" value="70">
+                <input type="number" id="alphaInput" value="70">
             </div>
             
             <div class="control-group">
@@ -73,16 +73,16 @@
         </div>
     </div>
 
-    <script src="solver.js"></script>
-    <script src="animation.js"></script>
+    <script src="geometry.js"></script>
+    <script src="renderer.js"></script>
     <script>
         // Wait for DOM to be ready
-        let mechanismAnimation;
+        let boxRenderer;
         
         document.addEventListener('DOMContentLoaded', () => {
             // Initialize visualization
             const canvas = document.getElementById('canvas');
-            mechanismAnimation = new MechanismAnimation(
+            boxRenderer = new BoxRenderer(
                 canvas,
                 100,  // height
                 150,  // width
@@ -105,7 +105,7 @@
                 gap: parseFloat(document.getElementById('gapSlider').value)
             };
             
-            mechanismAnimation.updateParameters(
+            boxRenderer.updateParameters(
                 params.height,
                 params.width,
                 params.depth,
