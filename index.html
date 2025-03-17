@@ -1,0 +1,60 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Box Hinge Mechanism Visualizer</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; }
+        .controls { margin-bottom: 20px; }
+        .slider-container { margin: 10px 0; }
+        canvas { border: 1px solid #ccc; margin: 20px; }
+        .view-mode {
+            margin: 20px 0;
+        }
+        .view-mode label {
+            margin-right: 20px;
+            width: auto;
+        }
+    </style>
+</head>
+<body>
+    <h1>Box Hinge Mechanism Visualizer</h1>
+    <div class="controls">
+        <div class="view-mode">
+            <label>
+                <input type="radio" name="viewMode" value="closed" checked>
+                Closed
+            </label>
+            <label>
+                <input type="radio" name="viewMode" value="open">
+                Open
+            </label>
+            <label>
+                <input type="radio" name="viewMode" value="animated">
+                Animated
+            </label>
+        </div>
+        <div class="slider-container">
+            <label>Height (h): <span id="heightValue">100</span></label>
+            <input type="range" id="height" min="50" max="200" value="100">
+        </div>
+        <div class="slider-container">
+            <label>Width (w): <span id="widthValue">150</span></label>
+            <input type="range" id="width" min="50" max="200" value="150">
+        </div>
+        <div class="slider-container">
+            <label>Depth (d): <span id="depthValue">50</span></label>
+            <input type="range" id="depth" min="10" max="100" value="50">
+        </div>
+        <div class="slider-container">
+            <label>Angle (α): <span id="alphaValue">45</span>°</label>
+            <input type="range" id="alpha" min="0" max="180" value="45">
+        </div>
+        <div class="slider-container">
+            <label>Gap (g): <span id="gapValue">10</span></label>
+            <input type="range" id="gap" min="0" max="50" value="10">
+        </div>
+    </div>
+    <canvas id="canvas" width="800" height="600"></canvas>
+    <script src="mechanism.js"></script>
+</body>
+</html>
