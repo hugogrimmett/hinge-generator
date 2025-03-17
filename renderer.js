@@ -40,6 +40,9 @@ class BoxRenderer {
 
         // Initial draw
         this.draw();
+
+        // Animation frame ID
+        this.animationFrameId = null;
     }
     
     updateParameters(h, w, d, alpha, g) {
@@ -176,13 +179,28 @@ class BoxRenderer {
         ctx.lineTo(perpEnd.x, perpEnd.y);
         ctx.stroke();
         
-        // Reset line style
+        // Draw thick connecting lines
+        ctx.beginPath();
+        const boxPoint = this.transform(line.boxPoint);
+        const openPoint = this.transform(line.end);
+        const closedPoint = this.transform(line.start);
+        
+        ctx.moveTo(openPoint.x, openPoint.y);
+        ctx.lineTo(boxPoint.x, boxPoint.y);
+        ctx.lineTo(closedPoint.x, closedPoint.y);
+        
         ctx.setLineDash([]);
+        ctx.lineWidth = 3;
+        ctx.strokeStyle = color;
+        ctx.stroke();
+        
+        // Reset line style
+        ctx.lineWidth = 1;
         
         // Draw points
         this.drawCircle(line.start, 5, color);
         this.drawCircle(line.end, 5, color);
-        this.drawCircle(line.perpPoint, 5, color);
+        this.drawCircle(line.boxPoint, 5, color);
         
         // Draw highlight for selected point if it's the current color
         if (this.isDragging && this.selectedPoint) {
@@ -193,8 +211,8 @@ class BoxRenderer {
                     point = line.end;
                 } else if (pointType === 'closed') {
                     point = line.start;
-                } else if (pointType === 'perp') {
-                    point = line.perpPoint;
+                } else if (pointType === 'box') {
+                    point = line.boxPoint;
                 }
                 if (point) {
                     this.drawCircle(point, 7, color, false);
@@ -246,9 +264,9 @@ class BoxRenderer {
         } else if (this.geometry.isPointNearRedClosedPoint(point, threshold)) {
             this.isDragging = true;
             this.selectedPoint = 'red-closed';
-        } else if (this.geometry.isPointNearRedPerpPoint(point, threshold)) {
+        } else if (this.geometry.isPointNearRedBoxPoint(point, threshold)) {
             this.isDragging = true;
-            this.selectedPoint = 'red-perp';
+            this.selectedPoint = 'red-box';
         }
         // Check blue points
         else if (this.geometry.isPointNearBlueOpenPoint(point, threshold)) {
@@ -257,9 +275,9 @@ class BoxRenderer {
         } else if (this.geometry.isPointNearBlueClosedPoint(point, threshold)) {
             this.isDragging = true;
             this.selectedPoint = 'blue-closed';
-        } else if (this.geometry.isPointNearBluePerpPoint(point, threshold)) {
+        } else if (this.geometry.isPointNearBlueBoxPoint(point, threshold)) {
             this.isDragging = true;
-            this.selectedPoint = 'blue-perp';
+            this.selectedPoint = 'blue-box';
         }
     }
     
@@ -286,8 +304,8 @@ class BoxRenderer {
                     x: center.x - dx,
                     y: center.y - dy
                 });
-            } else if (pointType === 'perp') {
-                this.geometry.moveRedPerpPoint(point);
+            } else if (pointType === 'box') {
+                this.geometry.moveRedBoxPoint(point);
             }
         } else { // blue
             if (pointType === 'open') {
@@ -300,8 +318,8 @@ class BoxRenderer {
                     x: center.x - dx,
                     y: center.y - dy
                 });
-            } else if (pointType === 'perp') {
-                this.geometry.moveBluePerpPoint(point);
+            } else if (pointType === 'box') {
+                this.geometry.moveBlueBoxPoint(point);
             }
         }
         
@@ -311,5 +329,46 @@ class BoxRenderer {
     handleMouseUp() {
         this.isDragging = false;
         this.selectedPoint = null;
+    }
+    
+    // Animation methods
+    startAnimation() {
+        if (this.animationFrameId) return;  // Already animating
+        
+        this.geometry.startAnimation();
+        this.animate();
+    }
+    
+    stopAnimation() {
+        if (this.animationFrameId) {
+            cancelAnimationFrame(this.animationFrameId);
+            this.animationFrameId = null;
+        }
+        this.geometry.stopAnimation();
+    }
+    
+    animate() {
+        // Update geometry
+        const needsRedraw = this.geometry.updateAnimation();
+        
+        // Only redraw if geometry changed
+        if (needsRedraw) {
+            this.draw();
+        }
+        
+        // Schedule next frame
+        this.animationFrameId = requestAnimationFrame(() => this.animate());
+    }
+    
+    // Clean up
+    destroy() {
+        // Stop animation
+        this.stopAnimation();
+        
+        // Remove event listeners
+        this.canvas.removeEventListener('mousedown', this.handleMouseDown);
+        this.canvas.removeEventListener('mousemove', this.handleMouseMove);
+        this.canvas.removeEventListener('mouseup', this.handleMouseUp);
+        this.canvas.removeEventListener('mouseleave', this.handleMouseUp);
     }
 }

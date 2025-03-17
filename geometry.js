@@ -1,5 +1,5 @@
 class BoxGeometry {
-    constructor(h, w, d, alpha, g) {
+    constructor(h, w, d, alpha = 70, g = 10) {
         this.h = h;          // height
         this.w = w;          // width
         this.d = d;          // depth
@@ -19,8 +19,8 @@ class BoxGeometry {
         };
         this.updateRedClosedPoint();
         
-        // Initialize red perpendicular point at center + 0.5*h up the perpendicular line
-        this.redPerpPoint = {
+        // Initialize red box point at center + 0.5*h up the box line
+        this.redBoxPoint = {
             x: this.w/2,
             y: this.h + 0.5 * this.h
         };
@@ -32,11 +32,23 @@ class BoxGeometry {
         };
         this.updateBlueClosedPoint();
         
-        // Initialize blue perpendicular point at center - 0.5*h down the perpendicular line
-        this.bluePerpPoint = {
+        // Initialize blue box point at center - 0.5*h down the box line
+        this.blueBoxPoint = {
             x: this.w/2,
             y: this.h - 0.5 * this.h
         };
+
+        // Animation state
+        this.isAnimating = false;
+        this.animationAngle = 0;  // 0 to Math.PI (closed to open)
+        this.animationDirection = 1;  // 1 for opening, -1 for closing
+        this.animationSpeed = Math.PI / 120;  // radians per frame
+        
+        // Store initial positions for animation
+        this.initialRedOpen = { ...this.redOpenPoint };
+        this.initialRedClosed = { ...this.redClosedPoint };
+        this.initialBlueOpen = { ...this.blueOpenPoint };
+        this.initialBlueClosed = { ...this.blueClosedPoint };
     }
 
     // Get box vertices
@@ -271,19 +283,19 @@ class BoxGeometry {
         this.updateBlueClosedPoint();
     }
     
-    // Move the red perpendicular point
-    moveRedPerpPoint(point) {
+    // Move the red box point
+    moveRedBoxPoint(point) {
         const line = this.getRedConnectionLine();
-        this.redPerpPoint = this.constrainPointToLineSegment(point, line.perpStart, line.perpEnd);
+        this.redBoxPoint = this.constrainPointToLineSegment(point, line.perpStart, line.perpEnd);
     }
     
-    // Move the blue perpendicular point
-    moveBluePerpPoint(point) {
+    // Move the blue box point
+    moveBlueBoxPoint(point) {
         const line = this.getBlueConnectionLine();
-        this.bluePerpPoint = this.constrainPointToLineSegment(point, line.perpStart, line.perpEnd);
+        this.blueBoxPoint = this.constrainPointToLineSegment(point, line.perpStart, line.perpEnd);
     }
     
-    // Get the red connection line points and perpendicular line
+    // Get the red connection line points and box line
     getRedConnectionLine() {
         const center = this.getCenterOfRotation();
         const dx = this.redOpenPoint.x - center.x;
@@ -294,11 +306,11 @@ class BoxGeometry {
         const dirX = dx / len;
         const dirY = dy / len;
         
-        // Calculate perpendicular vector (rotate 90 degrees)
+        // Calculate box vector (rotate 90 degrees)
         const perpX = -dirY;
         const perpY = dirX;
         
-        // Calculate perpendicular line endpoints (1.25*h on each side)
+        // Calculate box line endpoints (1.25*h on each side)
         const perpLen = this.h * 1.25;
         const perpStart = {
             x: center.x - perpX * perpLen,
@@ -309,20 +321,20 @@ class BoxGeometry {
             y: center.y + perpY * perpLen
         };
         
-        // Ensure perpendicular point stays on the line when the line moves
-        this.redPerpPoint = this.constrainPointToLineSegment(this.redPerpPoint, perpStart, perpEnd);
+        // Ensure box point stays on the line when the line moves
+        this.redBoxPoint = this.constrainPointToLineSegment(this.redBoxPoint, perpStart, perpEnd);
         
         return {
             start: this.redClosedPoint,
             end: this.redOpenPoint,
+            boxPoint: this.redBoxPoint,
             center: center,
             perpStart: perpStart,
-            perpEnd: perpEnd,
-            perpPoint: this.redPerpPoint
+            perpEnd: perpEnd
         };
     }
     
-    // Get the blue connection line points and perpendicular line
+    // Get the blue connection line points and box line
     getBlueConnectionLine() {
         const center = this.getCenterOfRotation();
         const dx = this.blueOpenPoint.x - center.x;
@@ -333,11 +345,11 @@ class BoxGeometry {
         const dirX = dx / len;
         const dirY = dy / len;
         
-        // Calculate perpendicular vector (rotate 90 degrees)
+        // Calculate box vector (rotate 90 degrees)
         const perpX = -dirY;
         const perpY = dirX;
         
-        // Calculate perpendicular line endpoints (1.25*h on each side)
+        // Calculate box line endpoints (1.25*h on each side)
         const perpLen = this.h * 1.25;
         const perpStart = {
             x: center.x - perpX * perpLen,
@@ -348,16 +360,16 @@ class BoxGeometry {
             y: center.y + perpY * perpLen
         };
         
-        // Ensure perpendicular point stays on the line when the line moves
-        this.bluePerpPoint = this.constrainPointToLineSegment(this.bluePerpPoint, perpStart, perpEnd);
+        // Ensure box point stays on the line when the line moves
+        this.blueBoxPoint = this.constrainPointToLineSegment(this.blueBoxPoint, perpStart, perpEnd);
         
         return {
             start: this.blueClosedPoint,
             end: this.blueOpenPoint,
+            boxPoint: this.blueBoxPoint,
             center: center,
             perpStart: perpStart,
-            perpEnd: perpEnd,
-            perpPoint: this.bluePerpPoint
+            perpEnd: perpEnd
         };
     }
     
@@ -386,15 +398,62 @@ class BoxGeometry {
         return dx * dx + dy * dy <= threshold * threshold;
     }
     
-    isPointNearRedPerpPoint(point, threshold) {
-        const dx = point.x - this.redPerpPoint.x;
-        const dy = point.y - this.redPerpPoint.y;
+    isPointNearRedBoxPoint(point, threshold) {
+        const dx = point.x - this.redBoxPoint.x;
+        const dy = point.y - this.redBoxPoint.y;
         return dx * dx + dy * dy <= threshold * threshold;
     }
     
-    isPointNearBluePerpPoint(point, threshold) {
-        const dx = point.x - this.bluePerpPoint.x;
-        const dy = point.y - this.bluePerpPoint.y;
+    isPointNearBlueBoxPoint(point, threshold) {
+        const dx = point.x - this.blueBoxPoint.x;
+        const dy = point.y - this.blueBoxPoint.y;
         return dx * dx + dy * dy <= threshold * threshold;
+    }
+
+    // Animation methods
+    startAnimation() {
+        this.isAnimating = true;
+        this.animationAngle = 0;
+        this.animationDirection = 1;
+    }
+    
+    stopAnimation() {
+        this.isAnimating = false;
+    }
+    
+    updateAnimation() {
+        if (!this.isAnimating) return false;
+        
+        // Update angle
+        this.animationAngle += this.animationSpeed * this.animationDirection;
+        
+        // Check bounds and reverse direction if needed
+        if (this.animationAngle >= Math.PI) {
+            this.animationAngle = Math.PI;
+            this.animationDirection = -1;
+        } else if (this.animationAngle <= 0) {
+            this.animationAngle = 0;
+            this.animationDirection = 1;
+        }
+        
+        // Calculate new positions using circle intersections
+        const center = this.getCenterOfRotation();
+        const redRadius = Math.sqrt(
+            Math.pow(this.initialRedOpen.x - this.redBoxPoint.x, 2) +
+            Math.pow(this.initialRedOpen.y - this.redBoxPoint.y, 2)
+        );
+        
+        // Calculate red rod end position
+        const redAngle = this.animationAngle;
+        this.redOpenPoint = {
+            x: this.redBoxPoint.x + redRadius * Math.cos(redAngle),
+            y: this.redBoxPoint.y + redRadius * Math.sin(redAngle)
+        };
+        
+        // Update closed points through center reflection
+        this.updateRedClosedPoint();
+        this.updateBlueClosedPoint();
+        
+        return true;
     }
 }
