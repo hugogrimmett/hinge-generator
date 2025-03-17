@@ -182,13 +182,23 @@ class BoxRenderer {
         // Draw points
         this.drawCircle(line.start, 5, color);
         this.drawCircle(line.end, 5, color);
+        this.drawCircle(line.perpPoint, 5, color);
         
         // Draw highlight for selected point if it's the current color
         if (this.isDragging && this.selectedPoint) {
             const [selectedColor, pointType] = this.selectedPoint.split('-');
             if (selectedColor === color) {
-                const point = pointType === 'open' ? line.end : line.start;
-                this.drawCircle(point, 7, color, false);
+                let point;
+                if (pointType === 'open') {
+                    point = line.end;
+                } else if (pointType === 'closed') {
+                    point = line.start;
+                } else if (pointType === 'perp') {
+                    point = line.perpPoint;
+                }
+                if (point) {
+                    this.drawCircle(point, 7, color, false);
+                }
             }
         }
     }
@@ -236,6 +246,9 @@ class BoxRenderer {
         } else if (this.geometry.isPointNearRedClosedPoint(point, threshold)) {
             this.isDragging = true;
             this.selectedPoint = 'red-closed';
+        } else if (this.geometry.isPointNearRedPerpPoint(point, threshold)) {
+            this.isDragging = true;
+            this.selectedPoint = 'red-perp';
         }
         // Check blue points
         else if (this.geometry.isPointNearBlueOpenPoint(point, threshold)) {
@@ -244,6 +257,9 @@ class BoxRenderer {
         } else if (this.geometry.isPointNearBlueClosedPoint(point, threshold)) {
             this.isDragging = true;
             this.selectedPoint = 'blue-closed';
+        } else if (this.geometry.isPointNearBluePerpPoint(point, threshold)) {
+            this.isDragging = true;
+            this.selectedPoint = 'blue-perp';
         }
     }
     
@@ -262,7 +278,7 @@ class BoxRenderer {
         if (color === 'red') {
             if (pointType === 'open') {
                 this.geometry.moveRedOpenPoint(point);
-            } else {
+            } else if (pointType === 'closed') {
                 // For closed point, move the open point to the opposite position
                 const dx = point.x - center.x;
                 const dy = point.y - center.y;
@@ -270,11 +286,13 @@ class BoxRenderer {
                     x: center.x - dx,
                     y: center.y - dy
                 });
+            } else if (pointType === 'perp') {
+                this.geometry.moveRedPerpPoint(point);
             }
         } else { // blue
             if (pointType === 'open') {
                 this.geometry.moveBlueOpenPoint(point);
-            } else {
+            } else if (pointType === 'closed') {
                 // For closed point, move the open point to the opposite position
                 const dx = point.x - center.x;
                 const dy = point.y - center.y;
@@ -282,6 +300,8 @@ class BoxRenderer {
                     x: center.x - dx,
                     y: center.y - dy
                 });
+            } else if (pointType === 'perp') {
+                this.geometry.moveBluePerpPoint(point);
             }
         }
         
