@@ -1,60 +1,146 @@
 <!DOCTYPE html>
 <html>
 <head>
-    <title>Box Hinge Mechanism Visualizer</title>
+    <title>4-Bar Linkage Solver</title>
     <style>
-        body { font-family: Arial, sans-serif; margin: 20px; }
-        .controls { margin-bottom: 20px; }
-        .slider-container { margin: 10px 0; }
-        canvas { border: 1px solid #ccc; margin: 20px; }
-        .view-mode {
-            margin: 20px 0;
+        body {
+            font-family: Arial, sans-serif;
+            margin: 20px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
         }
-        .view-mode label {
-            margin-right: 20px;
-            width: auto;
+        .parameter-group {
+            display: flex;
+            align-items: center;
+            margin: 10px 0;
+        }
+        .parameter-group label {
+            width: 60px;
+            margin-right: 10px;
+        }
+        .parameter-group input[type="range"] {
+            flex: 1;
+            margin-right: 10px;
+        }
+        .parameter-group input[type="number"] {
+            width: 70px;
+        }
+        .parameter-group span {
+            width: 50px;
+            text-align: right;
+        }
+        #debug {
+            font-family: monospace;
+            white-space: pre-wrap;
+            padding: 10px;
+            background: #f5f5f5;
+            border-radius: 4px;
+            position: relative;
+        }
+        #copyDebug {
+            position: absolute;
+            top: 5px;
+            right: 5px;
+            padding: 5px;
+            background: #fff;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+        #copyDebug:hover {
+            background: #f0f0f0;
+        }
+        .error {
+            color: #d00;
+        }
+        .success {
+            color: #0a0;
+        }
+        .checkbox-control {
+            margin: 10px 0;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        .view-mode {
+            margin: 10px 0;
+        }
+        .animation-controls {
+            margin: 10px 0;
+        }
+        canvas {
+            border: 1px solid #ccc;
         }
     </style>
 </head>
 <body>
-    <h1>Box Hinge Mechanism Visualizer</h1>
-    <div class="controls">
-        <div class="view-mode">
-            <label>
-                <input type="radio" name="viewMode" value="closed" checked>
-                Closed
-            </label>
-            <label>
-                <input type="radio" name="viewMode" value="open">
-                Open
-            </label>
-            <label>
-                <input type="radio" name="viewMode" value="animated">
-                Animated
-            </label>
-        </div>
-        <div class="slider-container">
-            <label>Height (h): <span id="heightValue">100</span></label>
+    <h1>4-Bar Linkage Solver</h1>
+    
+    <div id="parameters">
+        <div class="parameter-group">
+            <label for="height">Height:</label>
             <input type="range" id="height" min="50" max="200" value="100">
+            <input type="number" id="heightNum" min="50" max="200" value="100">
+            <span id="heightValue">100</span>
         </div>
-        <div class="slider-container">
-            <label>Width (w): <span id="widthValue">150</span></label>
+        
+        <div class="parameter-group">
+            <label for="width">Width:</label>
             <input type="range" id="width" min="50" max="200" value="150">
+            <input type="number" id="widthNum" min="50" max="200" value="150">
+            <span id="widthValue">150</span>
         </div>
-        <div class="slider-container">
-            <label>Depth (d): <span id="depthValue">50</span></label>
-            <input type="range" id="depth" min="10" max="100" value="50">
+        
+        <div class="parameter-group">
+            <label for="depth">Depth:</label>
+            <input type="range" id="depth" min="1" max="100" value="50">
+            <input type="number" id="depthNum" min="1" max="100" value="50">
+            <span id="depthValue">50</span>
         </div>
-        <div class="slider-container">
-            <label>Angle (α): <span id="alphaValue">45</span>°</label>
-            <input type="range" id="alpha" min="0" max="180" value="45">
+        
+        <div class="parameter-group">
+            <label for="alpha">Alpha:</label>
+            <input type="range" id="alpha" min="5" max="110" value="30">
+            <input type="number" id="alphaNum" min="5" max="110" value="30">
+            <span id="alphaValue">30</span>
         </div>
-        <div class="slider-container">
-            <label>Gap (g): <span id="gapValue">10</span></label>
-            <input type="range" id="gap" min="0" max="50" value="10">
+        
+        <div class="parameter-group">
+            <label for="gap">Gap:</label>
+            <input type="range" id="gap" min="0" max="50" value="5">
+            <input type="number" id="gapNum" min="0" max="50" value="5">
+            <span id="gapValue">5</span>
         </div>
     </div>
+    
+    <div class="checkbox-control">
+        <input type="checkbox" id="preferEqualLengths" checked>
+        <label for="preferEqualLengths">Prefer equal rod lengths</label>
+    </div>
+    
+    <div class="view-mode">
+        <input type="radio" id="closedView" name="viewMode" value="closed" checked>
+        <label for="closedView">Closed</label>
+        
+        <input type="radio" id="openView" name="viewMode" value="open">
+        <label for="openView">Open</label>
+    </div>
+    
+    <div class="animation-controls">
+        <button id="animateBtn">Animate</button>
+        <button id="stopBtn">Stop</button>
+    </div>
+    
     <canvas id="canvas" width="800" height="600"></canvas>
+    
+    <div id="debug">
+        <button id="copyDebug">📋 Copy</button>
+        <div id="debugContent"></div>
+    </div>
+    
+    <script src="solver.js"></script>
+    <script src="animation.js"></script>
     <script src="mechanism.js"></script>
 </body>
 </html>
