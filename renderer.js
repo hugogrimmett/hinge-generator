@@ -221,6 +221,41 @@ class BoxRenderer {
         }
     }
     
+    // Draw 4-bar linkage
+    drawFourBarLinkage() {
+        const ctx = this.ctx;
+        
+        // Get points for the linkage
+        const redLine = this.geometry.getRedConnectionLine();
+        const blueLine = this.geometry.getBlueConnectionLine();
+        
+        // Draw the four bars in black
+        ctx.beginPath();
+        ctx.strokeStyle = 'black';
+        ctx.lineWidth = 2;
+        
+        // Start at red box point
+        const redBox = this.transform(redLine.boxPoint);
+        ctx.moveTo(redBox.x, redBox.y);
+        
+        // Draw to red closed point
+        const redClosed = this.transform(redLine.start);
+        ctx.lineTo(redClosed.x, redClosed.y);
+        
+        // Draw to blue closed point
+        const blueClosed = this.transform(blueLine.start);
+        ctx.lineTo(blueClosed.x, blueClosed.y);
+        
+        // Draw to blue box point
+        const blueBox = this.transform(blueLine.boxPoint);
+        ctx.lineTo(blueBox.x, blueBox.y);
+        
+        // Complete the linkage
+        ctx.lineTo(redBox.x, redBox.y);
+        
+        ctx.stroke();
+    }
+    
     // Main draw function
     draw() {
         const ctx = this.ctx;
@@ -242,9 +277,17 @@ class BoxRenderer {
         this.drawCircle(center, 3, 'green');
         this.drawText('Center of Rotation', center, 'green');
         
-        // Draw connection lines and points
-        this.drawConnectionLine(this.geometry.getRedConnectionLine(), 'red');
-        this.drawConnectionLine(this.geometry.getBlueConnectionLine(), 'blue');
+        // Draw connection lines
+        const redLine = this.geometry.getRedConnectionLine();
+        const blueLine = this.geometry.getBlueConnectionLine();
+        if (redLine) this.drawConnectionLine(redLine, 'red');
+        if (blueLine) this.drawConnectionLine(blueLine, 'blue');
+        
+        // Draw 4-bar linkage
+        this.drawFourBarLinkage();
+        
+        // Draw debug info
+        this.drawDebugInfo();
     }
     
     // Mouse event handlers
