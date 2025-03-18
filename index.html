@@ -66,6 +66,11 @@
                 <input type="range" id="gapSlider" min="0" max="50" value="5">
                 <input type="number" id="gapInput" value="5">
             </div>
+            
+            <div>
+                <button id="resetButton">Reset</button>
+                <button id="animateButton">Animate</button>
+            </div>
         </div>
         
         <div class="visualization">
@@ -144,6 +149,21 @@
                     });
                 }
             });
+            
+            // Add animation control
+            const animateButton = document.getElementById('animateButton');
+            if (animateButton) {
+                animateButton.addEventListener('click', () => {
+                    if (boxRenderer.geometry.isAnimating) {
+                        boxRenderer.geometry.isAnimating = false;
+                        animateButton.textContent = 'Animate';
+                    } else {
+                        boxRenderer.geometry.startAnimation();
+                        animateButton.textContent = 'Stop';
+                        boxRenderer.animate();
+                    }
+                });
+            }
         }
     </script>
 </body>

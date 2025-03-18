@@ -37,7 +37,7 @@ class BoxGeometry {
             x: this.w/2,
             y: this.h - 0.5 * this.h
         };
-
+        
         // Animation state
         this.isAnimating = false;
         this.animationAngle = 0;  // 0 to Math.PI (closed to open)
@@ -49,6 +49,36 @@ class BoxGeometry {
         this.initialRedClosed = { ...this.redClosedPoint };
         this.initialBlueOpen = { ...this.blueOpenPoint };
         this.initialBlueClosed = { ...this.blueClosedPoint };
+        
+        this.fourBarPoints = {
+            redClosed: {...this.redClosedPoint},
+            blueClosed: {...this.blueClosedPoint}
+        };
+        
+        // Calculate initial angles for 4-bar linkage
+        const redBox = this.redBoxPoint;
+        const redClosed = this.redClosedPoint;
+        const redOpen = this.redOpenPoint;
+        
+        // Calculate angles from horizontal
+        this.closedAngle = Math.atan2(
+            redClosed.y - redBox.y,
+            redClosed.x - redBox.x
+        );
+        
+        this.openAngle = Math.atan2(
+            redOpen.y - redBox.y,
+            redOpen.x - redBox.x
+        );
+        
+        // Store link lengths for 4-bar calculation
+        this.inputLength = this.distance(this.redBoxPoint, this.redClosedPoint);
+        this.outputLength = this.distance(this.blueBoxPoint, this.blueClosedPoint);
+        this.couplerLength = this.distance(this.redClosedPoint, this.blueClosedPoint);
+        this.groundLength = this.distance(this.redBoxPoint, this.blueBoxPoint);
+        
+        // Animation state for 4-bar
+        this.fourBarAngle = this.closedAngle;
     }
 
     // Get box vertices
@@ -295,6 +325,141 @@ class BoxGeometry {
         this.blueBoxPoint = this.constrainPointToLineSegment(point, line.perpStart, line.perpEnd);
     }
     
+    // Check if a point is near enough to be selected
+    isPointNearRedOpenPoint(point, threshold) {
+        const dx = point.x - this.redOpenPoint.x;
+        const dy = point.y - this.redOpenPoint.y;
+        return dx * dx + dy * dy <= threshold * threshold;
+    }
+    
+    isPointNearRedClosedPoint(point, threshold) {
+        const dx = point.x - this.redClosedPoint.x;
+        const dy = point.y - this.redClosedPoint.y;
+        return dx * dx + dy * dy <= threshold * threshold;
+    }
+    
+    isPointNearBlueOpenPoint(point, threshold) {
+        const dx = point.x - this.blueOpenPoint.x;
+        const dy = point.y - this.blueOpenPoint.y;
+        return dx * dx + dy * dy <= threshold * threshold;
+    }
+    
+    isPointNearBlueClosedPoint(point, threshold) {
+        const dx = point.x - this.blueClosedPoint.x;
+        const dy = point.y - this.blueClosedPoint.y;
+        return dx * dx + dy * dy <= threshold * threshold;
+    }
+    
+    isPointNearRedBoxPoint(point, threshold) {
+        const dx = point.x - this.redBoxPoint.x;
+        const dy = point.y - this.redBoxPoint.y;
+        return dx * dx + dy * dy <= threshold * threshold;
+    }
+    
+    isPointNearBlueBoxPoint(point, threshold) {
+        const dx = point.x - this.blueBoxPoint.x;
+        const dy = point.y - this.blueBoxPoint.y;
+        return dx * dx + dy * dy <= threshold * threshold;
+    }
+
+    // Helper to calculate distance between two points
+    distance(p1, p2) {
+        const dx = p2.x - p1.x;
+        const dy = p2.y - p1.y;
+        return Math.sqrt(dx * dx + dy * dy);
+    }
+
+    // Animation methods
+    startAnimation() {
+        this.isAnimating = true;
+        this.fourBarAngle = this.closedAngle;
+        this.animationDirection = 1;
+    }
+    
+    stopAnimation() {
+        this.isAnimating = false;
+    }
+    
+    updateAnimation() {
+        if (!this.isAnimating) return false;
+        
+        // Update angle
+        const angleRange = this.openAngle - this.closedAngle;
+        const angleStep = Math.PI / 120; // Adjust speed as needed
+        
+        this.fourBarAngle += angleStep * this.animationDirection;
+        
+        // Check bounds and reverse direction
+        if (this.fourBarAngle >= this.openAngle) {
+            this.fourBarAngle = this.openAngle;
+            this.animationDirection = -1;
+        } else if (this.fourBarAngle <= this.closedAngle) {
+            this.fourBarAngle = this.closedAngle;
+            this.animationDirection = 1;
+        }
+        
+        // Calculate new position of red closed point
+        const redClosedX = this.redBoxPoint.x + this.inputLength * Math.cos(this.fourBarAngle);
+        const redClosedY = this.redBoxPoint.y + this.inputLength * Math.sin(this.fourBarAngle);
+        
+        this.fourBarPoints.redClosed = {x: redClosedX, y: redClosedY};
+        
+        // Find blue closed point using circle intersection
+        const blueCenter = this.blueBoxPoint;
+        const redCenter = this.fourBarPoints.redClosed;
+        
+        const dx = redCenter.x - blueCenter.x;
+        const dy = redCenter.y - blueCenter.y;
+        const dist = Math.sqrt(dx * dx + dy * dy);
+        
+        // Check if circles can intersect
+        if (dist > this.outputLength + this.couplerLength || 
+            dist < Math.abs(this.outputLength - this.couplerLength)) {
+            return false; // No solution possible
+        }
+        
+        // Calculate intersection using cosine law
+        const a = this.outputLength;
+        const b = dist;
+        const c = this.couplerLength;
+        
+        const cosTheta = (a*a + b*b - c*c) / (2*a*b);
+        const theta = Math.acos(cosTheta);
+        
+        // Angle of line from blue box to red closed
+        const baseAngle = Math.atan2(dy, dx);
+        
+        // Choose the upper intersection point for lid-like behavior
+        const intersectAngle = baseAngle + theta;
+        
+        const blueClosedX = blueCenter.x + this.outputLength * Math.cos(intersectAngle);
+        const blueClosedY = blueCenter.y + this.outputLength * Math.sin(intersectAngle);
+        
+        this.fourBarPoints.blueClosed = {x: blueClosedX, y: blueClosedY};
+        
+        return true;
+    }
+    
+    // Get points for 4-bar linkage
+    getFourBarPoints() {
+        if (this.isAnimating) {
+            return {
+                redBox: this.redBoxPoint,
+                blueBox: this.blueBoxPoint,
+                redClosed: this.fourBarPoints.redClosed,
+                blueClosed: this.fourBarPoints.blueClosed
+            };
+        }
+        
+        // When not animating, use current points
+        return {
+            redBox: this.redBoxPoint,
+            blueBox: this.blueBoxPoint,
+            redClosed: this.redClosedPoint,
+            blueClosed: this.blueClosedPoint
+        };
+    }
+
     // Get the red connection line points and box line
     getRedConnectionLine() {
         const center = this.getCenterOfRotation();
@@ -371,89 +536,5 @@ class BoxGeometry {
             perpStart: perpStart,
             perpEnd: perpEnd
         };
-    }
-    
-    // Check if a point is near enough to be selected
-    isPointNearRedOpenPoint(point, threshold) {
-        const dx = point.x - this.redOpenPoint.x;
-        const dy = point.y - this.redOpenPoint.y;
-        return dx * dx + dy * dy <= threshold * threshold;
-    }
-    
-    isPointNearRedClosedPoint(point, threshold) {
-        const dx = point.x - this.redClosedPoint.x;
-        const dy = point.y - this.redClosedPoint.y;
-        return dx * dx + dy * dy <= threshold * threshold;
-    }
-    
-    isPointNearBlueOpenPoint(point, threshold) {
-        const dx = point.x - this.blueOpenPoint.x;
-        const dy = point.y - this.blueOpenPoint.y;
-        return dx * dx + dy * dy <= threshold * threshold;
-    }
-    
-    isPointNearBlueClosedPoint(point, threshold) {
-        const dx = point.x - this.blueClosedPoint.x;
-        const dy = point.y - this.blueClosedPoint.y;
-        return dx * dx + dy * dy <= threshold * threshold;
-    }
-    
-    isPointNearRedBoxPoint(point, threshold) {
-        const dx = point.x - this.redBoxPoint.x;
-        const dy = point.y - this.redBoxPoint.y;
-        return dx * dx + dy * dy <= threshold * threshold;
-    }
-    
-    isPointNearBlueBoxPoint(point, threshold) {
-        const dx = point.x - this.blueBoxPoint.x;
-        const dy = point.y - this.blueBoxPoint.y;
-        return dx * dx + dy * dy <= threshold * threshold;
-    }
-
-    // Animation methods
-    startAnimation() {
-        this.isAnimating = true;
-        this.animationAngle = 0;
-        this.animationDirection = 1;
-    }
-    
-    stopAnimation() {
-        this.isAnimating = false;
-    }
-    
-    updateAnimation() {
-        if (!this.isAnimating) return false;
-        
-        // Update angle
-        this.animationAngle += this.animationSpeed * this.animationDirection;
-        
-        // Check bounds and reverse direction if needed
-        if (this.animationAngle >= Math.PI) {
-            this.animationAngle = Math.PI;
-            this.animationDirection = -1;
-        } else if (this.animationAngle <= 0) {
-            this.animationAngle = 0;
-            this.animationDirection = 1;
-        }
-        
-        // Calculate new positions using circle intersections
-        const center = this.getCenterOfRotation();
-        const redRadius = Math.sqrt(
-            Math.pow(this.initialRedOpen.x - this.redBoxPoint.x, 2) +
-            Math.pow(this.initialRedOpen.y - this.redBoxPoint.y, 2)
-        );
-        
-        // Calculate red rod end position
-        const redAngle = this.animationAngle;
-        this.redOpenPoint = {
-            x: this.redBoxPoint.x + redRadius * Math.cos(redAngle),
-            y: this.redBoxPoint.y + redRadius * Math.sin(redAngle)
-        };
-        
-        // Update closed points through center reflection
-        this.updateRedClosedPoint();
-        this.updateBlueClosedPoint();
-        
-        return true;
     }
 }

@@ -27,22 +27,34 @@ class BoxRenderer {
             x: canvas.width/2 - (this.viewportBounds.left + viewportWidth/2) * this.scale,
             y: canvas.height/2 + (this.viewportBounds.bottom + viewportHeight/2) * this.scale
         };
-
+        
+        // Set up event listeners
+        this.canvas.addEventListener('mousedown', this.handleMouseDown.bind(this));
+        this.canvas.addEventListener('mousemove', this.handleMouseMove.bind(this));
+        this.canvas.addEventListener('mouseup', this.handleMouseUp.bind(this));
+        this.canvas.addEventListener('mouseleave', this.handleMouseUp.bind(this));
+        
         // Set up interaction state
         this.isDragging = false;
         this.selectedPoint = null;
-
-        // Add event listeners
-        canvas.addEventListener('mousedown', this.handleMouseDown.bind(this));
-        canvas.addEventListener('mousemove', this.handleMouseMove.bind(this));
-        canvas.addEventListener('mouseup', this.handleMouseUp.bind(this));
-        canvas.addEventListener('mouseleave', this.handleMouseUp.bind(this));
-
+        
+        // Animation controls
+        const animateButton = document.getElementById('animateButton');
+        if (animateButton) {
+            animateButton.addEventListener('click', () => {
+                if (this.geometry.isAnimating) {
+                    this.geometry.isAnimating = false;
+                    animateButton.textContent = 'Animate';
+                } else {
+                    this.geometry.startAnimation();
+                    animateButton.textContent = 'Stop';
+                    this.animate();
+                }
+            });
+        }
+        
         // Initial draw
         this.draw();
-
-        // Animation frame ID
-        this.animationFrameId = null;
     }
     
     updateParameters(h, w, d, alpha, g) {
@@ -90,12 +102,12 @@ class BoxRenderer {
     }
     
     // Draw a circle at a point
-    drawCircle(center, radius, color, fill = true) {
+    drawCircle(point, radius, color, fill = true) {
         const ctx = this.ctx;
-        const screenCenter = this.transform(center);
+        const screenPoint = this.transform(point);
         
         ctx.beginPath();
-        ctx.arc(screenCenter.x, screenCenter.y, radius * this.scale, 0, 2 * Math.PI);
+        ctx.arc(screenPoint.x, screenPoint.y, radius * this.scale, 0, 2 * Math.PI);
         if (fill) {
             ctx.fillStyle = color;
             ctx.fill();
@@ -156,25 +168,31 @@ class BoxRenderer {
         ctx.stroke();
     }
     
-    // Draw connection line and perpendicular line
+    // Draw connection line
     drawConnectionLine(line, color) {
         const ctx = this.ctx;
         
         // Draw dashed line between points
         ctx.beginPath();
-        const start = this.transform(line.start);
-        const end = this.transform(line.end);
         ctx.setLineDash([5, 5]);
-        ctx.moveTo(start.x, start.y);
-        ctx.lineTo(end.x, end.y);
         ctx.strokeStyle = color;
         ctx.lineWidth = 1;
+        
+        const start = this.transform(line.start);
+        const end = this.transform(line.end);
+        ctx.moveTo(start.x, start.y);
+        ctx.lineTo(end.x, end.y);
         ctx.stroke();
         
+        // Reset line dash
+        ctx.setLineDash([]);
+        
         // Draw perpendicular line
+        ctx.beginPath();
+        ctx.strokeStyle = `${color}33`;  // 20% opacity
+        
         const perpStart = this.transform(line.perpStart);
         const perpEnd = this.transform(line.perpEnd);
-        ctx.beginPath();
         ctx.moveTo(perpStart.x, perpStart.y);
         ctx.lineTo(perpEnd.x, perpEnd.y);
         ctx.stroke();
@@ -196,29 +214,6 @@ class BoxRenderer {
         
         // Reset line style
         ctx.lineWidth = 1;
-        
-        // Draw points
-        this.drawCircle(line.start, 5, color);
-        this.drawCircle(line.end, 5, color);
-        this.drawCircle(line.boxPoint, 5, color);
-        
-        // Draw highlight for selected point if it's the current color
-        if (this.isDragging && this.selectedPoint) {
-            const [selectedColor, pointType] = this.selectedPoint.split('-');
-            if (selectedColor === color) {
-                let point;
-                if (pointType === 'open') {
-                    point = line.end;
-                } else if (pointType === 'closed') {
-                    point = line.start;
-                } else if (pointType === 'box') {
-                    point = line.boxPoint;
-                }
-                if (point) {
-                    this.drawCircle(point, 7, color, false);
-                }
-            }
-        }
     }
     
     // Draw 4-bar linkage
@@ -226,8 +221,7 @@ class BoxRenderer {
         const ctx = this.ctx;
         
         // Get points for the linkage
-        const redLine = this.geometry.getRedConnectionLine();
-        const blueLine = this.geometry.getBlueConnectionLine();
+        const points = this.geometry.getFourBarPoints();
         
         // Draw the four bars in black
         ctx.beginPath();
@@ -235,19 +229,19 @@ class BoxRenderer {
         ctx.lineWidth = 2;
         
         // Start at red box point
-        const redBox = this.transform(redLine.boxPoint);
+        const redBox = this.transform(points.redBox);
         ctx.moveTo(redBox.x, redBox.y);
         
         // Draw to red closed point
-        const redClosed = this.transform(redLine.start);
+        const redClosed = this.transform(points.redClosed);
         ctx.lineTo(redClosed.x, redClosed.y);
         
         // Draw to blue closed point
-        const blueClosed = this.transform(blueLine.start);
+        const blueClosed = this.transform(points.blueClosed);
         ctx.lineTo(blueClosed.x, blueClosed.y);
         
         // Draw to blue box point
-        const blueBox = this.transform(blueLine.boxPoint);
+        const blueBox = this.transform(points.blueBox);
         ctx.lineTo(blueBox.x, blueBox.y);
         
         // Complete the linkage
@@ -256,10 +250,30 @@ class BoxRenderer {
         ctx.stroke();
     }
     
+    // Draw red connection line
+    drawRedConnectionLine() {
+        const line = this.geometry.getRedConnectionLine();
+        if (line) this.drawConnectionLine(line, 'red');
+    }
+    
+    // Draw blue connection line
+    drawBlueConnectionLine() {
+        const line = this.geometry.getBlueConnectionLine();
+        if (line) this.drawConnectionLine(line, 'blue');
+    }
+    
+    // Draw points
+    drawPoints() {
+        const points = this.geometry.getPoints();
+        for (const point of points) {
+            this.drawCircle(point, 5, 'black');
+        }
+    }
+    
     // Main draw function
     draw() {
-        const ctx = this.ctx;
-        ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
+        // Clear canvas
+        this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
         
         // Draw box
         this.drawBox();
@@ -272,22 +286,28 @@ class BoxRenderer {
         const openLidVertices = this.geometry.getOpenLidVertices();
         this.drawLid(openLidVertices, 'teal');
         
-        // Draw and label center of rotation
-        const center = this.geometry.getCenterOfRotation();
-        this.drawCircle(center, 3, 'green');
-        this.drawText('Center of Rotation', center, 'green');
-        
         // Draw connection lines
-        const redLine = this.geometry.getRedConnectionLine();
-        const blueLine = this.geometry.getBlueConnectionLine();
-        if (redLine) this.drawConnectionLine(redLine, 'red');
-        if (blueLine) this.drawConnectionLine(blueLine, 'blue');
+        this.drawRedConnectionLine();
+        this.drawBlueConnectionLine();
         
         // Draw 4-bar linkage
         this.drawFourBarLinkage();
         
-        // Draw debug info
-        this.drawDebugInfo();
+        // Draw points
+        const redLine = this.geometry.getRedConnectionLine();
+        const blueLine = this.geometry.getBlueConnectionLine();
+        
+        if (redLine) {
+            this.drawCircle(redLine.start, 5, 'red');
+            this.drawCircle(redLine.end, 5, 'red');
+            this.drawCircle(redLine.boxPoint, 5, 'red');
+        }
+        
+        if (blueLine) {
+            this.drawCircle(blueLine.start, 5, 'blue');
+            this.drawCircle(blueLine.end, 5, 'blue');
+            this.drawCircle(blueLine.boxPoint, 5, 'blue');
+        }
     }
     
     // Mouse event handlers
@@ -374,39 +394,19 @@ class BoxRenderer {
         this.selectedPoint = null;
     }
     
-    // Animation methods
-    startAnimation() {
-        if (this.animationFrameId) return;  // Already animating
-        
-        this.geometry.startAnimation();
-        this.animate();
-    }
-    
-    stopAnimation() {
-        if (this.animationFrameId) {
-            cancelAnimationFrame(this.animationFrameId);
-            this.animationFrameId = null;
-        }
-        this.geometry.stopAnimation();
-    }
-    
+    // Animation loop
     animate() {
-        // Update geometry
-        const needsRedraw = this.geometry.updateAnimation();
-        
-        // Only redraw if geometry changed
-        if (needsRedraw) {
+        if (this.geometry.isAnimating) {
+            this.geometry.updateAnimation();
             this.draw();
+            requestAnimationFrame(this.animate.bind(this));
         }
-        
-        // Schedule next frame
-        this.animationFrameId = requestAnimationFrame(() => this.animate());
     }
     
     // Clean up
     destroy() {
         // Stop animation
-        this.stopAnimation();
+        this.geometry.stopAnimation();
         
         // Remove event listeners
         this.canvas.removeEventListener('mousedown', this.handleMouseDown);
