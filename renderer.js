@@ -37,7 +37,6 @@ class BoxRenderer {
         // Set up interaction state
         this.isDragging = false;
         this.selectedPoint = null;
-        this.hoverPoint = null;
         this.isLocked = false;
         this.exitAngle = null;
         this.lastAngle = null;
@@ -118,7 +117,7 @@ class BoxRenderer {
         const screenPoint = this.transform(point);
         
         ctx.beginPath();
-        ctx.arc(screenPoint.x, screenPoint.y, radius * this.scale, 0, 2 * Math.PI);
+        ctx.arc(screenPoint.x, screenPoint.y, radius, 0, 2 * Math.PI);
         if (fill) {
             ctx.fillStyle = color;
             ctx.fill();
@@ -334,8 +333,8 @@ class BoxRenderer {
         // Closed lid label
         const closedLidVertices = this.geometry.getClosedLidVertices();
         const closedLidCenter = this.transform({
-            x: (closedLidVertices[0].x + closedLidVertices[1].x) / 2,
-            y: this.h / 2
+            x: (closedLidVertices[0].x + closedLidVertices[1].x) / 6,
+            y: closedLidVertices[0].y - 20  // 20 pixels above the lid
         });
         ctx.fillText('lid in closed position', closedLidCenter.x, closedLidCenter.y);
         
@@ -343,7 +342,7 @@ class BoxRenderer {
         const openLidVertices = this.geometry.getOpenLidVertices();
         const openLidCenter = this.transform({
             x: (openLidVertices[0].x + openLidVertices[1].x) / 2,
-            y: this.h * 1.5
+            y: (openLidVertices[2].y + openLidVertices[1].y) / 2
         });
         ctx.fillText('lid in open position', openLidCenter.x, openLidCenter.y);
         
@@ -408,76 +407,12 @@ class BoxRenderer {
         }
     }
     
-    drawFourBar() {
-        const ctx = this.ctx;
-        const fb = this.geometry.fourBarConfig;
-        if (!fb) return;
-        
-        // Draw four-bar linkage
-        ctx.strokeStyle = 'black';
-        ctx.lineWidth = 2;
-        
-        // Ground link
-        ctx.beginPath();
-        ctx.moveTo(fb.leftPivot.x, fb.leftPivot.y);
-        ctx.lineTo(fb.rightPivot.x, fb.rightPivot.y);
-        ctx.stroke();
-        
-        // Input link
-        ctx.beginPath();
-        ctx.moveTo(fb.leftPivot.x, fb.leftPivot.y);
-        ctx.lineTo(fb.inputEnd.x, fb.inputEnd.y);
-        ctx.stroke();
-        
-        // Follower link
-        ctx.beginPath();
-        ctx.moveTo(fb.inputEnd.x, fb.inputEnd.y);
-        ctx.lineTo(fb.outputEnd.x, fb.outputEnd.y);
-        ctx.stroke();
-        
-        // Output link
-        ctx.beginPath();
-        ctx.moveTo(fb.outputEnd.x, fb.outputEnd.y);
-        ctx.lineTo(fb.rightPivot.x, fb.rightPivot.y);
-        ctx.stroke();
-    }
-    
     // Mouse event handlers
     handleMouseDown(e) {
         const point = this.getMousePoint(e);
         
         // Stop animation when starting to drag
         this.stopAnimation();
-        
-        // Check four-bar input first
-        const fb = this.geometry.fourBarConfig;
-        if (fb && fb.inputEnd) {
-            const inputLinkDist = this.distToSegment(
-                point,
-                fb.leftPivot,
-                fb.inputEnd
-            );
-            
-            if (inputLinkDist < 1.0) {  // Much bigger hitbox
-                // Re-initialize four-bar with current positions
-                this.geometry.initializeFourBar();
-                
-                // Reset locked state
-                this.isLocked = false;
-                this.exitAngle = null;
-                this.lastValidConfig = null;
-                
-                // Store initial angle
-                this.lastAngle = Math.atan2(
-                    fb.inputEnd.y - fb.leftPivot.y,
-                    fb.inputEnd.x - fb.leftPivot.x
-                );
-                
-                this.isDragging = true;
-                this.selectedPoint = 'fourbar_input';
-                return;
-            }
-        }
         
         // Check red points
         if (this.geometry.isPointNearRedOpenPoint(point, 10 / this.scale)) {
@@ -506,78 +441,7 @@ class BoxRenderer {
     handleMouseMove(e) {
         const point = this.getMousePoint(e);
         
-        if (!this.isDragging) {
-            // Check if mouse is near four-bar input link
-            const fb = this.geometry.fourBarConfig;
-            if (fb && fb.inputEnd) {
-                const inputLinkDist = this.distToSegment(
-                    point,
-                    fb.leftPivot,
-                    fb.inputEnd
-                );
-                
-                if (inputLinkDist < 1.0) {  // Much bigger hitbox
-                    this.canvas.style.cursor = 'pointer';
-                    this.hoverPoint = 'fourbar_input';
-                    this.draw();
-                    return;
-                }
-            }
-            
-            // Reset cursor if not hovering
-            this.canvas.style.cursor = 'default';
-            if (this.hoverPoint) {
-                this.hoverPoint = null;
-                this.draw();
-            }
-            return;
-        }
-        
-        if (this.selectedPoint === 'fourbar_input') {
-            const fb = this.geometry.fourBarConfig;
-            if (!fb) return;
-            
-            // Calculate new angle from mouse position
-            const dx = point.x - fb.leftPivot.x;
-            const dy = point.y - fb.leftPivot.y;
-            let newAngle = Math.atan2(dy, dx);
-            
-            // Constrain angle to valid range
-            newAngle = this.geometry.constrainAngleToValidRange(newAngle);
-            
-            if (this.isLocked) {
-                // Normalize angles to handle wrap-around
-                const normalizedExit = (this.exitAngle + 2*Math.PI) % (2*Math.PI);
-                const normalizedPrev = (this.lastAngle + 2*Math.PI) % (2*Math.PI);
-                const normalizedCurr = (newAngle + 2*Math.PI) % (2*Math.PI);
-                
-                // Check if we passed through exit angle
-                if ((normalizedPrev <= normalizedExit && normalizedExit <= normalizedCurr) ||
-                    (normalizedCurr <= normalizedExit && normalizedExit <= normalizedPrev)) {
-                    // Try to unlock at exit angle
-                    if (this.geometry.updateFourBarPosition(this.exitAngle)) {
-                        this.isLocked = false;
-                        this.exitAngle = null;
-                        this.lastValidConfig = null;
-                    }
-                }
-            } else {
-                // Try to update to new angle
-                if (!this.geometry.updateFourBarPosition(newAngle)) {
-                    // Entering invalid region - store exit angle and config
-                    this.isLocked = true;
-                    this.exitAngle = this.lastAngle;
-                    this.lastValidConfig = JSON.parse(JSON.stringify(fb));
-                    
-                    // Restore last valid configuration
-                    Object.assign(this.geometry.fourBarConfig, this.lastValidConfig);
-                }
-            }
-            
-            this.lastAngle = newAngle;
-            this.draw();
-            return;
-        }
+        if (!this.isDragging) return;
         
         // Handle existing point dragging
         const [color, pointType] = this.selectedPoint.split('-');
@@ -699,7 +563,10 @@ class BoxRenderer {
     // Clean up
     destroy() {
         // Stop animation
-        this.geometry.stopAnimation();
+        if (this.animationId) {
+            cancelAnimationFrame(this.animationId);
+            this.animationId = null;
+        }
         
         // Remove event listeners
         this.canvas.removeEventListener('mousedown', this.handleMouseDown);
@@ -714,14 +581,5 @@ class BoxRenderer {
             x: e.clientX - rect.left,
             y: e.clientY - rect.top
         });
-    }
-    
-    distToSegment(p, v, w) {
-        const l2 = Math.pow(w.x - v.x, 2) + Math.pow(w.y - v.y, 2);
-        if (l2 === 0) return Math.sqrt(Math.pow(p.x - v.x, 2) + Math.pow(p.y - v.y, 2));
-        let t = ((p.x - v.x) * (w.x - v.x) + (p.y - v.y) * (w.y - v.y)) / l2;
-        t = Math.max(0, Math.min(1, t));
-        return Math.sqrt(Math.pow(p.x - (v.x + t * (w.x - v.x)), 2) + 
-                        Math.pow(p.y - (v.y + t * (w.y - v.y)), 2));
     }
 }
