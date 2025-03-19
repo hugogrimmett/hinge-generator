@@ -1,152 +1,437 @@
 class BoxGeometry {
-    constructor(h, w, d, alpha = 70, g = 10) {
-        this.h = h;          // height
-        this.w = w;          // width
-        this.d = d;          // depth
-        this.alpha = alpha;  // angle in degrees
-        this.g = g;         // gap
+    constructor(height, width, depth, angle, gap) {
+        // Box dimensions
+        this.height = height;
+        this.width = width;
+        this.depth = depth;
+        this.gap = gap || 0;
         
-        // Convert alpha to radians for calculations
-        this.alphaRad = alpha * Math.PI / 180;
+        // Lid angle
+        this.closedAngle = angle * Math.PI / 180;
+        this.openAngle = Math.PI - this.closedAngle;
         
-        // Calculate critical angle (when lid changes from triangle to quadrilateral)
-        this.criticalAngle = Math.atan2(this.h, this.d);  // in radians
+        // Initialize pivot points
+        this.redBoxPoint = null;
+        this.blueBoxPoint = null;
+        this.redClosedPoint = null;
+        this.blueClosedPoint = null;
+        this.redOpenPoint = null;
+        this.blueOpenPoint = null;
+        
+        // Initialize center of rotation
+        this.centerOfRotation = null;
+        
+        // Initialize constraint lines
+        this.redConstraintLine = null;
+        this.blueConstraintLine = null;
+        
+        // Animation state
+        this.isAnimating = false;
+        this.animationStartTime = null;
+        this.animationStartAngle = null;
+        
+        // Four-bar linkage solver
+        this.fourBarConfig = null;
+        
+        // Initialize pivot points and constraints
+        this.initializePivotPoints();
+        this.updateConstraintLines();
+        
+        // Initialize four-bar linkage
+        this.initializeFourBar();
+    }
+    
+    // Four-bar linkage solver
+    isValidConfiguration(inputEnd, leftPivot, rightPivot, inputLength, followerLength, outputLength) {
+        // Check if input bar length is maintained
+        const currentInputLength = this.distance(inputEnd, leftPivot);
+        if (Math.abs(currentInputLength - inputLength) > 0.1) {
+            return false;
+        }
+        
+        // Check if configuration is possible (triangle inequality)
+        const rightToInput = this.distance(inputEnd, rightPivot);
+        
+        // Sum of follower and output must be >= distance between their pivots
+        if (rightToInput > followerLength + outputLength) {
+            return false;
+        }
+        
+        // Difference of follower and output must be <= distance between their pivots
+        if (rightToInput < Math.abs(followerLength - outputLength)) {
+            return false;
+        }
+        
+        return true;
+    }
+    
+    circleIntersection(jointA, jointB, lengthA, lengthB) {
+        const dx = jointB.x - jointA.x;
+        const dy = jointB.y - jointA.y;
+        const Lc = Math.sqrt(dx * dx + dy * dy);
+        
+        // Check if circles are too far apart or too close
+        if (Lc > lengthA + lengthB || Lc < Math.abs(lengthA - lengthB)) {
+            return [];
+        }
+        
+        // Check if circles are coincident
+        if (Lc < 1e-10 && Math.abs(lengthA - lengthB) < 1e-10) {
+            return [];
+        }
+        
+        // Calculate intersection points using their method
+        const bb = ((lengthB * lengthB) - (lengthA * lengthA) + (Lc * Lc)) / (Lc * 2);
+        const h = Math.sqrt(Math.max(0, lengthB * lengthB - bb * bb));
+        
+        const Xp = jointB.x + ((bb * (jointA.x - jointB.x)) / Lc);
+        const Yp = jointB.y + ((bb * (jointA.y - jointB.y)) / Lc);
+        
+        // Calculate both intersection points
+        const Xsol1 = Xp + ((h * (jointB.y - jointA.y)) / Lc);
+        const Ysol1 = Yp - ((h * (jointA.x - jointB.x)) / Lc);
+        const Xsol2 = Xp - ((h * (jointB.y - jointA.y)) / Lc);
+        const Ysol2 = Yp + ((h * (jointA.x - jointB.x)) / Lc);
+        
+        return [
+            {x: Xsol1, y: Ysol1},
+            {x: Xsol2, y: Ysol2}
+        ];
+    }
+    
+    initializeFourBar() {
+        // Only initialize if we have all pivot points
+        if (!this.redBoxPoint || !this.blueBoxPoint || 
+            !this.redClosedPoint || !this.blueClosedPoint) {
+            this.fourBarConfig = null;
+            return;
+        }
+        
+        // Initialize four-bar linkage based on current pivot points
+        this.fourBarConfig = {
+            // Ground link: box pivot points
+            leftPivot: this.redBoxPoint,
+            rightPivot: this.blueBoxPoint,
+            
+            // Input link: red box pivot to red lid pivot (closed)
+            inputLength: this.distance(this.redBoxPoint, this.redClosedPoint),
+            inputEnd: this.redClosedPoint,
+            
+            // Follower link: between lid pivots (closed)
+            followerLength: this.distance(this.redClosedPoint, this.blueClosedPoint),
+            outputEnd: this.blueClosedPoint,
+            
+            // Output link: blue box pivot to blue lid pivot
+            outputLength: this.distance(this.blueBoxPoint, this.blueClosedPoint),
+            
+            // Configuration
+            config: 0,  // Start with upper configuration
+            prevOutputEnd: null,
+            
+            // Input angle (calculated from current position)
+            inputAngle: Math.atan2(
+                this.redClosedPoint.y - this.redBoxPoint.y,
+                this.redClosedPoint.x - this.redBoxPoint.x
+            )
+        };
+    }
+    
+    updateFourBarPosition(newInputAngle) {
+        const fb = this.fourBarConfig;
+        if (!fb) return false;
+        
+        // Store previous state
+        fb.prevOutputEnd = fb.outputEnd ? {x: fb.outputEnd.x, y: fb.outputEnd.y} : null;
+        
+        // Calculate input end position using angle
+        const newInputEnd = {
+            x: fb.leftPivot.x + fb.inputLength * Math.cos(newInputAngle),
+            y: fb.leftPivot.y + fb.inputLength * Math.sin(newInputAngle)
+        };
+        
+        // Check if this is a valid configuration
+        if (!this.isValidConfiguration(
+            newInputEnd, 
+            fb.leftPivot, 
+            fb.rightPivot, 
+            fb.inputLength, 
+            fb.followerLength, 
+            fb.outputLength
+        )) {
+            return false;
+        }
+        
+        fb.inputEnd = newInputEnd;
+        fb.inputAngle = newInputAngle;
+        
+        // Find intersection of two circles
+        const intersections = this.circleIntersection(
+            fb.inputEnd,
+            fb.rightPivot,
+            fb.followerLength,
+            fb.outputLength
+        );
+        
+        if (intersections.length === 0) {
+            if (fb.prevOutputEnd) {
+                fb.outputEnd = fb.prevOutputEnd;
+            }
+            return false;
+        }
+        
+        // Choose configuration based on high/low selection
+        const [pos1, pos2] = intersections;
+        
+        if (!fb.prevOutputEnd) {
+            // First position - use config setting
+            fb.outputEnd = pos1.y > pos2.y ? 
+                (fb.config === 0 ? pos1 : pos2) : 
+                (fb.config === 0 ? pos2 : pos1);
+        } else {
+            // Choose closest point to previous position
+            const d1 = Math.pow(pos1.x - fb.prevOutputEnd.x, 2) + Math.pow(pos1.y - fb.prevOutputEnd.y, 2);
+            const d2 = Math.pow(pos2.x - fb.prevOutputEnd.x, 2) + Math.pow(pos2.y - fb.prevOutputEnd.y, 2);
+            
+            fb.outputEnd = d1 < d2 ? pos1 : pos2;
+            
+            // Update configuration based on chosen point
+            fb.config = fb.outputEnd.y > fb.inputEnd.y ? 0 : 1;
+        }
+        
+        return true;
+    }
+    
+    // Helper to calculate distance between two points
+    distance(p1, p2) {
+        const dx = p2.x - p1.x;
+        const dy = p2.y - p1.y;
+        return Math.sqrt(dx * dx + dy * dy);
+    }
+    
+    initializePivotPoints() {
+        // Initialize center of rotation
+        this.centerOfRotation = {
+            x: (this.width - this.gap)/2,
+            y: this.height
+        };
         
         // Initialize red points at default positions
         this.redOpenPoint = {
-            x: this.w - this.g - this.d/2,
-            y: this.h + this.d/2
-        };
-        this.updateRedClosedPoint();
-        
-        // Initialize red box point at center + 0.5*h up the box line
-        this.redBoxPoint = {
-            x: this.w/2,
-            y: this.h + 0.5 * this.h
+            x: this.width - this.gap - this.depth/2,
+            y: this.height + this.depth/2
         };
         
         // Initialize blue points at default positions (different location)
         this.blueOpenPoint = {
-            x: this.w - this.g - this.d/3,
-            y: this.h + this.d/3
+            x: this.width - this.gap - this.depth/3,
+            y: this.height + this.depth/3
         };
+        
+        // Calculate closed points from open points
+        this.updateRedClosedPoint();
         this.updateBlueClosedPoint();
         
-        // Initialize blue box point at center - 0.5*h down the box line
+        // Update constraint lines before placing box points
+        this.updateConstraintLines();
+        
+        // Initialize box points on their constraint lines
+        // Red box point at 0.5 * height up the perpendicular line
+        const redLen = this.height * 0.5;
+        this.redBoxPoint = {
+            x: this.centerOfRotation.x - this.redConstraintLine.perpX * redLen,
+            y: this.centerOfRotation.y - this.redConstraintLine.perpY * redLen
+        };
+        
+        // Blue box point at -0.5 * height down the perpendicular line
+        const blueLen = this.height * -0.5;
         this.blueBoxPoint = {
-            x: this.w/2,
-            y: this.h - 0.5 * this.h
+            x: this.centerOfRotation.x - this.blueConstraintLine.perpX * blueLen,
+            y: this.centerOfRotation.y - this.blueConstraintLine.perpY * blueLen
         };
-        
-        // Animation state
-        this.isAnimating = false;
-        this.animationAngle = 0;  // 0 to Math.PI (closed to open)
-        this.animationDirection = 1;  // 1 for opening, -1 for closing
-        this.animationSpeed = Math.PI / 120;  // radians per frame
-        
-        // Store initial positions for animation
-        this.initialRedOpen = { ...this.redOpenPoint };
-        this.initialRedClosed = { ...this.redClosedPoint };
-        this.initialBlueOpen = { ...this.blueOpenPoint };
-        this.initialBlueClosed = { ...this.blueClosedPoint };
-        
-        this.fourBarPoints = {
-            redClosed: {...this.redClosedPoint},
-            blueClosed: {...this.blueClosedPoint}
-        };
-        
-        // Calculate initial angles for 4-bar linkage
-        const redBox = this.redBoxPoint;
-        const redClosed = this.redClosedPoint;
-        const redOpen = this.redOpenPoint;
-        
-        // Calculate angles from horizontal
-        this.closedAngle = Math.atan2(
-            redClosed.y - redBox.y,
-            redClosed.x - redBox.x
-        );
-        
-        this.openAngle = Math.atan2(
-            redOpen.y - redBox.y,
-            redOpen.x - redBox.x
-        );
-        
-        // Store link lengths for 4-bar calculation
-        this.inputLength = this.distance(this.redBoxPoint, this.redClosedPoint);
-        this.outputLength = this.distance(this.blueBoxPoint, this.blueClosedPoint);
-        this.couplerLength = this.distance(this.redClosedPoint, this.blueClosedPoint);
-        this.groundLength = this.distance(this.redBoxPoint, this.blueBoxPoint);
-        
-        // Animation state for 4-bar
-        this.fourBarAngle = this.closedAngle;
     }
-
+    
+    updateConstraintLines() {
+        const center = this.centerOfRotation;
+        
+        // Red constraint line
+        const redDx = this.redOpenPoint.x - center.x;
+        const redDy = this.redOpenPoint.y - center.y;
+        const redLen = Math.sqrt(redDx * redDx + redDy * redDy);
+        const redDirX = redDx / redLen;
+        const redDirY = redDy / redLen;
+        
+        // Calculate box vector (rotate 90 degrees)
+        const redPerpX = -redDirY;
+        const redPerpY = redDirX;
+        
+        // Store perpendicular direction for box point initialization
+        this.redConstraintLine = {
+            perpX: redPerpX,
+            perpY: redPerpY,
+            perpStart: {
+                x: center.x - redPerpX * this.height * 1.25,
+                y: center.y - redPerpY * this.height * 1.25
+            },
+            perpEnd: {
+                x: center.x + redPerpX * this.height * 1.25,
+                y: center.y + redPerpY * this.height * 1.25
+            }
+        };
+        
+        // Blue constraint line (similar calculation)
+        const blueDx = this.blueOpenPoint.x - center.x;
+        const blueDy = this.blueOpenPoint.y - center.y;
+        const blueLen = Math.sqrt(blueDx * blueDx + blueDy * blueDy);
+        const blueDirX = blueDx / blueLen;
+        const blueDirY = blueDy / blueLen;
+        
+        const bluePerpX = -blueDirY;
+        const bluePerpY = blueDirX;
+        
+        // Store perpendicular direction for box point initialization
+        this.blueConstraintLine = {
+            perpX: bluePerpX,
+            perpY: bluePerpY,
+            perpStart: {
+                x: center.x - bluePerpX * this.height * 1.25,
+                y: center.y - bluePerpY * this.height * 1.25
+            },
+            perpEnd: {
+                x: center.x + bluePerpX * this.height * 1.25,
+                y: center.y + bluePerpY * this.height * 1.25
+            }
+        };
+    }
+    
     // Get box vertices
     getBoxVertices() {
-        if (this.alphaRad <= this.criticalAngle) {
+        const criticalAngle = Math.atan2(this.height, this.depth);
+        
+        if (this.closedAngle <= criticalAngle) {
             return [
                 {x: 0, y: 0},                                // A
-                {x: this.w, y: 0},                          // B
-                {x: this.w, y: this.h},                     // C
-                {x: this.d, y: this.h},                     // D
-                {x: 0, y: this.h - this.d * Math.tan(this.alphaRad)} // E
+                {x: this.width, y: 0},                      // B
+                {x: this.width, y: this.height},            // C
+                {x: this.depth, y: this.height},            // D
+                {x: 0, y: this.height - this.depth * Math.tan(this.closedAngle)} // E
             ];
         } else {
             return [
-                {x: this.d - this.h / Math.tan(this.alphaRad), y: 0}, // A
-                {x: this.w, y: 0},                          // B
-                {x: this.w, y: this.h},                     // C
-                {x: this.d, y: this.h}                      // D
+                {x: this.depth - this.height / Math.tan(this.closedAngle), y: 0}, // A
+                {x: this.width, y: 0},                      // B
+                {x: this.width, y: this.height},            // C
+                {x: this.depth, y: this.height}             // D
             ];
         }
     }
     
     // Get closed lid vertices
     getClosedLidVertices() {
-        if (this.alphaRad <= this.criticalAngle) {
+        const criticalAngle = Math.atan2(this.height, this.depth);
+        
+        if (this.closedAngle <= criticalAngle) {
             return [
-                {x: 0, y: this.h},                           // A
-                {x: this.d, y: this.h},                      // B
-                {x: 0, y: this.h - this.d * Math.tan(this.alphaRad)} // C
+                {x: 0, y: this.height},                     // A
+                {x: this.depth, y: this.height},            // B
+                {x: 0, y: this.height - this.depth * Math.tan(this.closedAngle)} // C
             ];
         } else {
             return [
-                {x: 0, y: this.h},                           // A
-                {x: this.d, y: this.h},                      // B
-                {x: this.d - this.h / Math.tan(this.alphaRad), y: 0}, // C
-                {x: 0, y: 0}                                 // D
+                {x: 0, y: this.height},                     // A
+                {x: this.depth, y: this.height},            // B
+                {x: this.depth - this.height / Math.tan(this.closedAngle), y: 0}, // C
+                {x: 0, y: 0}                               // D
             ];
         }
     }
     
     // Get open lid vertices
     getOpenLidVertices() {
-        if (this.alphaRad <= this.criticalAngle) {
+        const criticalAngle = Math.atan2(this.height, this.depth);
+        
+        if (this.closedAngle <= criticalAngle) {
             return [
-                {x: this.w - this.g, y: this.h},                      // A'
-                {x: this.w - this.g - this.d, y: this.h},            // B'
-                {x: this.w - this.g, y: this.h + this.d * Math.tan(this.alphaRad)} // C'
+                {x: this.width - this.gap, y: this.height},                    // A'
+                {x: this.width - this.gap - this.depth, y: this.height},      // B'
+                {x: this.width - this.gap, y: this.height + this.depth * Math.tan(this.closedAngle)} // C'
             ];
         } else {
             return [
-                {x: this.w - this.g, y: this.h},                      // A'
-                {x: this.w - this.g - this.d, y: this.h},            // B'
-                {x: this.w - this.g - this.d + this.h / Math.tan(this.alphaRad), y: 2 * this.h}, // C'
-                {x: this.w - this.g, y: 2 * this.h}                  // D'
+                {x: this.width - this.gap, y: this.height},                    // A'
+                {x: this.width - this.gap - this.depth, y: this.height},      // B'
+                {x: this.width - this.gap - this.depth + this.height / Math.tan(this.closedAngle), y: 2 * this.height}, // C'
+                {x: this.width - this.gap, y: 2 * this.height}               // D'
             ];
         }
     }
-
-    // Get center of rotation
-    getCenterOfRotation() {
-        return {
-            x: (this.w - this.g)/2,
-            y: this.h
+    
+    // Update the red closed point based on the open point
+    updateRedClosedPoint() {
+        const center = this.centerOfRotation;
+        const dx = this.redOpenPoint.x - center.x;
+        const dy = this.redOpenPoint.y - center.y;
+        
+        this.redClosedPoint = {
+            x: center.x - dx,
+            y: center.y - dy
         };
     }
-
-    // Project a point onto a line segment
-    projectPointOntoSegment(point, start, end) {
+    
+    // Update the blue closed point based on the open point
+    updateBlueClosedPoint() {
+        const center = this.centerOfRotation;
+        const dx = this.blueOpenPoint.x - center.x;
+        const dy = this.blueOpenPoint.y - center.y;
+        
+        this.blueClosedPoint = {
+            x: center.x - dx,
+            y: center.y - dy
+        };
+    }
+    
+    // Get four-bar linkage points
+    getFourBarPoints() {
+        if (!this.fourBarConfig) return null;
+        
+        return {
+            redBox: this.fourBarConfig.leftPivot,
+            redClosed: this.fourBarConfig.inputEnd,
+            blueClosed: this.fourBarConfig.outputEnd,
+            blueBox: this.fourBarConfig.rightPivot
+        };
+    }
+    
+    // Move points with constraints
+    moveRedOpenPoint(point) {
+        this.redOpenPoint = point;
+        this.updateRedClosedPoint();
+        this.updateConstraintLines();
+    }
+    
+    moveBlueOpenPoint(point) {
+        this.blueOpenPoint = point;
+        this.updateBlueClosedPoint();
+        this.updateConstraintLines();
+    }
+    
+    moveRedBoxPoint(point) {
+        if (!this.redConstraintLine) return;
+        
+        // Project point onto constraint line
+        const line = this.redConstraintLine;
+        this.redBoxPoint = this.projectPointOntoLineSegment(point, line.perpStart, line.perpEnd);
+    }
+    
+    moveBlueBoxPoint(point) {
+        if (!this.blueConstraintLine) return;
+        
+        // Project point onto constraint line
+        const line = this.blueConstraintLine;
+        this.blueBoxPoint = this.projectPointOntoLineSegment(point, line.perpStart, line.perpEnd);
+    }
+    
+    // Helper to project point onto line segment
+    projectPointOntoLineSegment(point, start, end) {
         const dx = end.x - start.x;
         const dy = end.y - start.y;
         const len2 = dx * dx + dy * dy;
@@ -163,169 +448,33 @@ class BoxGeometry {
         };
     }
     
-    // Project a point onto a line
-    projectPointOntoLine(point, lineStart, lineEnd) {
-        const dx = lineEnd.x - lineStart.x;
-        const dy = lineEnd.y - lineStart.y;
-        const len2 = dx * dx + dy * dy;
-        
-        if (len2 === 0) return lineStart;
-        
-        const t = ((point.x - lineStart.x) * dx + (point.y - lineStart.y) * dy) / len2;
+    // Get red connection line
+    getRedConnectionLine() {
+        if (!this.redBoxPoint || !this.redOpenPoint || !this.redClosedPoint) return null;
         
         return {
-            x: lineStart.x + t * dx,
-            y: lineStart.y + t * dy
+            boxPoint: this.redBoxPoint,
+            start: this.redClosedPoint,
+            end: this.redOpenPoint,
+            perpStart: this.redConstraintLine ? this.redConstraintLine.perpStart : null,
+            perpEnd: this.redConstraintLine ? this.redConstraintLine.perpEnd : null
         };
     }
     
-    // Constrain a point to a line segment
-    constrainPointToLineSegment(point, lineStart, lineEnd) {
-        const dx = lineEnd.x - lineStart.x;
-        const dy = lineEnd.y - lineStart.y;
-        const len2 = dx * dx + dy * dy;
-        
-        if (len2 === 0) return lineStart;
-        
-        const t = Math.max(0, Math.min(1, 
-            ((point.x - lineStart.x) * dx + (point.y - lineStart.y) * dy) / len2
-        ));
+    // Get blue connection line
+    getBlueConnectionLine() {
+        if (!this.blueBoxPoint || !this.blueOpenPoint || !this.blueClosedPoint) return null;
         
         return {
-            x: lineStart.x + t * dx,
-            y: lineStart.y + t * dy
+            boxPoint: this.blueBoxPoint,
+            start: this.blueClosedPoint,
+            end: this.blueOpenPoint,
+            perpStart: this.blueConstraintLine ? this.blueConstraintLine.perpStart : null,
+            perpEnd: this.blueConstraintLine ? this.blueConstraintLine.perpEnd : null
         };
     }
     
-    // Check if a point is inside a polygon
-    isPointInPolygon(point, vertices) {
-        let inside = false;
-        for (let i = 0, j = vertices.length - 1; i < vertices.length; j = i++) {
-            const xi = vertices[i].x, yi = vertices[i].y;
-            const xj = vertices[j].x, yj = vertices[j].y;
-            
-            const intersect = ((yi > point.y) !== (yj > point.y))
-                && (point.x < (xj - xi) * (point.y - yi) / (yj - yi) + xi);
-            if (intersect) inside = !inside;
-        }
-        return inside;
-    }
-    
-    // Constrain a point to the closed lid
-    constrainPointToClosedLid(point) {
-        const vertices = this.getClosedLidVertices();
-        
-        // If point is inside, return as is
-        if (this.isPointInPolygon(point, vertices)) {
-            return point;
-        }
-        
-        // Otherwise, project onto nearest edge
-        let bestPoint = null;
-        let minDist = Infinity;
-        
-        for (let i = 0; i < vertices.length; i++) {
-            const start = vertices[i];
-            const end = vertices[(i + 1) % vertices.length];
-            const projected = this.projectPointOntoSegment(point, start, end);
-            
-            const dx = point.x - projected.x;
-            const dy = point.y - projected.y;
-            const dist = dx * dx + dy * dy;
-            
-            if (dist < minDist) {
-                minDist = dist;
-                bestPoint = projected;
-            }
-        }
-        
-        return bestPoint;
-    }
-    
-    // Constrain a point to the open lid
-    constrainPointToOpenLid(point) {
-        const vertices = this.getOpenLidVertices();
-        
-        // If point is inside, return as is
-        if (this.isPointInPolygon(point, vertices)) {
-            return point;
-        }
-        
-        // Otherwise, project onto nearest edge
-        let bestPoint = null;
-        let minDist = Infinity;
-        
-        for (let i = 0; i < vertices.length; i++) {
-            const start = vertices[i];
-            const end = vertices[(i + 1) % vertices.length];
-            const projected = this.projectPointOntoSegment(point, start, end);
-            
-            const dx = point.x - projected.x;
-            const dy = point.y - projected.y;
-            const dist = dx * dx + dy * dy;
-            
-            if (dist < minDist) {
-                minDist = dist;
-                bestPoint = projected;
-            }
-        }
-        
-        return bestPoint;
-    }
-    
-    // Update the red closed point based on the open point
-    updateRedClosedPoint() {
-        const center = this.getCenterOfRotation();
-        const dx = this.redOpenPoint.x - center.x;
-        const dy = this.redOpenPoint.y - center.y;
-        
-        const unconstrained = {
-            x: center.x - dx,
-            y: center.y - dy
-        };
-        
-        this.redClosedPoint = this.constrainPointToClosedLid(unconstrained);
-    }
-    
-    // Update the blue closed point based on the open point
-    updateBlueClosedPoint() {
-        const center = this.getCenterOfRotation();
-        const dx = this.blueOpenPoint.x - center.x;
-        const dy = this.blueOpenPoint.y - center.y;
-        
-        const unconstrained = {
-            x: center.x - dx,
-            y: center.y - dy
-        };
-        
-        this.blueClosedPoint = this.constrainPointToClosedLid(unconstrained);
-    }
-    
-    // Move the red open point and update the closed point
-    moveRedOpenPoint(point) {
-        this.redOpenPoint = this.constrainPointToOpenLid(point);
-        this.updateRedClosedPoint();
-    }
-    
-    // Move the blue open point and update the closed point
-    moveBlueOpenPoint(point) {
-        this.blueOpenPoint = this.constrainPointToOpenLid(point);
-        this.updateBlueClosedPoint();
-    }
-    
-    // Move the red box point
-    moveRedBoxPoint(point) {
-        const line = this.getRedConnectionLine();
-        this.redBoxPoint = this.constrainPointToLineSegment(point, line.perpStart, line.perpEnd);
-    }
-    
-    // Move the blue box point
-    moveBlueBoxPoint(point) {
-        const line = this.getBlueConnectionLine();
-        this.blueBoxPoint = this.constrainPointToLineSegment(point, line.perpStart, line.perpEnd);
-    }
-    
-    // Check if a point is near enough to be selected
+    // Point selection helpers
     isPointNearRedOpenPoint(point, threshold) {
         const dx = point.x - this.redOpenPoint.x;
         const dy = point.y - this.redOpenPoint.y;
@@ -361,19 +510,17 @@ class BoxGeometry {
         const dy = point.y - this.blueBoxPoint.y;
         return dx * dx + dy * dy <= threshold * threshold;
     }
-
-    // Helper to calculate distance between two points
-    distance(p1, p2) {
-        const dx = p2.x - p1.x;
-        const dy = p2.y - p1.y;
-        return Math.sqrt(dx * dx + dy * dy);
+    
+    // Get center of rotation
+    getCenterOfRotation() {
+        return this.centerOfRotation;
     }
-
+    
     // Animation methods
     startAnimation() {
         this.isAnimating = true;
-        this.fourBarAngle = this.closedAngle;
-        this.animationDirection = 1;
+        this.animationStartTime = Date.now();
+        this.animationStartAngle = this.fourBarConfig ? this.fourBarConfig.inputAngle : 0;
     }
     
     stopAnimation() {
@@ -381,160 +528,31 @@ class BoxGeometry {
     }
     
     updateAnimation() {
-        if (!this.isAnimating) return false;
+        if (!this.isAnimating || !this.fourBarConfig) return;
         
-        // Update angle
-        const angleRange = this.openAngle - this.closedAngle;
-        const angleStep = Math.PI / 120; // Adjust speed as needed
+        const elapsedTime = Date.now() - this.animationStartTime;
+        const angularSpeed = Math.PI / 2;  // π/2 radians per second
+        const deltaAngle = (angularSpeed * elapsedTime / 1000) % (2 * Math.PI);
         
-        this.fourBarAngle += angleStep * this.animationDirection;
-        
-        // Check bounds and reverse direction
-        if (this.fourBarAngle >= this.openAngle) {
-            this.fourBarAngle = this.openAngle;
-            this.animationDirection = -1;
-        } else if (this.fourBarAngle <= this.closedAngle) {
-            this.fourBarAngle = this.closedAngle;
-            this.animationDirection = 1;
+        const newAngle = this.animationStartAngle + deltaAngle;
+        if (!this.updateFourBarPosition(newAngle)) {
+            // If we can't update to this position, try reversing direction
+            this.updateFourBarPosition(this.animationStartAngle - deltaAngle);
         }
-        
-        // Calculate new position of red closed point
-        const redClosedX = this.redBoxPoint.x + this.inputLength * Math.cos(this.fourBarAngle);
-        const redClosedY = this.redBoxPoint.y + this.inputLength * Math.sin(this.fourBarAngle);
-        
-        this.fourBarPoints.redClosed = {x: redClosedX, y: redClosedY};
-        
-        // Find blue closed point using circle intersection
-        const blueCenter = this.blueBoxPoint;
-        const redCenter = this.fourBarPoints.redClosed;
-        
-        const dx = redCenter.x - blueCenter.x;
-        const dy = redCenter.y - blueCenter.y;
-        const dist = Math.sqrt(dx * dx + dy * dy);
-        
-        // Check if circles can intersect
-        if (dist > this.outputLength + this.couplerLength || 
-            dist < Math.abs(this.outputLength - this.couplerLength)) {
-            return false; // No solution possible
-        }
-        
-        // Calculate intersection using cosine law
-        const a = this.outputLength;
-        const b = dist;
-        const c = this.couplerLength;
-        
-        const cosTheta = (a*a + b*b - c*c) / (2*a*b);
-        const theta = Math.acos(cosTheta);
-        
-        // Angle of line from blue box to red closed
-        const baseAngle = Math.atan2(dy, dx);
-        
-        // Choose the upper intersection point for lid-like behavior
-        const intersectAngle = baseAngle + theta;
-        
-        const blueClosedX = blueCenter.x + this.outputLength * Math.cos(intersectAngle);
-        const blueClosedY = blueCenter.y + this.outputLength * Math.sin(intersectAngle);
-        
-        this.fourBarPoints.blueClosed = {x: blueClosedX, y: blueClosedY};
-        
-        return true;
     }
     
-    // Get points for 4-bar linkage
-    getFourBarPoints() {
-        if (this.isAnimating) {
-            return {
-                redBox: this.redBoxPoint,
-                blueBox: this.blueBoxPoint,
-                redClosed: this.fourBarPoints.redClosed,
-                blueClosed: this.fourBarPoints.blueClosed
-            };
-        }
+    // Get all points for visualization
+    getPoints() {
+        const points = [];
         
-        // When not animating, use current points
-        return {
-            redBox: this.redBoxPoint,
-            blueBox: this.blueBoxPoint,
-            redClosed: this.redClosedPoint,
-            blueClosed: this.blueClosedPoint
-        };
-    }
-
-    // Get the red connection line points and box line
-    getRedConnectionLine() {
-        const center = this.getCenterOfRotation();
-        const dx = this.redOpenPoint.x - center.x;
-        const dy = this.redOpenPoint.y - center.y;
-        const len = Math.sqrt(dx * dx + dy * dy);
+        if (this.redBoxPoint) points.push(this.redBoxPoint);
+        if (this.redOpenPoint) points.push(this.redOpenPoint);
+        if (this.redClosedPoint) points.push(this.redClosedPoint);
         
-        // Normalize direction vector
-        const dirX = dx / len;
-        const dirY = dy / len;
+        if (this.blueBoxPoint) points.push(this.blueBoxPoint);
+        if (this.blueOpenPoint) points.push(this.blueOpenPoint);
+        if (this.blueClosedPoint) points.push(this.blueClosedPoint);
         
-        // Calculate box vector (rotate 90 degrees)
-        const perpX = -dirY;
-        const perpY = dirX;
-        
-        // Calculate box line endpoints (1.25*h on each side)
-        const perpLen = this.h * 1.25;
-        const perpStart = {
-            x: center.x - perpX * perpLen,
-            y: center.y - perpY * perpLen
-        };
-        const perpEnd = {
-            x: center.x + perpX * perpLen,
-            y: center.y + perpY * perpLen
-        };
-        
-        // Ensure box point stays on the line when the line moves
-        this.redBoxPoint = this.constrainPointToLineSegment(this.redBoxPoint, perpStart, perpEnd);
-        
-        return {
-            start: this.redClosedPoint,
-            end: this.redOpenPoint,
-            boxPoint: this.redBoxPoint,
-            center: center,
-            perpStart: perpStart,
-            perpEnd: perpEnd
-        };
-    }
-    
-    // Get the blue connection line points and box line
-    getBlueConnectionLine() {
-        const center = this.getCenterOfRotation();
-        const dx = this.blueOpenPoint.x - center.x;
-        const dy = this.blueOpenPoint.y - center.y;
-        const len = Math.sqrt(dx * dx + dy * dy);
-        
-        // Normalize direction vector
-        const dirX = dx / len;
-        const dirY = dy / len;
-        
-        // Calculate box vector (rotate 90 degrees)
-        const perpX = -dirY;
-        const perpY = dirX;
-        
-        // Calculate box line endpoints (1.25*h on each side)
-        const perpLen = this.h * 1.25;
-        const perpStart = {
-            x: center.x - perpX * perpLen,
-            y: center.y - perpY * perpLen
-        };
-        const perpEnd = {
-            x: center.x + perpX * perpLen,
-            y: center.y + perpY * perpLen
-        };
-        
-        // Ensure box point stays on the line when the line moves
-        this.blueBoxPoint = this.constrainPointToLineSegment(this.blueBoxPoint, perpStart, perpEnd);
-        
-        return {
-            start: this.blueClosedPoint,
-            end: this.blueOpenPoint,
-            boxPoint: this.blueBoxPoint,
-            center: center,
-            perpStart: perpStart,
-            perpEnd: perpEnd
-        };
+        return points;
     }
 }

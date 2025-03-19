@@ -37,6 +37,7 @@ class BoxRenderer {
         // Set up interaction state
         this.isDragging = false;
         this.selectedPoint = null;
+        this.hoverPoint = null;
         
         // Animation controls
         const animateButton = document.getElementById('animateButton');
@@ -272,19 +273,63 @@ class BoxRenderer {
     
     // Main draw function
     draw() {
-        // Clear canvas
-        this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
+        const ctx = this.ctx;
+        ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
         
-        // Draw box
+        // Draw box outline
         this.drawBox();
         
-        // Draw closed lid
-        const closedLidVertices = this.geometry.getClosedLidVertices();
-        this.drawLid(closedLidVertices, 'purple');
+        // Draw lid in both positions
+        this.drawLid(this.geometry.getClosedLidVertices(), 'rgba(0, 0, 0, 0.5)');
+        this.drawLid(this.geometry.getOpenLidVertices(), 'rgba(0, 0, 0, 0.5)');
         
-        // Draw open lid
-        const openLidVertices = this.geometry.getOpenLidVertices();
-        this.drawLid(openLidVertices, 'teal');
+        // Draw four-bar linkage if initialized
+        const fb = this.geometry.fourBarConfig;
+        if (fb) {
+            // Draw ground link (gray)
+            ctx.beginPath();
+            ctx.strokeStyle = 'rgba(100, 100, 100, 0.5)';
+            ctx.lineWidth = 2;
+            const groundStart = this.transform(fb.leftPivot);
+            const groundEnd = this.transform(fb.rightPivot);
+            ctx.moveTo(groundStart.x, groundStart.y);
+            ctx.lineTo(groundEnd.x, groundEnd.y);
+            ctx.stroke();
+            
+            // Draw input link (red) with hover effect
+            ctx.beginPath();
+            ctx.strokeStyle = this.hoverPoint === 'fourbar_input' ? 
+                'rgba(255, 0, 0, 0.8)' : 'rgba(255, 0, 0, 0.5)';
+            ctx.lineWidth = this.hoverPoint === 'fourbar_input' ? 4 : 2;
+            const inputEnd = this.transform(fb.inputEnd);
+            ctx.moveTo(groundStart.x, groundStart.y);
+            ctx.lineTo(inputEnd.x, inputEnd.y);
+            ctx.stroke();
+            
+            // Draw follower link (blue)
+            ctx.beginPath();
+            ctx.strokeStyle = 'rgba(0, 0, 255, 0.5)';
+            ctx.lineWidth = 2;
+            const outputEnd = this.transform(fb.outputEnd);
+            ctx.moveTo(inputEnd.x, inputEnd.y);
+            ctx.lineTo(outputEnd.x, outputEnd.y);
+            ctx.stroke();
+            
+            // Draw output link (green)
+            ctx.beginPath();
+            ctx.strokeStyle = 'rgba(0, 255, 0, 0.5)';
+            ctx.lineWidth = 2;
+            ctx.moveTo(groundEnd.x, groundEnd.y);
+            ctx.lineTo(outputEnd.x, outputEnd.y);
+            ctx.stroke();
+            
+            // Draw input angle
+            ctx.fillStyle = '#333';
+            ctx.font = '14px Arial';
+            ctx.textAlign = 'left';
+            const angleDegrees = (fb.inputAngle * 180 / Math.PI).toFixed(1);
+            ctx.fillText(`Input Angle: ${angleDegrees}°`, 10, 20);
+        }
         
         // Draw connection lines
         this.drawRedConnectionLine();
@@ -312,78 +357,133 @@ class BoxRenderer {
     
     // Mouse event handlers
     handleMouseDown(e) {
-        const rect = this.canvas.getBoundingClientRect();
-        const point = this.inverseTransform({
-            x: e.clientX - rect.left,
-            y: e.clientY - rect.top
-        });
+        const point = this.getMousePoint(e);
         
-        const threshold = 10 / this.scale;  // 10 pixels in world coordinates
+        // Check four-bar input first
+        const fb = this.geometry.fourBarConfig;
+        if (fb && fb.inputEnd) {
+            const inputLinkDist = this.distToSegment(
+                point,
+                fb.leftPivot,
+                fb.inputEnd
+            );
+            
+            if (inputLinkDist < 0.1) {  // Threshold in world coordinates
+                this.isDragging = true;
+                this.selectedPoint = 'fourbar_input';
+                return;
+            }
+        }
         
         // Check red points
-        if (this.geometry.isPointNearRedOpenPoint(point, threshold)) {
+        if (this.geometry.isPointNearRedOpenPoint(point, 10 / this.scale)) {
             this.isDragging = true;
             this.selectedPoint = 'red-open';
-        } else if (this.geometry.isPointNearRedClosedPoint(point, threshold)) {
+        } else if (this.geometry.isPointNearRedClosedPoint(point, 10 / this.scale)) {
             this.isDragging = true;
             this.selectedPoint = 'red-closed';
-        } else if (this.geometry.isPointNearRedBoxPoint(point, threshold)) {
+        } else if (this.geometry.isPointNearRedBoxPoint(point, 10 / this.scale)) {
             this.isDragging = true;
             this.selectedPoint = 'red-box';
         }
         // Check blue points
-        else if (this.geometry.isPointNearBlueOpenPoint(point, threshold)) {
+        else if (this.geometry.isPointNearBlueOpenPoint(point, 10 / this.scale)) {
             this.isDragging = true;
             this.selectedPoint = 'blue-open';
-        } else if (this.geometry.isPointNearBlueClosedPoint(point, threshold)) {
+        } else if (this.geometry.isPointNearBlueClosedPoint(point, 10 / this.scale)) {
             this.isDragging = true;
             this.selectedPoint = 'blue-closed';
-        } else if (this.geometry.isPointNearBlueBoxPoint(point, threshold)) {
+        } else if (this.geometry.isPointNearBlueBoxPoint(point, 10 / this.scale)) {
             this.isDragging = true;
             this.selectedPoint = 'blue-box';
         }
     }
     
     handleMouseMove(e) {
-        if (!this.isDragging) return;
+        const point = this.getMousePoint(e);
         
-        const rect = this.canvas.getBoundingClientRect();
-        const point = this.inverseTransform({
-            x: e.clientX - rect.left,
-            y: e.clientY - rect.top
-        });
-        
-        const [color, pointType] = this.selectedPoint.split('-');
-        const center = this.geometry.getCenterOfRotation();
-        
-        if (color === 'red') {
-            if (pointType === 'open') {
-                this.geometry.moveRedOpenPoint(point);
-            } else if (pointType === 'closed') {
-                // For closed point, move the open point to the opposite position
-                const dx = point.x - center.x;
-                const dy = point.y - center.y;
-                this.geometry.moveRedOpenPoint({
-                    x: center.x - dx,
-                    y: center.y - dy
-                });
-            } else if (pointType === 'box') {
-                this.geometry.moveRedBoxPoint(point);
+        if (!this.isDragging) {
+            // Check if mouse is near four-bar input link
+            const fb = this.geometry.fourBarConfig;
+            if (fb && fb.inputEnd) {
+                const inputLinkDist = this.distToSegment(
+                    point,
+                    fb.leftPivot,
+                    fb.inputEnd
+                );
+                
+                if (inputLinkDist < 0.1) {  // Threshold in world coordinates
+                    this.canvas.style.cursor = 'pointer';
+                    this.hoverPoint = 'fourbar_input';
+                    this.draw();
+                    return;
+                }
             }
-        } else { // blue
-            if (pointType === 'open') {
-                this.geometry.moveBlueOpenPoint(point);
-            } else if (pointType === 'closed') {
-                // For closed point, move the open point to the opposite position
-                const dx = point.x - center.x;
-                const dy = point.y - center.y;
-                this.geometry.moveBlueOpenPoint({
-                    x: center.x - dx,
-                    y: center.y - dy
-                });
-            } else if (pointType === 'box') {
-                this.geometry.moveBlueBoxPoint(point);
+            
+            // Reset cursor if not hovering
+            this.canvas.style.cursor = 'default';
+            if (this.hoverPoint) {
+                this.hoverPoint = null;
+                this.draw();
             }
+            return;
+        }
+        
+        if (this.selectedPoint === 'fourbar_input') {
+            // Calculate new angle for four-bar input
+            const fb = this.geometry.fourBarConfig;
+            if (fb) {
+                const worldPoint = point;  // Already in world coordinates
+                const toPoint = {
+                    x: worldPoint.x - fb.leftPivot.x,
+                    y: worldPoint.y - fb.leftPivot.y
+                };
+                const newAngle = Math.atan2(toPoint.y, toPoint.x);
+                
+                // Try to update with new angle
+                const prevAngle = fb.inputAngle;
+                if (!this.geometry.updateFourBarPosition(newAngle)) {
+                    // If update fails, revert to previous angle
+                    this.geometry.updateFourBarPosition(prevAngle);
+                }
+            }
+        } else {
+            // Handle existing point dragging
+            const [color, pointType] = this.selectedPoint.split('-');
+            const center = this.geometry.getCenterOfRotation();
+            
+            if (color === 'red') {
+                if (pointType === 'open') {
+                    this.geometry.moveRedOpenPoint(point);
+                } else if (pointType === 'closed') {
+                    // For closed point, move the open point to the opposite position
+                    const dx = point.x - center.x;
+                    const dy = point.y - center.y;
+                    this.geometry.moveRedOpenPoint({
+                        x: center.x - dx,
+                        y: center.y - dy
+                    });
+                } else if (pointType === 'box') {
+                    this.geometry.moveRedBoxPoint(point);
+                }
+            } else { // blue
+                if (pointType === 'open') {
+                    this.geometry.moveBlueOpenPoint(point);
+                } else if (pointType === 'closed') {
+                    // For closed point, move the open point to the opposite position
+                    const dx = point.x - center.x;
+                    const dy = point.y - center.y;
+                    this.geometry.moveBlueOpenPoint({
+                        x: center.x - dx,
+                        y: center.y - dy
+                    });
+                } else if (pointType === 'box') {
+                    this.geometry.moveBlueBoxPoint(point);
+                }
+            }
+            
+            // Re-initialize four-bar after pivot points move
+            this.geometry.initializeFourBar();
         }
         
         this.draw();
@@ -413,5 +513,22 @@ class BoxRenderer {
         this.canvas.removeEventListener('mousemove', this.handleMouseMove);
         this.canvas.removeEventListener('mouseup', this.handleMouseUp);
         this.canvas.removeEventListener('mouseleave', this.handleMouseUp);
+    }
+    
+    getMousePoint(e) {
+        const rect = this.canvas.getBoundingClientRect();
+        return this.inverseTransform({
+            x: e.clientX - rect.left,
+            y: e.clientY - rect.top
+        });
+    }
+    
+    distToSegment(p, v, w) {
+        const l2 = Math.pow(w.x - v.x, 2) + Math.pow(w.y - v.y, 2);
+        if (l2 === 0) return Math.sqrt(Math.pow(p.x - v.x, 2) + Math.pow(p.y - v.y, 2));
+        let t = ((p.x - v.x) * (w.x - v.x) + (p.y - v.y) * (w.y - v.y)) / l2;
+        t = Math.max(0, Math.min(1, t));
+        return Math.sqrt(Math.pow(p.x - (v.x + t * (w.x - v.x)), 2) + 
+                        Math.pow(p.y - (v.y + t * (w.y - v.y)), 2));
     }
 }
