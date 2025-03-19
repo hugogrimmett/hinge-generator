@@ -468,7 +468,10 @@ class BoxRenderer {
             // Calculate new angle from mouse position
             const dx = point.x - fb.leftPivot.x;
             const dy = point.y - fb.leftPivot.y;
-            const newAngle = Math.atan2(dy, dx);
+            let newAngle = Math.atan2(dy, dx);
+            
+            // Constrain angle to valid range
+            newAngle = this.geometry.constrainAngleToValidRange(newAngle);
             
             if (this.isLocked) {
                 // Normalize angles to handle wrap-around

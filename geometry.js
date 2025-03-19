@@ -632,4 +632,52 @@ class BoxGeometry {
         }
         return inside;
     }
+    
+    getValidAngleRange() {
+        const center = this.centerOfRotation;
+        const boxPivot = this.redBoxPoint;
+        const closedPivot = this.redClosedPoint;
+        const openPivot = this.redOpenPoint;
+        
+        // Calculate angles from box pivot to closed and open positions
+        const closedAngle = Math.atan2(
+            closedPivot.y - boxPivot.y,
+            closedPivot.x - boxPivot.x
+        );
+        const openAngle = Math.atan2(
+            openPivot.y - boxPivot.y,
+            openPivot.x - boxPivot.x
+        );
+        
+        // Normalize angles to 0-2π range
+        let normClosedAngle = (closedAngle + 2*Math.PI) % (2*Math.PI);
+        let normOpenAngle = (openAngle + 2*Math.PI) % (2*Math.PI);
+        
+        // We want the arc that goes clockwise from closed to open
+        // If open angle is counterclockwise from closed, add 2π to make it clockwise
+        if (normOpenAngle > normClosedAngle) {
+            normOpenAngle -= 2*Math.PI;
+        }
+        
+        return {
+            start: normClosedAngle,
+            end: normOpenAngle,
+            isClockwise: true  // Always clockwise from closed to open
+        };
+    }
+    
+    constrainAngleToValidRange(angle) {
+        const range = this.getValidAngleRange();
+        
+        // Normalize input angle to 0-2π
+        let normAngle = (angle + 2*Math.PI) % (2*Math.PI);
+        
+        // If angle is counterclockwise from start, subtract 2π to make it clockwise
+        if (normAngle > range.start) {
+            normAngle -= 2*Math.PI;
+        }
+        
+        // Constrain to range (remember, end is less than start since we're going clockwise)
+        return Math.max(range.end, Math.min(range.start, normAngle));
+    }
 }
