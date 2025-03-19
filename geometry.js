@@ -419,16 +419,29 @@ class BoxGeometry {
             return;
         }
         
+        // Store which side of the line we're on before updating
+        const center = this.centerOfRotation;
+        const currentDist = this.distance(this.redBoxPoint, center);
+        
+        // Calculate side using cross product of (closed->open) and (closed->boxpoint)
+        const v1 = {
+            x: this.redOpenPoint.x - this.redClosedPoint.x,
+            y: this.redOpenPoint.y - this.redClosedPoint.y
+        };
+        const v2 = {
+            x: this.redOpenPoint.x - this.redBoxPoint.x,
+            y: this.redOpenPoint.y - this.redBoxPoint.y
+        };
+        const currentSide = Math.sign(v1.x * v2.y - v1.y * v2.x);
+        
         this.redOpenPoint = point;
         this.updateRedClosedPoint();
         this.updateConstraintLines();
         
-        // Update box point to stay on new constraint line
-        const center = this.centerOfRotation;
-        const redLen = this.height * 0.5;  // Keep same distance from center
+        // Update box point to stay on new constraint line, maintaining distance and side
         this.redBoxPoint = {
-            x: center.x - this.redConstraintLine.perpX * redLen,
-            y: center.y - this.redConstraintLine.perpY * redLen
+            x: center.x - this.redConstraintLine.perpX * currentDist * currentSide,
+            y: center.y - this.redConstraintLine.perpY * currentDist * currentSide
         };
     }
     
@@ -439,16 +452,29 @@ class BoxGeometry {
             return;
         }
         
+        // Store which side of the line we're on before updating
+        const center = this.centerOfRotation;
+        const currentDist = this.distance(this.blueBoxPoint, center);
+        
+        // Calculate side using cross product of (closed->open) and (closed->boxpoint)
+        const v1 = {
+            x: this.blueOpenPoint.x - this.blueClosedPoint.x,
+            y: this.blueOpenPoint.y - this.blueClosedPoint.y
+        };
+        const v2 = {
+            x: this.blueOpenPoint.x - this.blueBoxPoint.x,
+            y: this.blueOpenPoint.y - this.blueBoxPoint.y
+        };
+        const currentSide = Math.sign(v1.x * v2.y - v1.y * v2.x);
+        
         this.blueOpenPoint = point;
         this.updateBlueClosedPoint();
         this.updateConstraintLines();
         
-        // Update box point to stay on new constraint line
-        const center = this.centerOfRotation;
-        const blueLen = this.height * -0.5;  // Keep same distance from center
+        // Update box point to stay on new constraint line, maintaining distance and side
         this.blueBoxPoint = {
-            x: center.x - this.blueConstraintLine.perpX * blueLen,
-            y: center.y - this.blueConstraintLine.perpY * blueLen
+            x: center.x - this.blueConstraintLine.perpX * currentDist * currentSide,
+            y: center.y - this.blueConstraintLine.perpY * currentDist * currentSide
         };
     }
     
