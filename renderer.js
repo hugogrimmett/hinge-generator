@@ -60,6 +60,12 @@ class BoxRenderer {
         
         // Initial draw
         this.draw();
+        
+        // Animation variables
+        this.animationId = null;
+        this.animationTime = 0;
+        this.animationDuration = 4000;  // 4 seconds for a full cycle
+        this.lastTimestamp = null;
     }
     
     updateParameters(h, w, d, alpha, g) {
@@ -281,10 +287,19 @@ class BoxRenderer {
         ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
         
         // Check if current configuration is valid
-        if (this.geometry.fourBarConfig && !this.geometry.isValidRangeReachable()) {
-            // Draw pale red background
-            ctx.fillStyle = 'rgba(255, 0, 0, 0.1)';
-            ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
+        if (this.geometry.fourBarConfig) {
+            const isValid = this.geometry.isValidRangeReachable();
+            
+            // Draw pale red background if invalid
+            if (!isValid) {
+                ctx.fillStyle = 'rgba(255, 0, 0, 0.1)';
+                ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
+            }
+            
+            // Start animation if valid and not dragging
+            if (isValid && !this.isDragging && !this.animationId) {
+                this.startAnimation();
+            }
         }
         
         // Draw box outline
@@ -383,6 +398,9 @@ class BoxRenderer {
     // Mouse event handlers
     handleMouseDown(e) {
         const point = this.getMousePoint(e);
+        
+        // Stop animation when starting to drag
+        this.stopAnimation();
         
         // Check four-bar input first
         const fb = this.geometry.fourBarConfig;
@@ -557,6 +575,11 @@ class BoxRenderer {
     handleMouseUp() {
         this.isDragging = false;
         this.selectedPoint = null;
+        
+        // Try to restart animation
+        if (this.geometry.fourBarConfig && this.geometry.isValidRangeReachable()) {
+            this.startAnimation();
+        }
     }
     
     // Animation loop
@@ -565,6 +588,64 @@ class BoxRenderer {
             this.geometry.updateAnimation();
             this.draw();
             requestAnimationFrame(this.animate.bind(this));
+        }
+    }
+    
+    startAnimation() {
+        if (this.animationId) return;  // Already animating
+        
+        const animate = (timestamp) => {
+            // Stop animation if mouse is down or range is not reachable
+            if (this.isDragging || !this.geometry.isValidRangeReachable()) {
+                this.stopAnimation();
+                return;
+            }
+            
+            // Update animation time
+            if (!this.lastTimestamp) {
+                this.lastTimestamp = timestamp;
+            }
+            const deltaTime = timestamp - this.lastTimestamp;
+            this.lastTimestamp = timestamp;
+            
+            this.animationTime = (this.animationTime + deltaTime) % this.animationDuration;
+            
+            // Calculate progress (0 to 1, then 1 to 0)
+            let progress = this.animationTime / (this.animationDuration / 2);
+            if (progress > 1) {
+                progress = 2 - progress;  // Return back to closed position
+            }
+            
+            // Get angle range and interpolate
+            const range = this.geometry.getValidAngleRange();
+            const angle = range.start - (range.start - range.end) * progress;
+            
+            // Update linkage position
+            this.geometry.updateFourBarPosition(angle);
+            
+            // Draw
+            this.draw();
+            
+            // Continue animation
+            this.animationId = requestAnimationFrame(animate);
+        };
+        
+        this.lastTimestamp = null;
+        this.animationTime = 0;
+        this.animationId = requestAnimationFrame(animate);
+    }
+    
+    stopAnimation() {
+        if (this.animationId) {
+            cancelAnimationFrame(this.animationId);
+            this.animationId = null;
+            this.lastTimestamp = null;
+            
+            // Hide linkage by clearing four-bar config
+            const prevConfig = this.geometry.fourBarConfig;
+            this.geometry.fourBarConfig = null;
+            this.draw();
+            this.geometry.fourBarConfig = prevConfig;
         }
     }
     
