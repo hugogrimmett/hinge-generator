@@ -368,7 +368,10 @@ class BoxRenderer {
                 fb.inputEnd
             );
             
-            if (inputLinkDist < 0.1) {  // Threshold in world coordinates
+            if (inputLinkDist < 0.25) {  // Increased hitbox size
+                // Re-initialize four-bar with current positions
+                this.geometry.initializeFourBar();
+                
                 this.isDragging = true;
                 this.selectedPoint = 'fourbar_input';
                 return;
@@ -412,7 +415,7 @@ class BoxRenderer {
                     fb.inputEnd
                 );
                 
-                if (inputLinkDist < 0.1) {  // Threshold in world coordinates
+                if (inputLinkDist < 0.25) {  // Increased hitbox size
                     this.canvas.style.cursor = 'pointer';
                     this.hoverPoint = 'fourbar_input';
                     this.draw();

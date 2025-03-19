@@ -100,35 +100,15 @@ class BoxGeometry {
     }
     
     initializeFourBar() {
-        // Only initialize if we have all pivot points
-        if (!this.redBoxPoint || !this.blueBoxPoint || 
-            !this.redClosedPoint || !this.blueClosedPoint) {
-            this.fourBarConfig = null;
-            return;
-        }
-        
-        // Initialize four-bar linkage based on current pivot points
+        // Use current closed points and box points for initialization
         this.fourBarConfig = {
-            // Ground link: box pivot points
             leftPivot: this.redBoxPoint,
             rightPivot: this.blueBoxPoint,
-            
-            // Input link: red box pivot to red lid pivot (closed)
-            inputLength: this.distance(this.redBoxPoint, this.redClosedPoint),
             inputEnd: this.redClosedPoint,
-            
-            // Follower link: between lid pivots (closed)
-            followerLength: this.distance(this.redClosedPoint, this.blueClosedPoint),
             outputEnd: this.blueClosedPoint,
-            
-            // Output link: blue box pivot to blue lid pivot
+            inputLength: this.distance(this.redBoxPoint, this.redClosedPoint),
             outputLength: this.distance(this.blueBoxPoint, this.blueClosedPoint),
-            
-            // Configuration
-            config: 0,  // Start with upper configuration
-            prevOutputEnd: null,
-            
-            // Input angle (calculated from current position)
+            followerLength: this.distance(this.redClosedPoint, this.blueClosedPoint),
             inputAngle: Math.atan2(
                 this.redClosedPoint.y - this.redBoxPoint.y,
                 this.redClosedPoint.x - this.redBoxPoint.x
@@ -406,12 +386,28 @@ class BoxGeometry {
         this.redOpenPoint = point;
         this.updateRedClosedPoint();
         this.updateConstraintLines();
+        
+        // Update box point to stay on new constraint line
+        const center = this.centerOfRotation;
+        const redLen = this.height * 0.5;  // Keep same distance from center
+        this.redBoxPoint = {
+            x: center.x - this.redConstraintLine.perpX * redLen,
+            y: center.y - this.redConstraintLine.perpY * redLen
+        };
     }
     
     moveBlueOpenPoint(point) {
         this.blueOpenPoint = point;
         this.updateBlueClosedPoint();
         this.updateConstraintLines();
+        
+        // Update box point to stay on new constraint line
+        const center = this.centerOfRotation;
+        const blueLen = this.height * -0.5;  // Keep same distance from center
+        this.blueBoxPoint = {
+            x: center.x - this.blueConstraintLine.perpX * blueLen,
+            y: center.y - this.blueConstraintLine.perpY * blueLen
+        };
     }
     
     moveRedBoxPoint(point) {
