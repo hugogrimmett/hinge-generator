@@ -37,15 +37,22 @@ class BoxGeometry {
         // Four-bar linkage solver
         this.fourBarConfig = null;
         
-        // Initialize pivot points and constraints
-        this.initializePivotPoints();
+        // Only initialize pivot points if we don't have previous ones to preserve
+        if (!prevRedOpen || !prevBlueOpen) {
+            this.initializePivotPoints();
+        }
         
-        // If we had previous pivot points, try to restore them
+        // Try to restore previous pivot points
         if (prevRedOpen) {
             this.tryPreserveLidPivot('red', prevRedOpen);
         }
         if (prevBlueOpen) {
             this.tryPreserveLidPivot('blue', prevBlueOpen);
+        }
+        
+        // Initialize pivot points if we didn't restore both
+        if (!this.redOpenPoint || !this.blueOpenPoint) {
+            this.initializePivotPoints();
         }
         
         this.updateConstraintLines();
@@ -81,34 +88,30 @@ class BoxGeometry {
     circleIntersection(jointA, jointB, lengthA, lengthB) {
         const dx = jointB.x - jointA.x;
         const dy = jointB.y - jointA.y;
-        const Lc = Math.sqrt(dx * dx + dy * dy);
+        const d = Math.sqrt(dx * dx + dy * dy);
         
         // Check if circles are too far apart or too close
-        if (Lc > lengthA + lengthB || Lc < Math.abs(lengthA - lengthB)) {
+        if (d > lengthA + lengthB || d < Math.abs(lengthA - lengthB)) {
             return [];
         }
         
         // Check if circles are coincident
-        if (Lc < 1e-10 && Math.abs(lengthA - lengthB) < 1e-10) {
+        if (d < 1e-10 && Math.abs(lengthA - lengthB) < 1e-10) {
             return [];
         }
         
-        // Calculate intersection points using their method
-        const bb = ((lengthB * lengthB) - (lengthA * lengthA) + (Lc * Lc)) / (Lc * 2);
-        const h = Math.sqrt(Math.max(0, lengthB * lengthB - bb * bb));
+        const a = (lengthA * lengthA - lengthB * lengthB + d * d) / (2 * d);
+        const h = Math.sqrt(Math.max(0, lengthA * lengthA - a * a));  // Use max to avoid negative sqrt
         
-        const Xp = jointB.x + ((bb * (jointA.x - jointB.x)) / Lc);
-        const Yp = jointB.y + ((bb * (jointA.y - jointB.y)) / Lc);
+        const x2 = jointA.x + (dx * a) / d;
+        const y2 = jointA.y + (dy * a) / d;
         
-        // Calculate both intersection points
-        const Xsol1 = Xp + ((h * (jointB.y - jointA.y)) / Lc);
-        const Ysol1 = Yp - ((h * (jointA.x - jointB.x)) / Lc);
-        const Xsol2 = Xp - ((h * (jointB.y - jointA.y)) / Lc);
-        const Ysol2 = Yp + ((h * (jointA.x - jointB.x)) / Lc);
+        const rx = -dy * (h / d);
+        const ry = dx * (h / d);
         
         return [
-            {x: Xsol1, y: Ysol1},
-            {x: Xsol2, y: Ysol2}
+            {x: x2 + rx, y: y2 + ry},
+            {x: x2 - rx, y: y2 - ry}
         ];
     }
     
@@ -801,12 +804,12 @@ class BoxGeometry {
         this.initializeFourBar();
     }
     
-    // Try to preserve a lid pivot point, moving it to nearest valid position if needed
+    // Try to preserve a lid pivot point by maintaining its relative position in the lid
     tryPreserveLidPivot(color, prevPoint) {
         const lidVertices = this.getOpenLidVertices();
         
+        // If point is still in lid polygon, keep it exactly where it is
         if (this.isPointInPolygon(prevPoint, lidVertices)) {
-            // Point is still valid, keep it
             if (color === 'red') {
                 this.redOpenPoint = prevPoint;
                 this.updateRedClosedPoint();
@@ -814,9 +817,24 @@ class BoxGeometry {
                 this.blueOpenPoint = prevPoint;
                 this.updateBlueClosedPoint();
             }
-        } else {
-            // Find nearest point on lid boundary
-            const nearestPoint = this.findNearestPointInPolygon(prevPoint, lidVertices);
+            return;
+        }
+        
+        // Point is outside lid - calculate its relative position within the lid's bounding box
+        const bounds = this.getBoundingBox(lidVertices);
+        const relX = (prevPoint.x - bounds.minX) / (bounds.maxX - bounds.minX);
+        const relY = (prevPoint.y - bounds.minY) / (bounds.maxY - bounds.minY);
+        
+        // Apply these relative coordinates to new lid bounds
+        const newBounds = this.getBoundingBox(this.getOpenLidVertices());
+        const newPoint = {
+            x: newBounds.minX + relX * (newBounds.maxX - newBounds.minX),
+            y: newBounds.minY + relY * (newBounds.maxY - newBounds.minY)
+        };
+        
+        // If new point is not in lid, find nearest point on lid boundary
+        if (!this.isPointInPolygon(newPoint, lidVertices)) {
+            const nearestPoint = this.findNearestPointInPolygon(newPoint, lidVertices);
             if (color === 'red') {
                 this.redOpenPoint = nearestPoint;
                 this.updateRedClosedPoint();
@@ -824,7 +842,34 @@ class BoxGeometry {
                 this.blueOpenPoint = nearestPoint;
                 this.updateBlueClosedPoint();
             }
+            return;
         }
+        
+        // Use the new point that maintains relative position
+        if (color === 'red') {
+            this.redOpenPoint = newPoint;
+            this.updateRedClosedPoint();
+        } else {
+            this.blueOpenPoint = newPoint;
+            this.updateBlueClosedPoint();
+        }
+    }
+    
+    // Get bounding box for a set of points
+    getBoundingBox(points) {
+        let minX = Infinity;
+        let minY = Infinity;
+        let maxX = -Infinity;
+        let maxY = -Infinity;
+        
+        for (const p of points) {
+            minX = Math.min(minX, p.x);
+            minY = Math.min(minY, p.y);
+            maxX = Math.max(maxX, p.x);
+            maxY = Math.max(maxY, p.y);
+        }
+        
+        return { minX, minY, maxX, maxY };
     }
     
     // Find the nearest point inside or on the boundary of a polygon
@@ -848,5 +893,25 @@ class BoxGeometry {
         }
         
         return nearestPoint;
+    }
+    
+    // Get lid pivot positions
+    getLidPivotPositions() {
+        if (!this.redOpenPoint || !this.blueOpenPoint) return null;
+        return {
+            redOpen: {...this.redOpenPoint},
+            blueOpen: {...this.blueOpenPoint}
+        };
+    }
+    
+    // Set lid pivot positions
+    setLidPivotPositions(positions) {
+        if (!positions) return;
+        if (positions.redOpen) {
+            this.tryPreserveLidPivot('red', positions.redOpen);
+        }
+        if (positions.blueOpen) {
+            this.tryPreserveLidPivot('blue', positions.blueOpen);
+        }
     }
 }

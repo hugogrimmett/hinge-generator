@@ -68,11 +68,20 @@ class BoxRenderer {
     }
     
     updateParameters(h, w, d, alpha, g) {
-        // Store current box pivot positions
+        // Store current pivot positions
         const boxPivotPositions = this.geometry.getBoxPivotPositions();
+        const lidPivotPositions = this.geometry.getLidPivotPositions();
         
         // Create new geometry with updated parameters
         this.geometry = new BoxGeometry(h, w, d, alpha, g);
+        
+        // Restore pivot positions if they were previously set
+        if (boxPivotPositions) {
+            this.geometry.setBoxPivotPositions(boxPivotPositions);
+        }
+        if (lidPivotPositions) {
+            this.geometry.setLidPivotPositions(lidPivotPositions);
+        }
         
         // Recalculate viewport bounds and scale
         const margin = Math.max(h, w) * 0.1;
@@ -95,11 +104,6 @@ class BoxRenderer {
             x: this.canvas.width/2 - (this.viewportBounds.left + viewportWidth/2) * this.scale,
             y: this.canvas.height/2 + (this.viewportBounds.bottom + viewportHeight/2) * this.scale
         };
-        
-        // Restore box pivot positions if they were previously set
-        if (boxPivotPositions) {
-            this.geometry.setBoxPivotPositions(boxPivotPositions);
-        }
         
         this.draw();
     }
