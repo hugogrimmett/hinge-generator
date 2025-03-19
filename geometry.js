@@ -690,7 +690,7 @@ class BoxGeometry {
         const prevConfig = { ...fb };
         
         // Check angles at regular intervals
-        const numSteps = 36;  // Check every 10 degrees
+        const numSteps = 360;  // Check every 10 degrees
         const angleStep = (range.start - range.end) / numSteps;
         
         for (let i = 0; i <= numSteps; i++) {
@@ -720,5 +720,71 @@ class BoxGeometry {
         // Restore original configuration
         Object.assign(fb, prevConfig);
         return true;
+    }
+    
+    // Get relative position of box pivots along their constraint lines
+    getBoxPivotPositions() {
+        if (!this.redBoxPoint || !this.blueBoxPoint || !this.centerOfRotation) {
+            return null;
+        }
+        
+        // Calculate relative positions as ratios along the perpendicular lines
+        const redDx = this.redBoxPoint.x - this.centerOfRotation.x;
+        const redDy = this.redBoxPoint.y - this.centerOfRotation.y;
+        const redRatio = Math.sqrt(redDx * redDx + redDy * redDy) / this.height;
+        
+        const blueDx = this.blueBoxPoint.x - this.centerOfRotation.x;
+        const blueDy = this.blueBoxPoint.y - this.centerOfRotation.y;
+        const blueRatio = Math.sqrt(blueDx * blueDx + blueDy * blueDy) / this.height;
+        
+        // Calculate side using cross product of (closed->open) and (closed->boxpoint)
+        const redV1 = {
+            x: this.redOpenPoint.x - this.redClosedPoint.x,
+            y: this.redOpenPoint.y - this.redClosedPoint.y
+        };
+        const redV2 = {
+            x: this.redOpenPoint.x - this.redBoxPoint.x,
+            y: this.redOpenPoint.y - this.redBoxPoint.y
+        };
+        const redSide = Math.sign(redV1.x * redV2.y - redV1.y * redV2.x);
+        
+        const blueV1 = {
+            x: this.blueOpenPoint.x - this.blueClosedPoint.x,
+            y: this.blueOpenPoint.y - this.blueClosedPoint.y
+        };
+        const blueV2 = {
+            x: this.blueOpenPoint.x - this.blueBoxPoint.x,
+            y: this.blueOpenPoint.y - this.blueBoxPoint.y
+        };
+        const blueSide = Math.sign(blueV1.x * blueV2.y - blueV1.y * blueV2.x);
+        
+        return {
+            red: { ratio: redRatio, side: redSide },
+            blue: { ratio: blueRatio, side: blueSide }
+        };
+    }
+    
+    // Set box pivot positions based on relative positions
+    setBoxPivotPositions(positions) {
+        if (!positions || !this.redConstraintLine || !this.blueConstraintLine) {
+            return;
+        }
+        
+        // Set red box point
+        const redLen = this.height * positions.red.ratio * positions.red.side;
+        this.redBoxPoint = {
+            x: this.centerOfRotation.x - this.redConstraintLine.perpX * redLen,
+            y: this.centerOfRotation.y - this.redConstraintLine.perpY * redLen
+        };
+        
+        // Set blue box point
+        const blueLen = this.height * positions.blue.ratio * positions.blue.side;
+        this.blueBoxPoint = {
+            x: this.centerOfRotation.x - this.blueConstraintLine.perpX * blueLen,
+            y: this.centerOfRotation.y - this.blueConstraintLine.perpY * blueLen
+        };
+        
+        // Re-initialize four-bar linkage with new positions
+        this.initializeFourBar();
     }
 }
