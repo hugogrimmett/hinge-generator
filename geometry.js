@@ -147,14 +147,20 @@ class BoxGeometry {
             return false;
         }
         
-        // Choose configuration based on stored config
+        // Choose intersection closest to previous output end
         const [pos1, pos2] = intersections;
-        if (this.fourBarConfig.config === 1) {
-            // Choose point above input link
-            this.fourBarConfig.outputEnd = pos1.y > this.fourBarConfig.inputEnd.y ? pos1 : pos2;
+        if (prevConfig.outputEnd) {
+            const d1 = this.distance(pos1, prevConfig.outputEnd);
+            const d2 = this.distance(pos2, prevConfig.outputEnd);
+            this.fourBarConfig.outputEnd = d1 < d2 ? pos1 : pos2;
+            
+            // Update configuration based on chosen point
+            this.fourBarConfig.config = this.fourBarConfig.outputEnd.y > this.fourBarConfig.inputEnd.y ? 1 : 0;
         } else {
-            // Choose point below input link
-            this.fourBarConfig.outputEnd = pos1.y <= this.fourBarConfig.inputEnd.y ? pos1 : pos2;
+            // If no previous position (shouldn't happen), maintain current config
+            this.fourBarConfig.outputEnd = this.fourBarConfig.config === 1 ?
+                (pos1.y > this.fourBarConfig.inputEnd.y ? pos1 : pos2) :
+                (pos1.y <= this.fourBarConfig.inputEnd.y ? pos1 : pos2);
         }
         
         // Verify lengths are maintained with 1% tolerance
