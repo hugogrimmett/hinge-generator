@@ -38,6 +38,10 @@ class BoxRenderer {
         this.isDragging = false;
         this.selectedPoint = null;
         this.hoverPoint = null;
+        this.isLocked = false;
+        this.exitAngle = null;
+        this.lastAngle = null;
+        this.lastValidConfig = null;
         
         // Animation controls
         const animateButton = document.getElementById('animateButton');
@@ -386,12 +390,16 @@ class BoxRenderer {
                 // Re-initialize four-bar with current positions
                 this.geometry.initializeFourBar();
                 
-                // Immediately update position to current angle to prevent snapping
-                const currentAngle = Math.atan2(
+                // Reset locked state
+                this.isLocked = false;
+                this.exitAngle = null;
+                this.lastValidConfig = null;
+                
+                // Store initial angle
+                this.lastAngle = Math.atan2(
                     fb.inputEnd.y - fb.leftPivot.y,
                     fb.inputEnd.x - fb.leftPivot.x
                 );
-                this.geometry.updateFourBarPosition(currentAngle);
                 
                 this.isDragging = true;
                 this.selectedPoint = 'fourbar_input';
@@ -454,61 +462,84 @@ class BoxRenderer {
         }
         
         if (this.selectedPoint === 'fourbar_input') {
-            // Calculate new angle for four-bar input
             const fb = this.geometry.fourBarConfig;
-            if (fb) {
-                const worldPoint = point;  // Already in world coordinates
-                const toPoint = {
-                    x: worldPoint.x - fb.leftPivot.x,
-                    y: worldPoint.y - fb.leftPivot.y
-                };
-                const newAngle = Math.atan2(toPoint.y, toPoint.x);
+            if (!fb) return;
+            
+            // Calculate new angle from mouse position
+            const dx = point.x - fb.leftPivot.x;
+            const dy = point.y - fb.leftPivot.y;
+            const newAngle = Math.atan2(dy, dx);
+            
+            if (this.isLocked) {
+                // Normalize angles to handle wrap-around
+                const normalizedExit = (this.exitAngle + 2*Math.PI) % (2*Math.PI);
+                const normalizedPrev = (this.lastAngle + 2*Math.PI) % (2*Math.PI);
+                const normalizedCurr = (newAngle + 2*Math.PI) % (2*Math.PI);
                 
-                // Try to update with new angle
-                const prevAngle = fb.inputAngle;
+                // Check if we passed through exit angle
+                if ((normalizedPrev <= normalizedExit && normalizedExit <= normalizedCurr) ||
+                    (normalizedCurr <= normalizedExit && normalizedExit <= normalizedPrev)) {
+                    // Try to unlock at exit angle
+                    if (this.geometry.updateFourBarPosition(this.exitAngle)) {
+                        this.isLocked = false;
+                        this.exitAngle = null;
+                        this.lastValidConfig = null;
+                    }
+                }
+            } else {
+                // Try to update to new angle
                 if (!this.geometry.updateFourBarPosition(newAngle)) {
-                    // If update fails, revert to previous angle
-                    this.geometry.updateFourBarPosition(prevAngle);
-                }
-            }
-        } else {
-            // Handle existing point dragging
-            const [color, pointType] = this.selectedPoint.split('-');
-            const center = this.geometry.getCenterOfRotation();
-            
-            if (color === 'red') {
-                if (pointType === 'open') {
-                    this.geometry.moveRedOpenPoint(point);
-                } else if (pointType === 'closed') {
-                    // For closed point, move the open point to the opposite position
-                    const dx = point.x - center.x;
-                    const dy = point.y - center.y;
-                    this.geometry.moveRedOpenPoint({
-                        x: center.x - dx,
-                        y: center.y - dy
-                    });
-                } else if (pointType === 'box') {
-                    this.geometry.moveRedBoxPoint(point);
-                }
-            } else { // blue
-                if (pointType === 'open') {
-                    this.geometry.moveBlueOpenPoint(point);
-                } else if (pointType === 'closed') {
-                    // For closed point, move the open point to the opposite position
-                    const dx = point.x - center.x;
-                    const dy = point.y - center.y;
-                    this.geometry.moveBlueOpenPoint({
-                        x: center.x - dx,
-                        y: center.y - dy
-                    });
-                } else if (pointType === 'box') {
-                    this.geometry.moveBlueBoxPoint(point);
+                    // Entering invalid region - store exit angle and config
+                    this.isLocked = true;
+                    this.exitAngle = this.lastAngle;
+                    this.lastValidConfig = JSON.parse(JSON.stringify(fb));
+                    
+                    // Restore last valid configuration
+                    Object.assign(this.geometry.fourBarConfig, this.lastValidConfig);
                 }
             }
             
-            // Re-initialize four-bar after pivot points move
-            this.geometry.initializeFourBar();
+            this.lastAngle = newAngle;
+            this.draw();
+            return;
         }
+        
+        // Handle existing point dragging
+        const [color, pointType] = this.selectedPoint.split('-');
+        const center = this.geometry.getCenterOfRotation();
+        
+        if (color === 'red') {
+            if (pointType === 'open') {
+                this.geometry.moveRedOpenPoint(point);
+            } else if (pointType === 'closed') {
+                // For closed point, move the open point to the opposite position
+                const dx = point.x - center.x;
+                const dy = point.y - center.y;
+                this.geometry.moveRedOpenPoint({
+                    x: center.x - dx,
+                    y: center.y - dy
+                });
+            } else if (pointType === 'box') {
+                this.geometry.moveRedBoxPoint(point);
+            }
+        } else { // blue
+            if (pointType === 'open') {
+                this.geometry.moveBlueOpenPoint(point);
+            } else if (pointType === 'closed') {
+                // For closed point, move the open point to the opposite position
+                const dx = point.x - center.x;
+                const dy = point.y - center.y;
+                this.geometry.moveBlueOpenPoint({
+                    x: center.x - dx,
+                    y: center.y - dy
+                });
+            } else if (pointType === 'box') {
+                this.geometry.moveBlueBoxPoint(point);
+            }
+        }
+        
+        // Re-initialize four-bar after pivot points move
+        this.geometry.initializeFourBar();
         
         this.draw();
     }
