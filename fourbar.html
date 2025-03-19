@@ -1,0 +1,66 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Four-Bar Linkage Simulator</title>
+    <style>
+        body {
+            margin: 0;
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            font-family: Arial, sans-serif;
+            background: #f0f0f0;
+        }
+        
+        #controls {
+            margin-bottom: 20px;
+            padding: 15px;
+            background: white;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        
+        #canvas-container {
+            position: relative;
+            background: white;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        
+        canvas {
+            display: block;
+            margin: 0;
+        }
+        
+        .tooltip {
+            position: absolute;
+            background: rgba(0,0,0,0.8);
+            color: white;
+            padding: 5px 10px;
+            border-radius: 4px;
+            font-size: 12px;
+            pointer-events: none;
+            display: none;
+        }
+    </style>
+</head>
+<body>
+    <div id="controls">
+        <label>
+            <input type="checkbox" id="showPaths" checked>
+            Show Motion Paths
+        </label>
+        <label style="margin-left: 20px;">
+            <input type="checkbox" id="showAlternative">
+            Show Alternative Configuration
+        </label>
+    </div>
+    <div id="canvas-container">
+        <canvas id="canvas" width="800" height="600"></canvas>
+        <div id="tooltip" class="tooltip"></div>
+    </div>
+    <script src="vector.js"></script>
+    <script src="fourbar.js"></script>
+</body>
+</html>
