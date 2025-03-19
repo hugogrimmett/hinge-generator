@@ -64,7 +64,7 @@ class BoxRenderer {
         // Animation variables
         this.animationId = null;
         this.animationTime = 0;
-        this.animationDuration = 4000;  // 4 seconds for a full cycle
+        this.animationDuration = 3000;  // 3 seconds for a full cycle
         this.lastTimestamp = null;
     }
     
@@ -290,10 +290,19 @@ class BoxRenderer {
         if (this.geometry.fourBarConfig) {
             const isValid = this.geometry.isValidRangeReachable();
             
-            // Draw pale red background if invalid
             if (!isValid) {
                 ctx.fillStyle = 'rgba(255, 0, 0, 0.1)';
                 ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
+                
+                // Show error message
+                ctx.font = '14px Arial';
+                ctx.fillStyle = 'red';
+                ctx.textAlign = 'center';
+                ctx.fillText(
+                    "This hinge will not allow the lid to open and close. Try moving the pivot points",
+                    this.canvas.width / 2,
+                    30
+                );
             }
             
             // Start animation if valid and not dragging
@@ -309,74 +318,78 @@ class BoxRenderer {
         this.drawLid(this.geometry.getClosedLidVertices(), 'rgba(0, 0, 0, 0.5)');
         this.drawLid(this.geometry.getOpenLidVertices(), 'rgba(0, 0, 0, 0.5)');
         
+        // Draw labels
+        ctx.font = '12px Arial';
+        ctx.fillStyle = 'black';
+        ctx.textAlign = 'left';
+        
+        // Box label
+        const boxVertices = this.geometry.getBoxVertices();
+        const boxCenter = this.transform({
+            x: (boxVertices[0].x + boxVertices[2].x) / 2,
+            y: (boxVertices[0].y + boxVertices[2].y) / 2
+        });
+        ctx.fillText('box', boxCenter.x - 10, boxCenter.y);
+        
+        // Closed lid label
+        const closedLidVertices = this.geometry.getClosedLidVertices();
+        const closedLidCenter = this.transform({
+            x: (closedLidVertices[0].x + closedLidVertices[1].x) / 2,
+            y: this.h / 2
+        });
+        ctx.fillText('lid in closed position', closedLidCenter.x, closedLidCenter.y);
+        
+        // Open lid label
+        const openLidVertices = this.geometry.getOpenLidVertices();
+        const openLidCenter = this.transform({
+            x: (openLidVertices[0].x + openLidVertices[1].x) / 2,
+            y: this.h * 1.5
+        });
+        ctx.fillText('lid in open position', openLidCenter.x, openLidCenter.y);
+        
         // Draw four-bar linkage if initialized
         const fb = this.geometry.fourBarConfig;
         if (fb) {
-            // Draw ground link (gray)
+            // Draw ground link
             ctx.beginPath();
-            ctx.strokeStyle = 'rgba(100, 100, 100, 0.5)';
-            ctx.lineWidth = this.hoverPoint === 'fourbar_input' ? 4 : 2;
+            ctx.strokeStyle = 'black';
+            ctx.lineWidth = 2;
             const groundStart = this.transform(fb.leftPivot);
             const groundEnd = this.transform(fb.rightPivot);
             ctx.moveTo(groundStart.x, groundStart.y);
             ctx.lineTo(groundEnd.x, groundEnd.y);
             ctx.stroke();
             
-            // Draw input link (red)
+            // Draw input link
             ctx.beginPath();
-            ctx.strokeStyle = this.hoverPoint === 'fourbar_input' ? 
-                'rgba(255, 0, 0, 0.8)' : 'rgba(255, 0, 0, 0.5)';
-            ctx.lineWidth = this.hoverPoint === 'fourbar_input' ? 4 : 2;
+            ctx.strokeStyle = 'black';
+            ctx.lineWidth = 2;
             const inputEnd = this.transform(fb.inputEnd);
             ctx.moveTo(groundStart.x, groundStart.y);
             ctx.lineTo(inputEnd.x, inputEnd.y);
             ctx.stroke();
             
-            // Draw follower link (blue)
+            // Draw follower link
             ctx.beginPath();
-            ctx.strokeStyle = 'rgba(0, 0, 255, 0.5)';
+            ctx.strokeStyle = 'black';
             ctx.lineWidth = 2;
             const outputEnd = this.transform(fb.outputEnd);
             ctx.moveTo(inputEnd.x, inputEnd.y);
             ctx.lineTo(outputEnd.x, outputEnd.y);
             ctx.stroke();
             
-            // Draw output link (green)
+            // Draw output link
             ctx.beginPath();
-            ctx.strokeStyle = 'rgba(0, 255, 0, 0.5)';
+            ctx.strokeStyle = 'black';
             ctx.lineWidth = 2;
             ctx.moveTo(groundEnd.x, groundEnd.y);
             ctx.lineTo(outputEnd.x, outputEnd.y);
             ctx.stroke();
-            
-            // Draw lengths
-            ctx.fillStyle = '#333';
-            ctx.font = '14px Arial';
-            ctx.textAlign = 'left';
-            const padding = 10;
-            
-            // Calculate lengths
-            const groundLength = this.geometry.distance(fb.leftPivot, fb.rightPivot);
-            const inputLength = this.geometry.distance(fb.leftPivot, fb.inputEnd);
-            const followerLength = this.geometry.distance(fb.inputEnd, fb.outputEnd);
-            const outputLength = this.geometry.distance(fb.rightPivot, fb.outputEnd);
-            
-            // Display lengths
-            ctx.fillText(`Ground: ${groundLength.toFixed(1)}`, padding, padding + 20);
-            ctx.fillText(`Input: ${inputLength.toFixed(1)}`, padding, padding + 40);
-            ctx.fillText(`Follower: ${followerLength.toFixed(1)}`, padding, padding + 60);
-            ctx.fillText(`Output: ${outputLength.toFixed(1)}`, padding, padding + 80);
-            
-            // Draw input angle
-            ctx.fillText(`Input Angle: ${(fb.inputAngle * 180 / Math.PI).toFixed(1)}°`, padding, padding + 100);
         }
         
         // Draw connection lines
         this.drawRedConnectionLine();
         this.drawBlueConnectionLine();
-        
-        // Draw 4-bar linkage
-        this.drawFourBarLinkage();
         
         // Draw points
         const redLine = this.geometry.getRedConnectionLine();
@@ -393,6 +406,40 @@ class BoxRenderer {
             this.drawCircle(blueLine.end, 5, 'blue');
             this.drawCircle(blueLine.boxPoint, 5, 'blue');
         }
+    }
+    
+    drawFourBar() {
+        const ctx = this.ctx;
+        const fb = this.geometry.fourBarConfig;
+        if (!fb) return;
+        
+        // Draw four-bar linkage
+        ctx.strokeStyle = 'black';
+        ctx.lineWidth = 2;
+        
+        // Ground link
+        ctx.beginPath();
+        ctx.moveTo(fb.leftPivot.x, fb.leftPivot.y);
+        ctx.lineTo(fb.rightPivot.x, fb.rightPivot.y);
+        ctx.stroke();
+        
+        // Input link
+        ctx.beginPath();
+        ctx.moveTo(fb.leftPivot.x, fb.leftPivot.y);
+        ctx.lineTo(fb.inputEnd.x, fb.inputEnd.y);
+        ctx.stroke();
+        
+        // Follower link
+        ctx.beginPath();
+        ctx.moveTo(fb.inputEnd.x, fb.inputEnd.y);
+        ctx.lineTo(fb.outputEnd.x, fb.outputEnd.y);
+        ctx.stroke();
+        
+        // Output link
+        ctx.beginPath();
+        ctx.moveTo(fb.outputEnd.x, fb.outputEnd.y);
+        ctx.lineTo(fb.rightPivot.x, fb.rightPivot.y);
+        ctx.stroke();
     }
     
     // Mouse event handlers
