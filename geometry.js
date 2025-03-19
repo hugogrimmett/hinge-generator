@@ -680,4 +680,45 @@ class BoxGeometry {
         // Constrain to range (remember, end is less than start since we're going clockwise)
         return Math.max(range.end, Math.min(range.start, normAngle));
     }
+    
+    isValidRangeReachable() {
+        const range = this.getValidAngleRange();
+        const fb = this.fourBarConfig;
+        if (!fb) return false;
+        
+        // Store current configuration
+        const prevConfig = { ...fb };
+        
+        // Check angles at regular intervals
+        const numSteps = 36;  // Check every 10 degrees
+        const angleStep = (range.start - range.end) / numSteps;
+        
+        for (let i = 0; i <= numSteps; i++) {
+            const angle = range.start - i * angleStep;
+            
+            // Update input end position
+            const inputEnd = {
+                x: fb.leftPivot.x + Math.cos(angle) * fb.inputLength,
+                y: fb.leftPivot.y + Math.sin(angle) * fb.inputLength
+            };
+            
+            // Check if circles intersect at this angle
+            const intersections = this.circleIntersection(
+                inputEnd,
+                fb.rightPivot,
+                fb.followerLength,
+                fb.outputLength
+            );
+            
+            if (intersections.length === 0) {
+                // Restore original configuration
+                Object.assign(fb, prevConfig);
+                return false;
+            }
+        }
+        
+        // Restore original configuration
+        Object.assign(fb, prevConfig);
+        return true;
+    }
 }

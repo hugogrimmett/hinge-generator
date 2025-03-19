@@ -280,6 +280,13 @@ class BoxRenderer {
         const ctx = this.ctx;
         ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
         
+        // Check if current configuration is valid
+        if (this.geometry.fourBarConfig && !this.geometry.isValidRangeReachable()) {
+            // Draw pale red background
+            ctx.fillStyle = 'rgba(255, 0, 0, 0.1)';
+            ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
+        }
+        
         // Draw box outline
         this.drawBox();
         
