@@ -1,5 +1,9 @@
 class BoxGeometry {
     constructor(height, width, depth, angle, gap) {
+        // Store previous pivot points if they exist
+        const prevRedOpen = this.redOpenPoint;
+        const prevBlueOpen = this.blueOpenPoint;
+        
         // Box dimensions
         this.height = height;
         this.width = width;
@@ -35,6 +39,15 @@ class BoxGeometry {
         
         // Initialize pivot points and constraints
         this.initializePivotPoints();
+        
+        // If we had previous pivot points, try to restore them
+        if (prevRedOpen) {
+            this.tryPreserveLidPivot('red', prevRedOpen);
+        }
+        if (prevBlueOpen) {
+            this.tryPreserveLidPivot('blue', prevBlueOpen);
+        }
+        
         this.updateConstraintLines();
         
         // Initialize four-bar linkage
@@ -786,5 +799,54 @@ class BoxGeometry {
         
         // Re-initialize four-bar linkage with new positions
         this.initializeFourBar();
+    }
+    
+    // Try to preserve a lid pivot point, moving it to nearest valid position if needed
+    tryPreserveLidPivot(color, prevPoint) {
+        const lidVertices = this.getOpenLidVertices();
+        
+        if (this.isPointInPolygon(prevPoint, lidVertices)) {
+            // Point is still valid, keep it
+            if (color === 'red') {
+                this.redOpenPoint = prevPoint;
+                this.updateRedClosedPoint();
+            } else {
+                this.blueOpenPoint = prevPoint;
+                this.updateBlueClosedPoint();
+            }
+        } else {
+            // Find nearest point on lid boundary
+            const nearestPoint = this.findNearestPointInPolygon(prevPoint, lidVertices);
+            if (color === 'red') {
+                this.redOpenPoint = nearestPoint;
+                this.updateRedClosedPoint();
+            } else {
+                this.blueOpenPoint = nearestPoint;
+                this.updateBlueClosedPoint();
+            }
+        }
+    }
+    
+    // Find the nearest point inside or on the boundary of a polygon
+    findNearestPointInPolygon(point, vertices) {
+        let minDist = Infinity;
+        let nearestPoint = null;
+        
+        // Check each edge of the polygon
+        for (let i = 0; i < vertices.length; i++) {
+            const start = vertices[i];
+            const end = vertices[(i + 1) % vertices.length];
+            
+            // Project point onto line segment
+            const projected = this.projectPointOntoLineSegment(point, start, end);
+            const dist = this.distance(point, projected);
+            
+            if (dist < minDist) {
+                minDist = dist;
+                nearestPoint = projected;
+            }
+        }
+        
+        return nearestPoint;
     }
 }

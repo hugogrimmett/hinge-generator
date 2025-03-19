@@ -1,13 +1,31 @@
 <!DOCTYPE html>
 <html>
 <head>
-    <title>Box and Lid Geometry</title>
+    <title>Toolbox Hinge Generator</title>
     <style>
         body {
             font-family: Arial, sans-serif;
             margin: 20px;
         }
         .container {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 20px;
+        }
+        .header {
+            text-align: center;
+            max-width: 800px;
+            margin-bottom: 20px;
+        }
+        .header h1 {
+            margin-bottom: 10px;
+        }
+        .header p {
+            line-height: 1.5;
+            color: #444;
+        }
+        .content {
             display: flex;
             gap: 20px;
         }
@@ -34,137 +52,142 @@
 </head>
 <body>
     <div class="container">
-        <div class="controls">
-            <h2>Box Parameters</h2>
-            
-            <div class="control-group">
-                <label for="heightSlider">Height:</label>
-                <input type="range" id="heightSlider" min="10" max="200" value="100">
-                <input type="number" id="heightInput" value="100">
-            </div>
-            
-            <div class="control-group">
-                <label for="widthSlider">Width:</label>
-                <input type="range" id="widthSlider" min="10" max="200" value="150">
-                <input type="number" id="widthInput" value="150">
-            </div>
-            
-            <div class="control-group">
-                <label for="depthSlider">Depth:</label>
-                <input type="range" id="depthSlider" min="10" max="200" value="50">
-                <input type="number" id="depthInput" value="50">
-            </div>
-            
-            <div class="control-group">
-                <label for="alphaSlider">Alpha (degrees):</label>
-                <input type="range" id="alphaSlider" min="0" max="90" value="70">
-                <input type="number" id="alphaInput" value="70">
-            </div>
-            
-            <div class="control-group">
-                <label for="gapSlider">Gap:</label>
-                <input type="range" id="gapSlider" min="0" max="50" value="5">
-                <input type="number" id="gapInput" value="5">
-            </div>
-            
-            <div>
-                <button id="resetButton">Reset</button>
-                <button id="animateButton">Animate</button>
-            </div>
+        <div class="header">
+            <h1>Toolbox Hinge Generator</h1>
+            <p>Inspired by Laura Kampf, here is a tool for generating valid 4-bar linkages that allow the lid of a box to swing up and land on top, proudly displaying its contents.</p>
         </div>
-        
-        <div class="visualization">
-            <canvas id="canvas" width="800" height="600"></canvas>
-        </div>
-    </div>
-
-    <script src="geometry.js"></script>
-    <script src="renderer.js"></script>
-    <script>
-        // Wait for DOM to be ready
-        let boxRenderer;
-        
-        document.addEventListener('DOMContentLoaded', () => {
-            // Initialize visualization
-            const canvas = document.getElementById('canvas');
-            boxRenderer = new BoxRenderer(
-                canvas,
-                100,  // height
-                150,  // width
-                50,   // depth
-                70,   // alpha
-                5     // gap
-            );
-            
-            // Setup all controls
-            setupControls();
-        });
-        
-        // Helper function to update visualization
-        function updateVisualization() {
-            const params = {
-                height: parseFloat(document.getElementById('heightSlider').value),
-                width: parseFloat(document.getElementById('widthSlider').value),
-                depth: parseFloat(document.getElementById('depthSlider').value),
-                alpha: parseFloat(document.getElementById('alphaSlider').value),
-                gap: parseFloat(document.getElementById('gapSlider').value)
-            };
-            
-            boxRenderer.updateParameters(
-                params.height,
-                params.width,
-                params.depth,
-                params.alpha,
-                params.gap
-            );
-        }
-        
-        // Helper function to setup all controls
-        function setupControls() {
-            const controls = [
-                { name: 'Height', min: 10, max: 200 },
-                { name: 'Width', min: 10, max: 200 },
-                { name: 'Depth', min: 10, max: 200 },
-                { name: 'Alpha', min: 0, max: 90 },
-                { name: 'Gap', min: 0, max: 50 }
-            ];
-            
-            controls.forEach(control => {
-                const slider = document.getElementById(control.name.toLowerCase() + 'Slider');
-                const input = document.getElementById(control.name.toLowerCase() + 'Input');
+        <div class="content">
+            <div class="controls">
+                <h2>Box Parameters</h2>
                 
-                if (slider && input) {
-                    slider.addEventListener('input', () => {
-                        const value = parseFloat(slider.value);
-                        input.value = value;
-                        updateVisualization();
-                    });
-                    
-                    input.addEventListener('change', () => {
-                        let value = parseFloat(input.value);
-                        value = Math.max(control.min, Math.min(control.max, value));
-                        input.value = value;
-                        slider.value = value;
-                        updateVisualization();
-                    });
-                }
+                <div class="control-group">
+                    <label for="heightSlider">Height:</label>
+                    <input type="range" id="heightSlider" min="10" max="200" value="100">
+                    <input type="number" id="heightInput" value="100">
+                </div>
+                
+                <div class="control-group">
+                    <label for="widthSlider">Width:</label>
+                    <input type="range" id="widthSlider" min="10" max="200" value="150">
+                    <input type="number" id="widthInput" value="150">
+                </div>
+                
+                <div class="control-group">
+                    <label for="depthSlider">Depth:</label>
+                    <input type="range" id="depthSlider" min="10" max="200" value="50">
+                    <input type="number" id="depthInput" value="50">
+                </div>
+                
+                <div class="control-group">
+                    <label for="alphaSlider">Alpha (degrees):</label>
+                    <input type="range" id="alphaSlider" min="0" max="90" value="70">
+                    <input type="number" id="alphaInput" value="70">
+                </div>
+                
+                <div class="control-group">
+                    <label for="gapSlider">Gap:</label>
+                    <input type="range" id="gapSlider" min="0" max="50" value="5">
+                    <input type="number" id="gapInput" value="5">
+                </div>
+                
+                <div>
+                    <button id="resetButton">Reset</button>
+                    <button id="animateButton">Animate</button>
+                </div>
+            </div>
+            
+            <div class="visualization">
+                <canvas id="canvas" width="800" height="600"></canvas>
+            </div>
+        </div>
+
+        <script src="geometry.js"></script>
+        <script src="renderer.js"></script>
+        <script>
+            // Wait for DOM to be ready
+            let boxRenderer;
+            
+            document.addEventListener('DOMContentLoaded', () => {
+                // Initialize visualization
+                const canvas = document.getElementById('canvas');
+                boxRenderer = new BoxRenderer(
+                    canvas,
+                    100,  // height
+                    150,  // width
+                    50,   // depth
+                    70,   // alpha
+                    5     // gap
+                );
+                
+                // Setup all controls
+                setupControls();
             });
             
-            // Add animation control
-            const animateButton = document.getElementById('animateButton');
-            if (animateButton) {
-                animateButton.addEventListener('click', () => {
-                    if (boxRenderer.geometry.isAnimating) {
-                        boxRenderer.geometry.isAnimating = false;
-                        animateButton.textContent = 'Animate';
-                    } else {
-                        boxRenderer.geometry.startAnimation();
-                        animateButton.textContent = 'Stop';
-                        boxRenderer.animate();
+            // Helper function to update visualization
+            function updateVisualization() {
+                const params = {
+                    height: parseFloat(document.getElementById('heightSlider').value),
+                    width: parseFloat(document.getElementById('widthSlider').value),
+                    depth: parseFloat(document.getElementById('depthSlider').value),
+                    alpha: parseFloat(document.getElementById('alphaSlider').value),
+                    gap: parseFloat(document.getElementById('gapSlider').value)
+                };
+                
+                boxRenderer.updateParameters(
+                    params.height,
+                    params.width,
+                    params.depth,
+                    params.alpha,
+                    params.gap
+                );
+            }
+            
+            // Helper function to setup all controls
+            function setupControls() {
+                const controls = [
+                    { name: 'Height', min: 10, max: 200 },
+                    { name: 'Width', min: 10, max: 200 },
+                    { name: 'Depth', min: 10, max: 200 },
+                    { name: 'Alpha', min: 0, max: 90 },
+                    { name: 'Gap', min: 0, max: 50 }
+                ];
+                
+                controls.forEach(control => {
+                    const slider = document.getElementById(control.name.toLowerCase() + 'Slider');
+                    const input = document.getElementById(control.name.toLowerCase() + 'Input');
+                    
+                    if (slider && input) {
+                        slider.addEventListener('input', () => {
+                            const value = parseFloat(slider.value);
+                            input.value = value;
+                            updateVisualization();
+                        });
+                        
+                        input.addEventListener('change', () => {
+                            let value = parseFloat(input.value);
+                            value = Math.max(control.min, Math.min(control.max, value));
+                            input.value = value;
+                            slider.value = value;
+                            updateVisualization();
+                        });
                     }
                 });
+                
+                // Add animation control
+                const animateButton = document.getElementById('animateButton');
+                if (animateButton) {
+                    animateButton.addEventListener('click', () => {
+                        if (boxRenderer.geometry.isAnimating) {
+                            boxRenderer.geometry.isAnimating = false;
+                            animateButton.textContent = 'Animate';
+                        } else {
+                            boxRenderer.geometry.startAnimation();
+                            animateButton.textContent = 'Stop';
+                            boxRenderer.animate();
+                        }
+                    });
+                }
             }
-        }
-    </script>
-</body>
+        </script>
+    </body>
 </html>
