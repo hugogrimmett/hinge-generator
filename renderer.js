@@ -83,6 +83,9 @@ class BoxRenderer {
             this.geometry.setLidPivotPositions(lidPivotPositions);
         }
         
+        // Update constraint lines based on restored positions
+        this.geometry.updateConstraintLines();
+        
         // Recalculate viewport bounds and scale
         const margin = Math.max(h, w) * 0.1;
         this.viewportBounds = {
@@ -104,6 +107,32 @@ class BoxRenderer {
             x: this.canvas.width/2 - (this.viewportBounds.left + viewportWidth/2) * this.scale,
             y: this.canvas.height/2 + (this.viewportBounds.bottom + viewportHeight/2) * this.scale
         };
+        
+        // First update constraint lines and compute valid angles
+        this.geometry.updateConstraintLines();
+        this.geometry.updateRedClosedPoint();
+        this.geometry.updateBlueClosedPoint();
+        
+        // Then recompute four-bar linkage configuration
+        this.geometry.initializeFourBar();
+        
+        // Update animation state based on configuration validity
+        if (!this.geometry.fourBarConfig) {
+            // Stop animation if configuration is invalid
+            this.geometry.isAnimating = false;
+            const animateButton = document.getElementById('animateButton');
+            if (animateButton) {
+                animateButton.textContent = 'Animate';
+            }
+        } else {
+            // Start new animation from closed position if configuration is valid
+            this.geometry.startAnimation();
+            const animateButton = document.getElementById('animateButton');
+            if (animateButton) {
+                animateButton.textContent = 'Stop';
+            }
+            this.animate();
+        }
         
         this.draw();
     }

@@ -598,9 +598,13 @@ class BoxGeometry {
     
     // Animation methods
     startAnimation() {
+        const range = this.getValidAngleRange();
         this.isAnimating = true;
         this.animationStartTime = Date.now();
-        this.animationStartAngle = this.fourBarConfig ? this.fourBarConfig.inputAngle : 0;
+        // Always start from closed position (range.start)
+        this.animationStartAngle = range.start;
+        // Initialize in closed position
+        this.updateFourBarPosition(range.start);
     }
     
     stopAnimation() {
@@ -610,14 +614,24 @@ class BoxGeometry {
     updateAnimation() {
         if (!this.isAnimating || !this.fourBarConfig) return;
         
+        const range = this.getValidAngleRange();
         const elapsedTime = Date.now() - this.animationStartTime;
         const angularSpeed = Math.PI / 2;  // π/2 radians per second
-        const deltaAngle = (angularSpeed * elapsedTime / 1000) % (2 * Math.PI);
+        const totalAngle = Math.abs(range.end - range.start);
+        const cycleDuration = totalAngle / angularSpeed * 1000; // Duration in ms
         
-        const newAngle = this.animationStartAngle + deltaAngle;
+        // Normalize elapsed time to current cycle
+        const normalizedTime = elapsedTime % cycleDuration;
+        // Calculate progress (0 to 1)
+        const progress = normalizedTime / cycleDuration;
+        
+        // Interpolate between start and end angles
+        const newAngle = range.start - (progress * totalAngle);
+        
+        // Try to update position
         if (!this.updateFourBarPosition(newAngle)) {
-            // If we can't update to this position, try reversing direction
-            this.updateFourBarPosition(this.animationStartAngle - deltaAngle);
+            // If update fails, stop animation
+            this.isAnimating = false;
         }
     }
     
