@@ -289,14 +289,14 @@ class BoxRenderer {
             // Draw ground link (gray)
             ctx.beginPath();
             ctx.strokeStyle = 'rgba(100, 100, 100, 0.5)';
-            ctx.lineWidth = 2;
+            ctx.lineWidth = this.hoverPoint === 'fourbar_input' ? 4 : 2;
             const groundStart = this.transform(fb.leftPivot);
             const groundEnd = this.transform(fb.rightPivot);
             ctx.moveTo(groundStart.x, groundStart.y);
             ctx.lineTo(groundEnd.x, groundEnd.y);
             ctx.stroke();
             
-            // Draw input link (red) with hover effect
+            // Draw input link (red)
             ctx.beginPath();
             ctx.strokeStyle = this.hoverPoint === 'fourbar_input' ? 
                 'rgba(255, 0, 0, 0.8)' : 'rgba(255, 0, 0, 0.5)';
@@ -323,12 +323,26 @@ class BoxRenderer {
             ctx.lineTo(outputEnd.x, outputEnd.y);
             ctx.stroke();
             
-            // Draw input angle
+            // Draw lengths
             ctx.fillStyle = '#333';
             ctx.font = '14px Arial';
             ctx.textAlign = 'left';
-            const angleDegrees = (fb.inputAngle * 180 / Math.PI).toFixed(1);
-            ctx.fillText(`Input Angle: ${angleDegrees}°`, 10, 20);
+            const padding = 10;
+            
+            // Calculate lengths
+            const groundLength = this.geometry.distance(fb.leftPivot, fb.rightPivot);
+            const inputLength = this.geometry.distance(fb.leftPivot, fb.inputEnd);
+            const followerLength = this.geometry.distance(fb.inputEnd, fb.outputEnd);
+            const outputLength = this.geometry.distance(fb.rightPivot, fb.outputEnd);
+            
+            // Display lengths
+            ctx.fillText(`Ground: ${groundLength.toFixed(1)}`, padding, padding + 20);
+            ctx.fillText(`Input: ${inputLength.toFixed(1)}`, padding, padding + 40);
+            ctx.fillText(`Follower: ${followerLength.toFixed(1)}`, padding, padding + 60);
+            ctx.fillText(`Output: ${outputLength.toFixed(1)}`, padding, padding + 80);
+            
+            // Draw input angle
+            ctx.fillText(`Input Angle: ${(fb.inputAngle * 180 / Math.PI).toFixed(1)}°`, padding, padding + 100);
         }
         
         // Draw connection lines
@@ -368,9 +382,16 @@ class BoxRenderer {
                 fb.inputEnd
             );
             
-            if (inputLinkDist < 0.25) {  // Increased hitbox size
+            if (inputLinkDist < 1.0) {  // Much bigger hitbox
                 // Re-initialize four-bar with current positions
                 this.geometry.initializeFourBar();
+                
+                // Immediately update position to current angle to prevent snapping
+                const currentAngle = Math.atan2(
+                    fb.inputEnd.y - fb.leftPivot.y,
+                    fb.inputEnd.x - fb.leftPivot.x
+                );
+                this.geometry.updateFourBarPosition(currentAngle);
                 
                 this.isDragging = true;
                 this.selectedPoint = 'fourbar_input';
@@ -415,7 +436,7 @@ class BoxRenderer {
                     fb.inputEnd
                 );
                 
-                if (inputLinkDist < 0.25) {  // Increased hitbox size
+                if (inputLinkDist < 1.0) {  // Much bigger hitbox
                     this.canvas.style.cursor = 'pointer';
                     this.hoverPoint = 'fourbar_input';
                     this.draw();

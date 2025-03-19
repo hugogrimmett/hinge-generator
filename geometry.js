@@ -112,73 +112,97 @@ class BoxGeometry {
             inputAngle: Math.atan2(
                 this.redClosedPoint.y - this.redBoxPoint.y,
                 this.redClosedPoint.x - this.redBoxPoint.x
-            )
+            ),
+            // Store configuration (above/below input link)
+            config: this.blueClosedPoint.y > this.redClosedPoint.y ? 1 : 0
         };
     }
     
-    updateFourBarPosition(newInputAngle) {
-        const fb = this.fourBarConfig;
-        if (!fb) return false;
+    updateFourBarPosition(angle) {
+        if (!this.fourBarConfig) return false;
         
-        // Store previous state
-        fb.prevOutputEnd = fb.outputEnd ? {x: fb.outputEnd.x, y: fb.outputEnd.y} : null;
+        // Store current state
+        const prevConfig = { ...this.fourBarConfig };
         
-        // Calculate input end position using angle
-        const newInputEnd = {
-            x: fb.leftPivot.x + fb.inputLength * Math.cos(newInputAngle),
-            y: fb.leftPivot.y + fb.inputLength * Math.sin(newInputAngle)
+        // Update input angle
+        this.fourBarConfig.inputAngle = angle;
+        
+        // Calculate new input end position
+        this.fourBarConfig.inputEnd = {
+            x: this.fourBarConfig.leftPivot.x + Math.cos(angle) * this.fourBarConfig.inputLength,
+            y: this.fourBarConfig.leftPivot.y + Math.sin(angle) * this.fourBarConfig.inputLength
         };
         
-        // Check if this is a valid configuration
-        if (!this.isValidConfiguration(
-            newInputEnd, 
-            fb.leftPivot, 
-            fb.rightPivot, 
-            fb.inputLength, 
-            fb.followerLength, 
-            fb.outputLength
-        )) {
-            return false;
-        }
-        
-        fb.inputEnd = newInputEnd;
-        fb.inputAngle = newInputAngle;
-        
-        // Find intersection of two circles
+        // Find intersection of follower and output circles
         const intersections = this.circleIntersection(
-            fb.inputEnd,
-            fb.rightPivot,
-            fb.followerLength,
-            fb.outputLength
+            this.fourBarConfig.inputEnd,
+            this.fourBarConfig.rightPivot,
+            this.fourBarConfig.followerLength,
+            this.fourBarConfig.outputLength
         );
         
         if (intersections.length === 0) {
-            if (fb.prevOutputEnd) {
-                fb.outputEnd = fb.prevOutputEnd;
-            }
+            // No valid configuration - revert
+            this.fourBarConfig = prevConfig;
             return false;
         }
         
-        // Choose configuration based on high/low selection
+        // Choose configuration based on stored config
         const [pos1, pos2] = intersections;
-        
-        if (!fb.prevOutputEnd) {
-            // First position - use config setting
-            fb.outputEnd = pos1.y > pos2.y ? 
-                (fb.config === 0 ? pos1 : pos2) : 
-                (fb.config === 0 ? pos2 : pos1);
+        if (this.fourBarConfig.config === 1) {
+            // Choose point above input link
+            this.fourBarConfig.outputEnd = pos1.y > this.fourBarConfig.inputEnd.y ? pos1 : pos2;
         } else {
-            // Choose closest point to previous position
-            const d1 = Math.pow(pos1.x - fb.prevOutputEnd.x, 2) + Math.pow(pos1.y - fb.prevOutputEnd.y, 2);
-            const d2 = Math.pow(pos2.x - fb.prevOutputEnd.x, 2) + Math.pow(pos2.y - fb.prevOutputEnd.y, 2);
-            
-            fb.outputEnd = d1 < d2 ? pos1 : pos2;
-            
-            // Update configuration based on chosen point
-            fb.config = fb.outputEnd.y > fb.inputEnd.y ? 0 : 1;
+            // Choose point below input link
+            this.fourBarConfig.outputEnd = pos1.y <= this.fourBarConfig.inputEnd.y ? pos1 : pos2;
+        }
+        
+        // Verify lengths are maintained with 1% tolerance
+        const newInputLength = this.distance(this.fourBarConfig.leftPivot, this.fourBarConfig.inputEnd);
+        const newFollowerLength = this.distance(this.fourBarConfig.inputEnd, this.fourBarConfig.outputEnd);
+        const newOutputLength = this.distance(this.fourBarConfig.rightPivot, this.fourBarConfig.outputEnd);
+        
+        const inputError = Math.abs(newInputLength - this.fourBarConfig.inputLength) / this.fourBarConfig.inputLength;
+        const followerError = Math.abs(newFollowerLength - this.fourBarConfig.followerLength) / this.fourBarConfig.followerLength;
+        const outputError = Math.abs(newOutputLength - this.fourBarConfig.outputLength) / this.fourBarConfig.outputLength;
+        
+        if (inputError > 0.01 || followerError > 0.01 || outputError > 0.01) {
+            // Lengths not maintained within 1% - revert
+            this.fourBarConfig = prevConfig;
+            return false;
         }
         
         return true;
+    }
+    
+    circleIntersection(c1, c2, r1, r2) {
+        const dx = c2.x - c1.x;
+        const dy = c2.y - c1.y;
+        const d = Math.sqrt(dx * dx + dy * dy);
+        
+        // Check if circles are too far apart or too close
+        if (d > r1 + r2 || d < Math.abs(r1 - r2)) {
+            return [];
+        }
+        
+        // Check if circles are coincident
+        if (d < 1e-10 && Math.abs(r1 - r2) < 1e-10) {
+            return [];
+        }
+        
+        const a = (r1 * r1 - r2 * r2 + d * d) / (2 * d);
+        const h = Math.sqrt(Math.max(0, r1 * r1 - a * a));  // Use max to avoid negative sqrt
+        
+        const x2 = c1.x + (dx * a) / d;
+        const y2 = c1.y + (dy * a) / d;
+        
+        const rx = -dy * (h / d);
+        const ry = dx * (h / d);
+        
+        return [
+            {x: x2 + rx, y: y2 + ry},
+            {x: x2 - rx, y: y2 - ry}
+        ];
     }
     
     // Helper to calculate distance between two points
@@ -383,6 +407,12 @@ class BoxGeometry {
     
     // Move points with constraints
     moveRedOpenPoint(point) {
+        // Constrain to lid boundaries
+        const lidVertices = this.getOpenLidVertices();
+        if (!this.isPointInPolygon(point, lidVertices)) {
+            return;
+        }
+        
         this.redOpenPoint = point;
         this.updateRedClosedPoint();
         this.updateConstraintLines();
@@ -397,6 +427,12 @@ class BoxGeometry {
     }
     
     moveBlueOpenPoint(point) {
+        // Constrain to lid boundaries
+        const lidVertices = this.getOpenLidVertices();
+        if (!this.isPointInPolygon(point, lidVertices)) {
+            return;
+        }
+        
         this.blueOpenPoint = point;
         this.updateBlueClosedPoint();
         this.updateConstraintLines();
@@ -550,5 +586,18 @@ class BoxGeometry {
         if (this.blueClosedPoint) points.push(this.blueClosedPoint);
         
         return points;
+    }
+    
+    isPointInPolygon(point, vertices) {
+        let inside = false;
+        for (let i = 0, j = vertices.length - 1; i < vertices.length; j = i++) {
+            const xi = vertices[i].x, yi = vertices[i].y;
+            const xj = vertices[j].x, yj = vertices[j].y;
+            
+            const intersect = ((yi > point.y) !== (yj > point.y))
+                && (point.x < (xj - xi) * (point.y - yi) / (yj - yi) + xi);
+            if (intersect) inside = !inside;
+        }
+        return inside;
     }
 }
