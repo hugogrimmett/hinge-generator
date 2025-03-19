@@ -26,38 +26,34 @@ class FourBarLinkage {
         this.motionPath = [];
         this.maxPathPoints = 100;
         
-        // Check Grashof condition
-        this.checkGrashof();
-        
         // Initialize positions
         this.updatePosition();
     }
     
-    checkGrashof() {
-        const lengths = [
-            this.groundLength,
-            this.inputLength,
-            this.followerLength,
-            this.outputLength
-        ].sort((a, b) => a - b);
+    // Check if a configuration is valid (no bar extension needed)
+    isValidConfiguration(inputEnd) {
+        // Check if input bar length is maintained
+        const inputLength = inputEnd.sub(this.leftPivot).length();
+        if (Math.abs(inputLength - this.inputLength) > 0.1) {
+            return false;
+        }
         
-        const [s, p, q, l] = lengths;
-        this.isGrashof = (s + l <= p + q);
-        this.linkageType = this.classifyLinkage(s, p, q, l);
+        // Check if configuration is possible (triangle inequality)
+        const rightToInput = inputEnd.sub(this.rightPivot).length();
+        
+        // Sum of follower and output must be >= distance between their pivots
+        if (rightToInput > this.followerLength + this.outputLength) {
+            return false;
+        }
+        
+        // Difference of follower and output must be <= distance between their pivots
+        if (rightToInput < Math.abs(this.followerLength - this.outputLength)) {
+            return false;
+        }
+        
+        return true;
     }
     
-    classifyLinkage(s, p, q, l) {
-        if (!this.isGrashof) return 'non-Grashof';
-        
-        if (this.groundLength === s) return 'crank-rocker';
-        if (this.groundLength === l) return 'rocker-crank';
-        if (this.groundLength === p || this.groundLength === q) return 'double-rocker';
-        if (s + l === p + q) return 'change-point';
-        
-        return 'unknown';
-    }
-    
-    // Port of TrotBot's circle intersection function
     circleIntersection(jointA, jointB, lengthA, lengthB) {
         const dx = jointB.x - jointA.x;
         const dy = jointB.y - jointA.y;
@@ -97,9 +93,16 @@ class FourBarLinkage {
         this.prevOutputEnd = this.outputEnd ? this.outputEnd.clone() : null;
         
         // Calculate input end position using angle
-        this.inputEnd = this.leftPivot.add(
+        const newInputEnd = this.leftPivot.add(
             Vector2D.fromAngle(this.inputAngle, this.inputLength)
         );
+        
+        // Check if this is a valid configuration
+        if (!this.isValidConfiguration(newInputEnd)) {
+            return false;
+        }
+        
+        this.inputEnd = newInputEnd;
         
         // Find intersection of two circles:
         // 1. Circle centered at inputEnd with radius = followerLength
@@ -332,12 +335,19 @@ class FourBarRenderer {
             this.drawJoint(this.linkage.outputEnd, '#666666', 'output');  // Moving joint 2
         }
         
-        // Draw linkage type and Grashof condition
+        // Draw input angle
         ctx.fillStyle = '#333';
         ctx.font = '14px Arial';
         ctx.textAlign = 'left';
-        ctx.fillText(`Type: ${this.linkage.linkageType}`, 10, 20);
-        ctx.fillText(`Grashof: ${this.linkage.isGrashof ? 'Yes' : 'No'}`, 10, 40);
+        const angleDegrees = (this.linkage.inputAngle * 180 / Math.PI).toFixed(1);
+        ctx.fillText(`Input Angle: ${angleDegrees}°`, 10, 20);
+        
+        // Draw follower length
+        if (this.linkage.inputEnd && this.linkage.outputEnd) {
+            const currentLength = this.linkage.inputEnd.sub(this.linkage.outputEnd).length().toFixed(1);
+            const targetLength = this.linkage.followerLength.toFixed(1);
+            ctx.fillText(`Follower Length: ${currentLength} / ${targetLength}`, 10, 40);
+        }
     }
     
     drawLink(start, end, color, id) {
@@ -409,16 +419,18 @@ class FourBarRenderer {
         
         if (this.isDragging && this.dragTarget) {
             if (this.dragTarget.type === 'joint' && this.dragTarget.id === 'input') {
-                // Project point onto input circle to maintain rod length
+                // Calculate new angle
                 const toPoint = point.sub(this.linkage.leftPivot);
-                const angle = toPoint.angle();
+                const newAngle = toPoint.angle();
                 
-                // Limit angle change to prevent sudden jumps
+                // Store current angle in case we need to revert
                 const prevAngle = this.linkage.inputAngle;
-                const angleDiff = ((angle - prevAngle + Math.PI) % (2 * Math.PI)) - Math.PI;
                 
-                if (Math.abs(angleDiff) < Math.PI/4) {  // Limit to 45 degrees per frame
-                    this.linkage.inputAngle = angle;
+                // Try to update with new angle
+                this.linkage.inputAngle = newAngle;
+                if (!this.linkage.updatePosition()) {
+                    // If update fails, revert to previous angle
+                    this.linkage.inputAngle = prevAngle;
                     this.linkage.updatePosition();
                 }
             }
