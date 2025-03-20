@@ -16,31 +16,47 @@
         body {
             font-family: Arial, sans-serif;
             margin: 20px;
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
         }
         .container {
             display: flex;
             flex-direction: column;
             align-items: center;
             gap: 20px;
+            flex: 1;
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 0 20px;
         }
         .header {
             text-align: center;
+            width: 100%;
             max-width: 800px;
             margin-bottom: 20px;
         }
         .header h1 {
             margin-bottom: 10px;
+            font-size: clamp(1.5rem, 4vw, 2rem);
         }
         .header p {
             line-height: 1.5;
             color: #444;
+            font-size: clamp(0.9rem, 2vw, 1rem);
         }
         .content {
             display: flex;
             gap: 20px;
+            width: 100%;
+            align-items: flex-start;
         }
         .controls {
             width: 300px;
+            background: #f8f8f8;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
         }
         .control-group {
             margin-bottom: 15px;
@@ -48,15 +64,66 @@
         label {
             display: block;
             margin-bottom: 5px;
+            font-weight: 500;
         }
         input[type="range"] {
-            width: 200px;
+            width: 100%;
+            max-width: 200px;
+            margin-right: 10px;
         }
         input[type="number"] {
             width: 60px;
+            padding: 4px;
+            border: 1px solid #ccc;
+            border-radius: 4px;
         }
         canvas {
             border: 1px solid #ccc;
+            border-radius: 4px;
+            max-width: 100%;
+        }
+        .visualization {
+            flex: 1;
+            min-width: 0;  
+            display: flex;
+            justify-content: center;
+        }
+        button {
+            background: #007bff;
+            color: white;
+            border: none;
+            padding: 8px 16px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 1rem;
+            transition: background 0.2s;
+        }
+        button:hover {
+            background: #0056b3;
+        }
+        
+        /* Responsive layout */
+        @media (max-width: 768px) {
+            .content {
+                flex-direction: column;
+                align-items: stretch;
+            }
+            .controls {
+                width: auto;
+                order: 2;  
+            }
+            .visualization {
+                order: 1;  
+            }
+            canvas {
+                max-width: 100%;
+            }
+            body {
+                margin: 10px;
+            }
+            .container {
+                padding: 0 10px;
+            }
         }
     </style>
 </head>
