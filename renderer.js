@@ -368,20 +368,26 @@ class BoxRenderer {
                 ctx.fillStyle = 'rgba(255, 0, 0, 0.1)';
                 ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
                 
-                // Show error message
-                ctx.font = '18px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Oxygen, Ubuntu, Cantarell, "Open Sans", "Helvetica Neue", sans-serif';
+                // Show error message with responsive font size and line wrapping
+                const fontSize = Math.min(18, this.canvas.width / 25);
+                ctx.font = `${fontSize}px -apple-system, BlinkMacSystemFont, sans-serif`;
                 ctx.fillStyle = 'red';
                 ctx.textAlign = 'center';
-                ctx.fillText(
-                    "This hinge will not allow the lid to open and close.",
-                    this.canvas.width / 2,
-                    30
-                );
-                ctx.fillText(
-                    "Try moving the red and blue pivot points.",
-                    this.canvas.width / 2,
-                    55
-                );
+                
+                // Calculate available width for text (80% of canvas width)
+                const maxWidth = this.canvas.width * 0.8;
+                
+                // Split message into two parts
+                const msg1 = "This hinge will not allow the lid to open and close.";
+                const msg2 = "Try moving the red and blue pivot points.";
+                
+                // Position text vertically based on canvas size
+                const y1 = Math.max(fontSize + 10, this.canvas.height * 0.1);
+                const y2 = y1 + fontSize + 5;
+                
+                // Draw text with max width constraint
+                ctx.fillText(msg1, this.canvas.width / 2, y1, maxWidth);
+                ctx.fillText(msg2, this.canvas.width / 2, y2, maxWidth);
             }
             
             // Start animation if valid and not dragging
@@ -414,7 +420,7 @@ class BoxRenderer {
         const closedLidVertices = this.geometry.getClosedLidVertices();
         const closedLidCenter = this.transform({
             x: (closedLidVertices[0].x + closedLidVertices[1].x) / 6,
-            y: (closedLidVertices[2].y + closedLidVertices[1].y) * 2 / 3
+            y: (closedLidVertices[0].y + closedLidVertices[2].y) * 2 / 3
         });
         ctx.fillText('lid in closed position', closedLidCenter.x, closedLidCenter.y);
         
