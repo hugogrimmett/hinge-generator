@@ -11,14 +11,16 @@
     gtag('config', 'G-RGRSQ027P8');
     </script>
     <title>Toolbox Hinge Generator</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
     <style>
         body {
-            font-family: Arial, sans-serif;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Oxygen, Ubuntu, Cantarell, "Open Sans", "Helvetica Neue", sans-serif;
             margin: 20px;
             min-height: 100vh;
             display: flex;
             flex-direction: column;
+            overscroll-behavior: none;  /* Prevent bounce/rubber-band effect */
         }
         .container {
             display: flex;
@@ -84,9 +86,18 @@
         }
         .visualization {
             flex: 1;
-            min-width: 0;  
             display: flex;
+            flex-direction: column;
+            align-items: center;
             justify-content: center;
+            min-height: 400px;
+            position: relative;
+        }
+        canvas {
+            max-width: 100%;
+            height: auto;
+            touch-action: none;  /* Prevent browser handling of touch events */
+            -webkit-tap-highlight-color: transparent;  /* Remove tap highlight on iOS */
         }
         button {
             background: #007bff;
@@ -107,22 +118,35 @@
             .content {
                 flex-direction: column;
                 align-items: stretch;
+                gap: 10px;
             }
             .controls {
                 width: auto;
                 order: 2;  
+                padding: 15px;
             }
             .visualization {
                 order: 1;  
+                min-height: 300px;  /* Smaller on mobile */
             }
             canvas {
                 max-width: 100%;
+                max-height: 60vh;  /* Limit height on mobile */
             }
             body {
                 margin: 10px;
             }
             .container {
                 padding: 0 10px;
+            }
+            .control-group {
+                margin-bottom: 10px;  /* Tighter spacing on mobile */
+            }
+            input[type="range"] {
+                width: calc(100% - 70px);  /* Account for number input */
+            }
+            input[type="number"] {
+                width: 60px;
             }
         }
     </style>
@@ -174,7 +198,7 @@
             </div>
             
             <div class="visualization">
-                <canvas id="canvas" width="800" height="600"></canvas>
+                <canvas id="canvas"></canvas>
             </div>
         </div>
 
@@ -187,13 +211,28 @@
             document.addEventListener('DOMContentLoaded', () => {
                 // Initialize visualization
                 const canvas = document.getElementById('canvas');
+                const container = canvas.parentElement;
+                
+                // Set canvas size based on container
+                const containerWidth = container.clientWidth;
+                const containerHeight = container.clientHeight;
+                const size = Math.min(containerWidth, containerHeight);
+                
+                // Keep aspect ratio but scale down on mobile
+                const isMobile = window.innerWidth <= 768;
+                const baseSize = isMobile ? 600 : 800;
+                const scale = size / baseSize;
+                
+                canvas.width = Math.min(baseSize, containerWidth);
+                canvas.height = Math.min(baseSize * 0.75, containerHeight);  // 4:3 aspect ratio
+                
                 boxRenderer = new BoxRenderer(
                     canvas,
-                    30,  // height
-                    40,  // width
-                    10,   // depth
-                    75,   // alpha
-                    1     // gap
+                    parseFloat(document.getElementById('heightInput').value),
+                    parseFloat(document.getElementById('widthInput').value),
+                    parseFloat(document.getElementById('depthInput').value),
+                    parseFloat(document.getElementById('alphaInput').value),
+                    parseFloat(document.getElementById('gapInput').value)
                 );
                 
                 // Setup all controls
@@ -202,20 +241,29 @@
             
             // Helper function to update visualization
             function updateVisualization() {
-                const params = {
-                    height: parseFloat(document.getElementById('heightSlider').value),
-                    width: parseFloat(document.getElementById('widthSlider').value),
-                    depth: parseFloat(document.getElementById('depthSlider').value),
-                    alpha: parseFloat(document.getElementById('alphaSlider').value),
-                    gap: parseFloat(document.getElementById('gapSlider').value)
-                };
+                const canvas = document.getElementById('canvas');
+                const container = canvas.parentElement;
                 
+                // Set canvas size based on container
+                const containerWidth = container.clientWidth;
+                const containerHeight = container.clientHeight;
+                const size = Math.min(containerWidth, containerHeight);
+                
+                // Keep aspect ratio but scale down on mobile
+                const isMobile = window.innerWidth <= 768;
+                const baseSize = isMobile ? 600 : 800;
+                const scale = size / baseSize;
+                
+                canvas.width = Math.min(baseSize, containerWidth);
+                canvas.height = Math.min(baseSize * 0.75, containerHeight);  // 4:3 aspect ratio
+                
+                // Update renderer
                 boxRenderer.updateParameters(
-                    params.height,
-                    params.width,
-                    params.depth,
-                    params.alpha,
-                    params.gap
+                    parseFloat(document.getElementById('heightInput').value),
+                    parseFloat(document.getElementById('widthInput').value),
+                    parseFloat(document.getElementById('depthInput').value),
+                    parseFloat(document.getElementById('alphaInput').value),
+                    parseFloat(document.getElementById('gapInput').value)
                 );
             }
             
@@ -265,6 +313,13 @@
                     });
                 }
             }
+            
+            // Add resize handler
+            let resizeTimeout;
+            window.addEventListener('resize', () => {
+                clearTimeout(resizeTimeout);
+                resizeTimeout = setTimeout(updateVisualization, 250);  // Debounce resize events
+            });
         </script>
     </body>
 </html>
