@@ -635,6 +635,17 @@ class BoxRenderer {
         // Get template bounds
         const bounds = this.geometry.getTemplateBounds();
         
+        // Debug output
+        console.log('Box Points:', {
+            red: this.geometry.redBoxPoint,
+            blue: this.geometry.blueBoxPoint
+        });
+        console.log('Closed Points:', {
+            red: this.geometry.redClosedPoint,
+            blue: this.geometry.blueClosedPoint
+        });
+        console.log('Bounds:', bounds);
+        
         // Create PDF with 1:1 scale (1 unit = 1 cm)
         const { jsPDF } = window.jspdf;
         const margin = 2;  // 2cm margin
@@ -646,7 +657,7 @@ class BoxRenderer {
         // No scaling needed since we want 1:1, just translate to add margins and flip Y
         const transform = (point) => ({
             x: point.x - bounds.left + margin,
-            y: pdfHeight - (point.y - bounds.bottom + margin)  // Flip Y and add margin
+            y: pdfHeight - (point.y - bounds.bottom) - margin  // Fix Y coordinate transformation
         });
         
         // Helper to check if point is within bounds

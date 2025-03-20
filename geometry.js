@@ -931,6 +931,7 @@ class BoxGeometry {
     
     // Get the bounding box for the template, with margin
     getTemplateBounds() {
+        // Get just the four pivot points
         const points = [
             this.redBoxPoint,
             this.blueBoxPoint,
@@ -943,24 +944,21 @@ class BoxGeometry {
         let maxX = -Infinity, maxY = -Infinity;
         
         for (const p of points) {
+            if (!p) continue;  // Skip any null points
             minX = Math.min(minX, p.x);
             minY = Math.min(minY, p.y);
             maxX = Math.max(maxX, p.x);
             maxY = Math.max(maxY, p.y);
         }
         
-        // Add 10% margin
-        const width = maxX - minX;
-        const height = maxY - minY;
-        const margin = Math.max(width, height) * 0.1;
-        
+        // Return exact bounds based only on the pivot points
         return {
-            left: minX - margin,
-            right: maxX + margin,
-            top: maxY + margin,
-            bottom: minY - margin,
-            width: width + 2 * margin,
-            height: height + 2 * margin
+            left: minX,
+            right: maxX,
+            top: maxY,
+            bottom: minY,
+            width: maxX - minX,
+            height: maxY - minY
         };
     }
 }
