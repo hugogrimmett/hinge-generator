@@ -88,7 +88,7 @@ class BoxRenderer {
         // Animation state
         this.geometry.isAnimating = false;
         this.animationTime = 0;
-        this.animationDuration = 3000;  // 3 seconds for a full cycle
+        this.animationDuration = 30000;  // 3 seconds for a full cycle
         this.lastTimestamp = null;
         
         // Initialize geometry and draw
@@ -431,6 +431,12 @@ class BoxRenderer {
         // Draw lid in both positions
         this.drawLid(this.geometry.getClosedLidVertices(), 'black');
         this.drawLid(this.geometry.getOpenLidVertices(), 'black');
+        
+        // Draw moving lid if available
+        const movingLidVertices = this.geometry.getMovingLidVertices();
+        if (movingLidVertices) {
+            this.drawLid(movingLidVertices, '#66c2a588');  // Semi-transparent teal
+        }
         
         // Draw labels
         ctx.font = '16px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Oxygen, Ubuntu, Cantarell, "Open Sans", "Helvetica Neue", sans-serif';

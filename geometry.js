@@ -33,6 +33,12 @@ class BoxGeometry {
         // Four-bar linkage solver
         this.fourBarConfig = null;
         
+        // Moving lid state
+        this.movingLidVertices = null;
+        this.previousMovingLidVertices = null;
+        this.previousFollowerStart = null;
+        this.previousFollowerEnd = null;
+        
         // Initialize pivot points
         this.initializePivotPoints();
         this.updateConstraintLines();
@@ -110,11 +116,25 @@ class BoxGeometry {
             // Store configuration (above/below input link)
             config: this.blueClosedPoint.y > this.redClosedPoint.y ? 1 : 0
         };
+        
+        // Initialize moving lid with closed lid vertices
+        this.movingLidVertices = this.getClosedLidVertices();
+        this.previousMovingLidVertices = this.movingLidVertices.map(v => ({...v}));
+        
+        const points = this.getFourBarPoints();
+        this.previousFollowerStart = {...points.redClosed};
+        this.previousFollowerEnd = {...points.blueClosed};
     }
     
     updateFourBarPosition(angle) {
         if (!this.fourBarConfig) return false;
         
+        // Store previous follower positions before updating
+        const oldPoints = this.getFourBarPoints();
+        this.previousFollowerStart = {...oldPoints.redClosed};
+        this.previousFollowerEnd = {...oldPoints.blueClosed};
+        this.previousMovingLidVertices = this.movingLidVertices.map(v => ({...v}));
+
         // Store current state
         const prevConfig = { ...this.fourBarConfig };
         
@@ -156,6 +176,24 @@ class BoxGeometry {
                 (pos1.y > this.fourBarConfig.inputEnd.y ? pos1 : pos2) :
                 (pos1.y <= this.fourBarConfig.inputEnd.y ? pos1 : pos2);
         }
+        
+        // Compute transformation from previous to new follower position
+        const transform = this.makeTransform(
+            Math.atan2(
+                this.fourBarConfig.outputEnd.y - this.fourBarConfig.inputEnd.y,
+                this.fourBarConfig.outputEnd.x - this.fourBarConfig.inputEnd.x
+            ) - Math.atan2(
+                this.previousFollowerEnd.y - this.previousFollowerStart.y,
+                this.previousFollowerEnd.x - this.previousFollowerStart.x
+            ),
+            {
+                x: this.fourBarConfig.inputEnd.x - this.previousFollowerStart.x,
+                y: this.fourBarConfig.inputEnd.y - this.previousFollowerStart.y
+            }
+        );
+
+        // Transform previous moving lid vertices to new position
+        this.movingLidVertices = this.transformPoints(transform, this.previousMovingLidVertices);
         
         // Verify lengths are maintained with 1% tolerance
         const newInputLength = this.distance(this.fourBarConfig.leftPivot, this.fourBarConfig.inputEnd);
@@ -401,7 +439,11 @@ class BoxGeometry {
             redBox: this.fourBarConfig.leftPivot,
             redClosed: this.fourBarConfig.inputEnd,
             blueClosed: this.fourBarConfig.outputEnd,
-            blueBox: this.fourBarConfig.rightPivot
+            blueBox: this.fourBarConfig.rightPivot,
+            follower: {
+                start: this.fourBarConfig.inputEnd,
+                end: this.fourBarConfig.outputEnd
+            }
         };
     }
     
@@ -942,5 +984,42 @@ class BoxGeometry {
             width: maxX - minX,
             height: maxY - minY
         };
+    }
+    
+    // Helper functions for homogeneous coordinates
+    toHomogeneous(point) {
+        return math.matrix([[point.x], [point.y], [1]]);
+    }
+
+    fromHomogeneous(vec) {
+        const arr = vec.toArray();
+        return {
+            x: arr[0][0] / arr[2][0],
+            y: arr[1][0] / arr[2][0]
+        };
+    }
+
+    makeTransform(rotation, translation) {
+        const cos = Math.cos(rotation);
+        const sin = Math.sin(rotation);
+        return math.matrix([
+            [cos, -sin, translation.x],
+            [sin,  cos, translation.y],
+            [0,    0,   1]
+        ]);
+    }
+
+    transformPoint(matrix, point) {
+        const homogeneous = this.toHomogeneous(point);
+        const transformed = math.multiply(matrix, homogeneous);
+        return this.fromHomogeneous(transformed);
+    }
+
+    transformPoints(matrix, points) {
+        return points.map(p => this.transformPoint(matrix, p));
+    }
+    
+    getMovingLidVertices() {
+        return this.movingLidVertices;
     }
 }
