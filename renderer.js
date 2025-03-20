@@ -368,9 +368,14 @@ class BoxRenderer {
                 ctx.fillStyle = 'red';
                 ctx.textAlign = 'center';
                 ctx.fillText(
-                    "This hinge will not allow the lid to open and close. Try moving the red and blue pivot points.",
+                    "This hinge will not allow the lid to open and close.",
                     this.canvas.width / 2,
                     30
+                );
+                ctx.fillText(
+                    "Try moving the red and blue pivot points.",
+                    this.canvas.width / 2,
+                    55
                 );
             }
             
