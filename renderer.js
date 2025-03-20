@@ -34,6 +34,12 @@ class BoxRenderer {
         this.canvas.addEventListener('mouseup', this.handleMouseUp.bind(this));
         this.canvas.addEventListener('mouseleave', this.handleMouseUp.bind(this));
         
+        // Add touch event listeners
+        this.canvas.addEventListener('touchstart', this.handleTouchStart.bind(this), { passive: false });
+        this.canvas.addEventListener('touchmove', this.handleTouchMove.bind(this), { passive: false });
+        this.canvas.addEventListener('touchend', this.handleTouchEnd.bind(this));
+        this.canvas.addEventListener('touchcancel', this.handleTouchEnd.bind(this));
+        
         // Add template generation button listener
         const generateButton = document.getElementById('generateTemplateButton');
         if (generateButton) {
@@ -201,7 +207,7 @@ class BoxRenderer {
         }
         
         ctx.closePath();
-        ctx.fillStyle = 'rgba(200, 200, 200, 0.2)';  // Increased opacity from 0.1 to 0.2
+        ctx.fillStyle = 'rgba(200, 200, 200, 0.3)';  // Increased opacity from 0.1 to 0.3
         ctx.fill();
         ctx.strokeStyle = '#000';
         ctx.lineWidth = 2;
@@ -222,6 +228,8 @@ class BoxRenderer {
         }
         
         ctx.closePath();
+        ctx.fillStyle = 'rgba(200, 200, 200, 0.3)';  // Same as box
+        ctx.fill();
         ctx.strokeStyle = color;
         ctx.lineWidth = 2;
         ctx.stroke();
@@ -365,8 +373,8 @@ class BoxRenderer {
         this.drawBox();
         
         // Draw lid in both positions
-        this.drawLid(this.geometry.getClosedLidVertices(), 'rgba(0, 0, 0, 0.5)');
-        this.drawLid(this.geometry.getOpenLidVertices(), 'rgba(0, 0, 0, 0.5)');
+        this.drawLid(this.geometry.getClosedLidVertices(), 'black');
+        this.drawLid(this.geometry.getOpenLidVertices(), 'black');
         
         // Draw labels
         ctx.font = '16px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Oxygen, Ubuntu, Cantarell, "Open Sans", "Helvetica Neue", sans-serif';
@@ -544,6 +552,35 @@ class BoxRenderer {
         }
     }
     
+    // Touch event handlers
+    handleTouchStart(e) {
+        e.preventDefault(); // Prevent scrolling while touching pivot points
+        if (e.touches.length === 1) {
+            const touch = e.touches[0];
+            const fakeMouseEvent = {
+                clientX: touch.clientX,
+                clientY: touch.clientY
+            };
+            this.handleMouseDown(fakeMouseEvent);
+        }
+    }
+
+    handleTouchMove(e) {
+        e.preventDefault(); // Prevent scrolling while dragging
+        if (e.touches.length === 1) {
+            const touch = e.touches[0];
+            const fakeMouseEvent = {
+                clientX: touch.clientX,
+                clientY: touch.clientY
+            };
+            this.handleMouseMove(fakeMouseEvent);
+        }
+    }
+
+    handleTouchEnd(e) {
+        this.handleMouseUp();
+    }
+    
     // Animation loop
     animate() {
         if (this.geometry.isAnimating) {
@@ -624,6 +661,10 @@ class BoxRenderer {
         this.canvas.removeEventListener('mousemove', this.handleMouseMove);
         this.canvas.removeEventListener('mouseup', this.handleMouseUp);
         this.canvas.removeEventListener('mouseleave', this.handleMouseUp);
+        this.canvas.removeEventListener('touchstart', this.handleTouchStart);
+        this.canvas.removeEventListener('touchmove', this.handleTouchMove);
+        this.canvas.removeEventListener('touchend', this.handleTouchEnd);
+        this.canvas.removeEventListener('touchcancel', this.handleTouchEnd);
     }
     
     getMousePoint(e) {
