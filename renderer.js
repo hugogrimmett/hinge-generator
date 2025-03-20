@@ -162,15 +162,14 @@ class BoxRenderer {
     // Draw a circle at a point
     drawCircle(point, radius, color, fill = true) {
         const ctx = this.ctx;
-        const screenPoint = this.transform(point);
-        
+        const tp = this.transform(point);
         ctx.beginPath();
-        ctx.arc(screenPoint.x, screenPoint.y, radius, 0, 2 * Math.PI);
+        ctx.arc(tp.x, tp.y, radius * 1.3, 0, Math.PI * 2);  // 30% bigger
         if (fill) {
-            ctx.fillStyle = color;
+            ctx.fillStyle = color === 'red' ? '#ff6666' : color === 'blue' ? '#4d94ff' : color;  // More vibrant
             ctx.fill();
         } else {
-            ctx.strokeStyle = color;
+            ctx.strokeStyle = color === 'red' ? '#ff6666' : color === 'blue' ? '#4d94ff' : color;  // More vibrant
             ctx.stroke();
         }
     }
@@ -178,23 +177,23 @@ class BoxRenderer {
     // Draw text at a point
     drawText(text, point, color) {
         const ctx = this.ctx;
-        const screenPoint = this.transform(point);
+        const tp = this.transform(point);
         
         ctx.fillStyle = color;
         ctx.font = '18px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Oxygen, Ubuntu, Cantarell, "Open Sans", "Helvetica Neue", sans-serif';
         ctx.textAlign = 'center';
         ctx.textBaseline = 'middle';
-        ctx.fillText(text, screenPoint.x, screenPoint.y - 20);
+        ctx.fillText(text, tp.x, tp.y - 20);
     }
     
     // Draw box outline
     drawBox() {
-        const vertices = this.geometry.getBoxVertices();
         const ctx = this.ctx;
+        const vertices = this.geometry.getBoxVertices();
         
         ctx.beginPath();
-        const start = this.transform(vertices[0]);
-        ctx.moveTo(start.x, start.y);
+        const first = this.transform(vertices[0]);
+        ctx.moveTo(first.x, first.y);
         
         for (let i = 1; i < vertices.length; i++) {
             const point = this.transform(vertices[i]);
@@ -202,7 +201,9 @@ class BoxRenderer {
         }
         
         ctx.closePath();
-        ctx.strokeStyle = 'black';
+        ctx.fillStyle = 'rgba(200, 200, 200, 0.2)';  // Increased opacity from 0.1 to 0.2
+        ctx.fill();
+        ctx.strokeStyle = '#000';
         ctx.lineWidth = 2;
         ctx.stroke();
     }
@@ -233,7 +234,7 @@ class BoxRenderer {
         // Draw dashed line between points
         ctx.beginPath();
         ctx.setLineDash([5, 5]);
-        ctx.strokeStyle = color;
+        ctx.strokeStyle = color === 'red' ? '#ff6666' : color === 'blue' ? '#4d94ff' : color;  // More vibrant
         ctx.lineWidth = 1;
         
         const start = this.transform(line.start);
@@ -247,13 +248,15 @@ class BoxRenderer {
         
         // Draw perpendicular line
         ctx.beginPath();
-        ctx.strokeStyle = `${color}33`;  // 20% opacity
+        ctx.setLineDash([2, 2]);  // Dotted line
+        ctx.strokeStyle = color === 'red' ? '#ff8080' : color === 'blue' ? '#80b3ff' : `${color}33`;  // Lighter but still vibrant
         
         const perpStart = this.transform(line.perpStart);
         const perpEnd = this.transform(line.perpEnd);
         ctx.moveTo(perpStart.x, perpStart.y);
         ctx.lineTo(perpEnd.x, perpEnd.y);
         ctx.stroke();
+        ctx.setLineDash([]);  // Reset dash
         
         // Draw thick connecting lines
         ctx.beginPath();
@@ -267,7 +270,7 @@ class BoxRenderer {
         
         ctx.setLineDash([]);
         ctx.lineWidth = 3;
-        ctx.strokeStyle = color;
+        ctx.strokeStyle = color === 'red' ? '#ff6666' : color === 'blue' ? '#4d94ff' : color;  // More vibrant
         ctx.stroke();
         
         // Reset line style
@@ -382,7 +385,7 @@ class BoxRenderer {
         const closedLidVertices = this.geometry.getClosedLidVertices();
         const closedLidCenter = this.transform({
             x: (closedLidVertices[0].x + closedLidVertices[1].x) / 6,
-            y: closedLidVertices[0].y - 20  // 20 pixels above the lid
+            y: (closedLidVertices[2].y + closedLidVertices[1].y) * 2 / 3
         });
         ctx.fillText('lid in closed position', closedLidCenter.x, closedLidCenter.y);
         
