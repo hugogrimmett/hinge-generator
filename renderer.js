@@ -181,7 +181,7 @@ class BoxRenderer {
         const screenPoint = this.transform(point);
         
         ctx.fillStyle = color;
-        ctx.font = '14px Arial';
+        ctx.font = '18px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Oxygen, Ubuntu, Cantarell, "Open Sans", "Helvetica Neue", sans-serif';
         ctx.textAlign = 'center';
         ctx.textBaseline = 'middle';
         ctx.fillText(text, screenPoint.x, screenPoint.y - 20);
@@ -342,11 +342,11 @@ class BoxRenderer {
                 ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
                 
                 // Show error message
-                ctx.font = '14px Arial';
+                ctx.font = '18px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Oxygen, Ubuntu, Cantarell, "Open Sans", "Helvetica Neue", sans-serif';
                 ctx.fillStyle = 'red';
                 ctx.textAlign = 'center';
                 ctx.fillText(
-                    "This hinge will not allow the lid to open and close. Try moving the pivot points",
+                    "This hinge will not allow the lid to open and close. Try moving the red and blue pivot points.",
                     this.canvas.width / 2,
                     30
                 );
@@ -366,7 +366,7 @@ class BoxRenderer {
         this.drawLid(this.geometry.getOpenLidVertices(), 'rgba(0, 0, 0, 0.5)');
         
         // Draw labels
-        ctx.font = '12px Arial';
+        ctx.font = '16px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Oxygen, Ubuntu, Cantarell, "Open Sans", "Helvetica Neue", sans-serif';
         ctx.fillStyle = 'black';
         ctx.textAlign = 'left';
         
