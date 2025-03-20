@@ -34,6 +34,12 @@ class BoxRenderer {
         this.canvas.addEventListener('mouseup', this.handleMouseUp.bind(this));
         this.canvas.addEventListener('mouseleave', this.handleMouseUp.bind(this));
         
+        // Add template generation button listener
+        const generateButton = document.getElementById('generateTemplateButton');
+        if (generateButton) {
+            generateButton.addEventListener('click', () => this.generateTemplate());
+        }
+        
         // Set up interaction state
         this.isDragging = false;
         this.selectedPoint = null;
@@ -623,5 +629,111 @@ class BoxRenderer {
             x: e.clientX - rect.left,
             y: e.clientY - rect.top
         });
+    }
+    
+    generateTemplate() {
+        // Get template bounds
+        const bounds = this.geometry.getTemplateBounds();
+        
+        // Create PDF (A4 size in portrait)
+        const { jsPDF } = window.jspdf;
+        const pdf = new jsPDF('p', 'cm', 'a4');
+        const pageWidth = 21;  // A4 width in cm
+        const pageHeight = 29.7;  // A4 height in cm
+        const margin = 2;  // 2cm margin
+        
+        // Calculate scale to fit template on page with margins
+        const scaleX = (pageWidth - 2 * margin) / bounds.width;
+        const scaleY = (pageHeight - 2 * margin) / bounds.height;
+        const scale = Math.min(scaleX, scaleY);
+        
+        // Calculate centered position
+        const centerX = pageWidth / 2;
+        const centerY = pageHeight / 2;
+        
+        // Transform from model coordinates to PDF coordinates
+        // Flip Y coordinate since PDF coordinates go down from top
+        const transform = (point) => ({
+            x: centerX + (point.x - (bounds.left + bounds.width/2)) * scale,
+            y: centerY - (point.y - (bounds.bottom + bounds.height/2)) * scale
+        });
+        
+        // Helper to check if point is within bounds (with small margin)
+        const isInBounds = (point) => {
+            const margin = 0.1;  // 1mm margin
+            return point.x >= bounds.left - margin && 
+                   point.x <= bounds.right + margin &&
+                   point.y >= bounds.bottom - margin && 
+                   point.y <= bounds.top + margin;
+        };
+        
+        // Draw box outline (only visible parts)
+        const boxVertices = this.geometry.getBoxVertices();
+        pdf.setDrawColor(0);
+        pdf.setLineWidth(0.01);
+        
+        for (let i = 0; i < boxVertices.length; i++) {
+            const p1 = boxVertices[i];
+            const p2 = boxVertices[(i + 1) % boxVertices.length];
+            
+            // Only draw if at least one endpoint is in bounds
+            if (isInBounds(p1) || isInBounds(p2)) {
+                const tp1 = transform(p1);
+                const tp2 = transform(p2);
+                pdf.line(tp1.x, tp1.y, tp2.x, tp2.y);
+            }
+        }
+        
+        // Draw closed lid outline (only visible parts)
+        const closedLidVertices = this.geometry.getClosedLidVertices();
+        pdf.setDrawColor(100);
+        
+        for (let i = 0; i < closedLidVertices.length; i++) {
+            const p1 = closedLidVertices[i];
+            const p2 = closedLidVertices[(i + 1) % closedLidVertices.length];
+            
+            // Only draw if at least one endpoint is in bounds
+            if (isInBounds(p1) || isInBounds(p2)) {
+                const tp1 = transform(p1);
+                const tp2 = transform(p2);
+                pdf.line(tp1.x, tp1.y, tp2.x, tp2.y);
+            }
+        }
+        
+        // Draw pivot points
+        const points = [
+            { point: this.geometry.redBoxPoint, color: 'red' },
+            { point: this.geometry.blueBoxPoint, color: 'blue' },
+            { point: this.geometry.redClosedPoint, color: 'red' },
+            { point: this.geometry.blueClosedPoint, color: 'blue' }
+        ];
+        
+        const radius = 0.1;  // 1mm radius for points
+        for (const {point, color} of points) {
+            const p = transform(point);
+            pdf.setFillColor(color === 'red' ? '#ff0000' : '#0000ff');
+            pdf.circle(p.x, p.y, radius, 'F');
+        }
+        
+        // Draw bounding box
+        pdf.setDrawColor(200);  // Light gray
+        pdf.setLineWidth(0.005);
+        const bl = transform({x: bounds.left, y: bounds.bottom});
+        const br = transform({x: bounds.right, y: bounds.bottom});
+        const tr = transform({x: bounds.right, y: bounds.top});
+        const tl = transform({x: bounds.left, y: bounds.top});
+        pdf.line(bl.x, bl.y, br.x, br.y);
+        pdf.line(br.x, br.y, tr.x, tr.y);
+        pdf.line(tr.x, tr.y, tl.x, tl.y);
+        pdf.line(tl.x, tl.y, bl.x, bl.y);
+        
+        // Add dimensions
+        pdf.setFontSize(10);
+        pdf.text(`Box dimensions: ${this.geometry.width}cm × ${this.geometry.height}cm × ${this.geometry.depth}cm`, margin, margin);
+        pdf.text(`Lid angle: ${Math.round(this.geometry.closedAngle * 180 / Math.PI)}°`, margin, margin + 0.5);
+        pdf.text(`Gap: ${this.geometry.gap}cm`, margin, margin + 1);
+        
+        // Save the PDF
+        pdf.save('hinge-template.pdf');
     }
 }

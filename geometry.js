@@ -928,4 +928,39 @@ class BoxGeometry {
             this.tryPreserveLidPivot('blue', positions.blueOpen);
         }
     }
+    
+    // Get the bounding box for the template, with margin
+    getTemplateBounds() {
+        const points = [
+            this.redBoxPoint,
+            this.blueBoxPoint,
+            this.redClosedPoint,
+            this.blueClosedPoint
+        ];
+        
+        // Find min/max coordinates
+        let minX = Infinity, minY = Infinity;
+        let maxX = -Infinity, maxY = -Infinity;
+        
+        for (const p of points) {
+            minX = Math.min(minX, p.x);
+            minY = Math.min(minY, p.y);
+            maxX = Math.max(maxX, p.x);
+            maxY = Math.max(maxY, p.y);
+        }
+        
+        // Add 10% margin
+        const width = maxX - minX;
+        const height = maxY - minY;
+        const margin = Math.max(width, height) * 0.1;
+        
+        return {
+            left: minX - margin,
+            right: maxX + margin,
+            top: maxY + margin,
+            bottom: minY - margin,
+            width: width + 2 * margin,
+            height: height + 2 * margin
+        };
+    }
 }
