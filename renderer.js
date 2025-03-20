@@ -53,6 +53,7 @@ class BoxRenderer {
         this.exitAngle = null;
         this.lastAngle = null;
         this.lastValidConfig = null;
+        this.isTouchDevice = 'ontouchstart' in window;  // Detect touch device
         
         // Animation controls
         const animateButton = document.getElementById('animateButton');
@@ -169,8 +170,18 @@ class BoxRenderer {
     drawCircle(point, radius, color, fill = true) {
         const ctx = this.ctx;
         const tp = this.transform(point);
+        const actualRadius = radius * (this.isTouchDevice ? 2 : 1.3);  // Larger radius for touch devices
+
+        // Draw highlight for interactive points
+        if ((color === 'red' || color === 'blue') && this.isTouchDevice) {
+            ctx.beginPath();
+            ctx.arc(tp.x, tp.y, actualRadius + 8, 0, Math.PI * 2);
+            ctx.fillStyle = `${color === 'red' ? '#ff6666' : '#4d94ff'}22`;  // Very light highlight
+            ctx.fill();
+        }
+
         ctx.beginPath();
-        ctx.arc(tp.x, tp.y, radius * 1.3, 0, Math.PI * 2);  // 30% bigger
+        ctx.arc(tp.x, tp.y, actualRadius, 0, Math.PI * 2);
         if (fill) {
             ctx.fillStyle = color === 'red' ? '#ff6666' : color === 'blue' ? '#4d94ff' : color;  // More vibrant
             ctx.fill();
@@ -469,29 +480,30 @@ class BoxRenderer {
     // Mouse event handlers
     handleMouseDown(e) {
         const point = this.getMousePoint(e);
+        const hitArea = this.isTouchDevice ? 20 / this.scale : 10 / this.scale;  // Larger hit area for touch
         
         // Stop animation when starting to drag
         this.stopAnimation();
         
         // Check red points
-        if (this.geometry.isPointNearRedOpenPoint(point, 10 / this.scale)) {
+        if (this.geometry.isPointNearRedOpenPoint(point, hitArea)) {
             this.isDragging = true;
             this.selectedPoint = 'red-open';
-        } else if (this.geometry.isPointNearRedClosedPoint(point, 10 / this.scale)) {
+        } else if (this.geometry.isPointNearRedClosedPoint(point, hitArea)) {
             this.isDragging = true;
             this.selectedPoint = 'red-closed';
-        } else if (this.geometry.isPointNearRedBoxPoint(point, 10 / this.scale)) {
+        } else if (this.geometry.isPointNearRedBoxPoint(point, hitArea)) {
             this.isDragging = true;
             this.selectedPoint = 'red-box';
         }
         // Check blue points
-        else if (this.geometry.isPointNearBlueOpenPoint(point, 10 / this.scale)) {
+        else if (this.geometry.isPointNearBlueOpenPoint(point, hitArea)) {
             this.isDragging = true;
             this.selectedPoint = 'blue-open';
-        } else if (this.geometry.isPointNearBlueClosedPoint(point, 10 / this.scale)) {
+        } else if (this.geometry.isPointNearBlueClosedPoint(point, hitArea)) {
             this.isDragging = true;
             this.selectedPoint = 'blue-closed';
-        } else if (this.geometry.isPointNearBlueBoxPoint(point, 10 / this.scale)) {
+        } else if (this.geometry.isPointNearBlueBoxPoint(point, hitArea)) {
             this.isDragging = true;
             this.selectedPoint = 'blue-box';
         }
