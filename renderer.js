@@ -613,11 +613,12 @@ class BoxRenderer {
         e.preventDefault(); // Prevent scrolling while touching pivot points
         if (e.touches.length === 1) {
             const touch = e.touches[0];
-            const fakeMouseEvent = {
+            const rect = this.canvas.getBoundingClientRect();
+            const point = {
                 clientX: touch.clientX,
                 clientY: touch.clientY
             };
-            this.handleMouseDown(fakeMouseEvent);
+            this.handleMouseDown(point);
         }
     }
 
@@ -625,11 +626,12 @@ class BoxRenderer {
         e.preventDefault(); // Prevent scrolling while dragging
         if (e.touches.length === 1) {
             const touch = e.touches[0];
-            const fakeMouseEvent = {
+            const rect = this.canvas.getBoundingClientRect();
+            const point = {
                 clientX: touch.clientX,
                 clientY: touch.clientY
             };
-            this.handleMouseMove(fakeMouseEvent);
+            this.handleMouseMove(point);
         }
     }
 
