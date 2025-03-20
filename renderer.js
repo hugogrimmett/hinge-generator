@@ -635,30 +635,21 @@ class BoxRenderer {
         // Get template bounds
         const bounds = this.geometry.getTemplateBounds();
         
-        // Create PDF (A4 size in portrait)
+        // Create PDF with 1:1 scale (1 unit = 1 cm)
         const { jsPDF } = window.jspdf;
-        const pdf = new jsPDF('p', 'cm', 'a4');
-        const pageWidth = 21;  // A4 width in cm
-        const pageHeight = 29.7;  // A4 height in cm
         const margin = 2;  // 2cm margin
-        
-        // Calculate scale to fit template on page with margins
-        const scaleX = (pageWidth - 2 * margin) / bounds.width;
-        const scaleY = (pageHeight - 2 * margin) / bounds.height;
-        const scale = Math.min(scaleX, scaleY);
-        
-        // Calculate centered position
-        const centerX = pageWidth / 2;
-        const centerY = pageHeight / 2;
+        const pdfWidth = bounds.width + 2 * margin;
+        const pdfHeight = bounds.height + 2 * margin;
+        const pdf = new jsPDF('p', 'cm', [pdfWidth, pdfHeight]);
         
         // Transform from model coordinates to PDF coordinates
-        // Flip Y coordinate since PDF coordinates go down from top
+        // No scaling needed since we want 1:1, just translate to add margins and flip Y
         const transform = (point) => ({
-            x: centerX + (point.x - (bounds.left + bounds.width/2)) * scale,
-            y: centerY - (point.y - (bounds.bottom + bounds.height/2)) * scale
+            x: point.x - bounds.left + margin,
+            y: pdfHeight - (point.y - bounds.bottom + margin)  // Flip Y and add margin
         });
         
-        // Helper to check if point is within bounds (with small margin)
+        // Helper to check if point is within bounds
         const isInBounds = (point) => {
             const margin = 0.1;  // 1mm margin
             return point.x >= bounds.left - margin && 
@@ -667,11 +658,11 @@ class BoxRenderer {
                    point.y <= bounds.top + margin;
         };
         
-        // Draw box outline (only visible parts)
-        const boxVertices = this.geometry.getBoxVertices();
+        // Draw box outline
         pdf.setDrawColor(0);
         pdf.setLineWidth(0.01);
         
+        const boxVertices = this.geometry.getBoxVertices();
         for (let i = 0; i < boxVertices.length; i++) {
             const p1 = boxVertices[i];
             const p2 = boxVertices[(i + 1) % boxVertices.length];
@@ -684,7 +675,7 @@ class BoxRenderer {
             }
         }
         
-        // Draw closed lid outline (only visible parts)
+        // Draw closed lid outline
         const closedLidVertices = this.geometry.getClosedLidVertices();
         pdf.setDrawColor(100);
         
@@ -714,20 +705,40 @@ class BoxRenderer {
             pdf.setFillColor(color === 'red' ? '#ff0000' : '#0000ff');
             pdf.circle(p.x, p.y, radius, 'F');
         }
+
+        // Draw connection lines and their lengths
+        const drawConnection = (p1, p2, color) => {
+            const tp1 = transform(p1);
+            const tp2 = transform(p2);
+            
+            // Draw line
+            pdf.setDrawColor(color === 'red' ? '#ff0000' : '#0000ff');
+            pdf.setLineWidth(0.01);  // thin line
+            pdf.line(tp1.x, tp1.y, tp2.x, tp2.y);
+            
+            // Calculate length in cm (using original points for true length)
+            const dx = p2.x - p1.x;
+            const dy = p2.y - p1.y;
+            const length = Math.sqrt(dx * dx + dy * dy);
+            
+            // Calculate midpoint for label
+            const midX = (tp1.x + tp2.x) / 2;
+            const midY = (tp1.y + tp2.y) / 2;
+            
+            // Add length label
+            pdf.setFontSize(8);
+            pdf.setTextColor(color === 'red' ? '#ff0000' : '#0000ff');
+            const text = `${length.toFixed(1)}cm`;
+            const textWidth = pdf.getTextWidth(text);
+            pdf.text(text, midX - textWidth/2, midY - 0.15);  // Center text above line
+            pdf.setTextColor(0);  // Reset to black
+        };
         
-        // Draw bounding box
-        pdf.setDrawColor(200);  // Light gray
-        pdf.setLineWidth(0.005);
-        const bl = transform({x: bounds.left, y: bounds.bottom});
-        const br = transform({x: bounds.right, y: bounds.bottom});
-        const tr = transform({x: bounds.right, y: bounds.top});
-        const tl = transform({x: bounds.left, y: bounds.top});
-        pdf.line(bl.x, bl.y, br.x, br.y);
-        pdf.line(br.x, br.y, tr.x, tr.y);
-        pdf.line(tr.x, tr.y, tl.x, tl.y);
-        pdf.line(tl.x, tl.y, bl.x, bl.y);
+        // Draw red and blue connections
+        drawConnection(this.geometry.redBoxPoint, this.geometry.redClosedPoint, 'red');
+        drawConnection(this.geometry.blueBoxPoint, this.geometry.blueClosedPoint, 'blue');
         
-        // Add dimensions
+        // Add dimensions at top
         pdf.setFontSize(10);
         pdf.text(`Box dimensions: ${this.geometry.width}cm wide \u00D7 ${this.geometry.height}cm tall`, margin, margin);
         pdf.text(`Lid angle: ${Math.round(this.geometry.closedAngle * 180 / Math.PI)}\u00B0, depth: ${this.geometry.depth}cm`, margin, margin + 0.5);
@@ -735,7 +746,7 @@ class BoxRenderer {
         
         // Add scale line (10cm)
         const scaleStartX = margin;
-        const scaleLineY = pageHeight - margin;
+        const scaleLineY = pdfHeight - margin;
         const scaleEndX = scaleStartX + 10; // 10cm length
         
         // Draw the scale line
