@@ -204,39 +204,42 @@
                 const container = canvas.parentElement;
                 const controls = document.querySelector('.controls');
                 
-                // Set canvas size based on device and layout
-                const isMobile = window.innerWidth <= 768;
-                const controlsHeight = controls.offsetHeight;
-                
-                // Always use the controls height as reference, even in mobile layout
-                canvas.height = controlsHeight;
-                canvas.width = Math.floor(controlsHeight * 0.7);  // Portrait aspect ratio
-                
-                // Scale canvas to fit container while maintaining aspect ratio
-                const containerWidth = container.clientWidth;
-                const containerHeight = container.clientHeight;
-                const containerRatio = containerWidth / containerHeight;
-                const canvasRatio = canvas.width / canvas.height;
-                
-                if (containerRatio > canvasRatio) {
-                    canvas.style.height = containerHeight + 'px';
-                    canvas.style.width = (containerHeight * canvasRatio) + 'px';
-                } else {
-                    canvas.style.width = containerWidth + 'px';
-                    canvas.style.height = (containerWidth / canvasRatio) + 'px';
-                }
-                
-                boxRenderer = new BoxRenderer(
-                    canvas,
-                    parseFloat(document.getElementById('heightInput').value),
-                    parseFloat(document.getElementById('widthInput').value),
-                    parseFloat(document.getElementById('depthInput').value),
-                    parseFloat(document.getElementById('alphaInput').value),
-                    parseFloat(document.getElementById('gapInput').value)
-                );
-                
-                // Setup all controls
-                setupControls();
+                // Wait for next frame to ensure controls are rendered
+                requestAnimationFrame(() => {
+                    // Set canvas size based on device and layout
+                    const isMobile = window.innerWidth <= 768;
+                    const controlsHeight = controls.offsetHeight;
+                    
+                    // Always use the controls height as reference, even in mobile layout
+                    canvas.height = controlsHeight;
+                    canvas.width = Math.floor(controlsHeight * 0.7);  // Portrait aspect ratio
+                    
+                    // Scale canvas to fit container while maintaining aspect ratio
+                    const containerWidth = container.clientWidth;
+                    const containerHeight = container.clientHeight;
+                    const containerRatio = containerWidth / containerHeight;
+                    const canvasRatio = canvas.width / canvas.height;
+                    
+                    if (containerRatio > canvasRatio) {
+                        canvas.style.height = containerHeight + 'px';
+                        canvas.style.width = (containerHeight * canvasRatio) + 'px';
+                    } else {
+                        canvas.style.width = containerWidth + 'px';
+                        canvas.style.height = (containerWidth / canvasRatio) + 'px';
+                    }
+                    
+                    boxRenderer = new BoxRenderer(
+                        canvas,
+                        parseFloat(document.getElementById('heightInput').value),
+                        parseFloat(document.getElementById('widthInput').value),
+                        parseFloat(document.getElementById('depthInput').value),
+                        parseFloat(document.getElementById('alphaInput').value),
+                        parseFloat(document.getElementById('gapInput').value)
+                    );
+                    
+                    // Setup all controls
+                    setupControls();
+                });
             });
             
             // Helper function to update visualization

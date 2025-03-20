@@ -609,29 +609,77 @@ class BoxRenderer {
     }
     
     // Touch event handlers
+    getTouchPoint(touch) {
+        const rect = this.canvas.getBoundingClientRect();
+        
+        // Calculate touch position relative to canvas
+        const x = touch.pageX - (rect.left + window.scrollX);
+        const y = touch.pageY - (rect.top + window.scrollY);
+        
+        // Convert to model coordinates
+        return this.inverseTransform({
+            x: x * (this.canvas.width / rect.width),
+            y: y * (this.canvas.height / rect.height)
+        });
+    }
+
     handleTouchStart(e) {
         e.preventDefault(); // Prevent scrolling while touching pivot points
         if (e.touches.length === 1) {
-            const touch = e.touches[0];
-            const rect = this.canvas.getBoundingClientRect();
-            const point = {
-                clientX: touch.clientX,
-                clientY: touch.clientY
-            };
-            this.handleMouseDown(point);
+            const point = this.getTouchPoint(e.touches[0]);
+            const hitArea = 20 / this.scale;  // Larger hit area for touch
+            
+            // Stop animation when starting to drag
+            this.stopAnimation();
+            
+            // Check red points
+            if (this.geometry.isPointNearRedOpenPoint(point, hitArea)) {
+                this.isDragging = true;
+                this.selectedPoint = 'red-open';
+            } else if (this.geometry.isPointNearRedClosedPoint(point, hitArea)) {
+                this.isDragging = true;
+                this.selectedPoint = 'red-closed';
+            } else if (this.geometry.isPointNearRedBoxPoint(point, hitArea)) {
+                this.isDragging = true;
+                this.selectedPoint = 'red-box';
+            }
+            // Check blue points
+            else if (this.geometry.isPointNearBlueOpenPoint(point, hitArea)) {
+                this.isDragging = true;
+                this.selectedPoint = 'blue-open';
+            } else if (this.geometry.isPointNearBlueClosedPoint(point, hitArea)) {
+                this.isDragging = true;
+                this.selectedPoint = 'blue-closed';
+            } else if (this.geometry.isPointNearBlueBoxPoint(point, hitArea)) {
+                this.isDragging = true;
+                this.selectedPoint = 'blue-box';
+            }
         }
     }
 
     handleTouchMove(e) {
         e.preventDefault(); // Prevent scrolling while dragging
-        if (e.touches.length === 1) {
-            const touch = e.touches[0];
-            const rect = this.canvas.getBoundingClientRect();
-            const point = {
-                clientX: touch.clientX,
-                clientY: touch.clientY
-            };
-            this.handleMouseMove(point);
+        if (e.touches.length === 1 && this.isDragging) {
+            const point = this.getTouchPoint(e.touches[0]);
+            
+            // Update point position based on selection
+            if (this.selectedPoint === 'red-open') {
+                this.geometry.setRedOpenPoint(point);
+            } else if (this.selectedPoint === 'red-closed') {
+                this.geometry.setRedClosedPoint(point);
+            } else if (this.selectedPoint === 'red-box') {
+                this.geometry.setRedBoxPoint(point);
+            } else if (this.selectedPoint === 'blue-open') {
+                this.geometry.setBlueOpenPoint(point);
+            } else if (this.selectedPoint === 'blue-closed') {
+                this.geometry.setBlueClosedPoint(point);
+            } else if (this.selectedPoint === 'blue-box') {
+                this.geometry.setBlueBoxPoint(point);
+            }
+            
+            // Update geometry and redraw
+            this.geometry.updateConstraintLines();
+            this.draw();
         }
     }
 
