@@ -663,23 +663,43 @@ class BoxRenderer {
         if (e.touches.length === 1 && this.isDragging) {
             const point = this.getTouchPoint(e.touches[0]);
             
-            // Update point position based on selection
-            if (this.selectedPoint === 'red-open') {
-                this.geometry.setRedOpenPoint(point);
-            } else if (this.selectedPoint === 'red-closed') {
-                this.geometry.setRedClosedPoint(point);
-            } else if (this.selectedPoint === 'red-box') {
-                this.geometry.setRedBoxPoint(point);
-            } else if (this.selectedPoint === 'blue-open') {
-                this.geometry.setBlueOpenPoint(point);
-            } else if (this.selectedPoint === 'blue-closed') {
-                this.geometry.setBlueClosedPoint(point);
-            } else if (this.selectedPoint === 'blue-box') {
-                this.geometry.setBlueBoxPoint(point);
+            // Handle existing point dragging
+            const [color, pointType] = this.selectedPoint.split('-');
+            const center = this.geometry.getCenterOfRotation();
+            
+            if (color === 'red') {
+                if (pointType === 'open') {
+                    this.geometry.moveRedOpenPoint(point);
+                } else if (pointType === 'closed') {
+                    // For closed point, move the open point to the opposite position
+                    const dx = point.x - center.x;
+                    const dy = point.y - center.y;
+                    this.geometry.moveRedOpenPoint({
+                        x: center.x - dx,
+                        y: center.y - dy
+                    });
+                } else if (pointType === 'box') {
+                    this.geometry.moveRedBoxPoint(point);
+                }
+            } else { // blue
+                if (pointType === 'open') {
+                    this.geometry.moveBlueOpenPoint(point);
+                } else if (pointType === 'closed') {
+                    // For closed point, move the open point to the opposite position
+                    const dx = point.x - center.x;
+                    const dy = point.y - center.y;
+                    this.geometry.moveBlueOpenPoint({
+                        x: center.x - dx,
+                        y: center.y - dy
+                    });
+                } else if (pointType === 'box') {
+                    this.geometry.moveBlueBoxPoint(point);
+                }
             }
             
-            // Update geometry and redraw
-            this.geometry.updateConstraintLines();
+            // Re-initialize four-bar after pivot points move
+            this.geometry.initializeFourBar();
+            
             this.draw();
         }
     }
