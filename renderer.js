@@ -2,6 +2,26 @@ class BoxRenderer {
     constructor(canvas, h, w, d, alpha, g) {
         this.canvas = canvas;
         this.ctx = canvas.getContext('2d');
+        
+        // Handle high-DPI displays
+        const dpr = window.devicePixelRatio || 1;
+        const rect = canvas.getBoundingClientRect();
+        
+        // Store display size for calculations
+        this.displayWidth = rect.width;
+        this.displayHeight = rect.height;
+        
+        // Set canvas size in pixels
+        canvas.width = rect.width * dpr;
+        canvas.height = rect.height * dpr;
+        
+        // Scale canvas back to desired size
+        canvas.style.width = `${rect.width}px`;
+        canvas.style.height = `${rect.height}px`;
+        
+        // Scale context to device
+        this.ctx.scale(dpr, dpr);
+        
         this.geometry = new BoxGeometry(h, w, d, alpha, g);
         
         // Calculate viewport bounds and scale
@@ -13,19 +33,19 @@ class BoxRenderer {
             top: 2 * h + margin  // Need space for open lid
         };
         
-        // Calculate scale to fit viewport in canvas
+        // Calculate scale to fit viewport in canvas (use display size, not pixel size)
         const viewportWidth = this.viewportBounds.right - this.viewportBounds.left;
         const viewportHeight = this.viewportBounds.top - this.viewportBounds.bottom;
         
         this.scale = Math.min(
-            canvas.width * 0.9 / viewportWidth,
-            canvas.height * 0.9 / viewportHeight
+            this.displayWidth * 0.9 / viewportWidth,
+            this.displayHeight * 0.9 / viewportHeight
         );
         
-        // Calculate offset to center viewport
+        // Calculate offset to center viewport (use display size)
         this.offset = {
-            x: canvas.width/2 - (this.viewportBounds.left + viewportWidth/2) * this.scale,
-            y: canvas.height/2 + (this.viewportBounds.bottom + viewportHeight/2) * this.scale
+            x: this.displayWidth/2 - (this.viewportBounds.left + viewportWidth/2) * this.scale,
+            y: this.displayHeight/2 + (this.viewportBounds.bottom + viewportHeight/2) * this.scale
         };
         
         // Set up event listeners
@@ -81,6 +101,25 @@ class BoxRenderer {
     }
     
     updateParameters(h, w, d, alpha, g) {
+        // Handle high-DPI displays
+        const dpr = window.devicePixelRatio || 1;
+        const rect = this.canvas.getBoundingClientRect();
+        
+        // Store display size for calculations
+        this.displayWidth = rect.width;
+        this.displayHeight = rect.height;
+        
+        // Update canvas size in pixels
+        this.canvas.width = rect.width * dpr;
+        this.canvas.height = rect.height * dpr;
+        
+        // Scale canvas back to desired size
+        this.canvas.style.width = `${rect.width}px`;
+        this.canvas.style.height = `${rect.height}px`;
+        
+        // Scale context to device
+        this.ctx.scale(dpr, dpr);
+        
         // Store current pivot positions
         const boxPivotPositions = this.geometry.getBoxPivotPositions();
         const lidPivotPositions = this.geometry.getLidPivotPositions();
@@ -112,13 +151,13 @@ class BoxRenderer {
         const viewportHeight = this.viewportBounds.top - this.viewportBounds.bottom;
         
         this.scale = Math.min(
-            this.canvas.width * 0.9 / viewportWidth,
-            this.canvas.height * 0.9 / viewportHeight
+            this.displayWidth * 0.9 / viewportWidth,
+            this.displayHeight * 0.9 / viewportHeight
         );
         
         this.offset = {
-            x: this.canvas.width/2 - (this.viewportBounds.left + viewportWidth/2) * this.scale,
-            y: this.canvas.height/2 + (this.viewportBounds.bottom + viewportHeight/2) * this.scale
+            x: this.displayWidth/2 - (this.viewportBounds.left + viewportWidth/2) * this.scale,
+            y: this.displayHeight/2 + (this.viewportBounds.bottom + viewportHeight/2) * this.scale
         };
         
         // First update constraint lines and compute valid angles
@@ -162,7 +201,7 @@ class BoxRenderer {
     inverseTransform(point) {
         return {
             x: (point.x - this.offset.x) / this.scale,
-            y: -(point.y - this.offset.y) / this.scale
+            y: (this.offset.y - point.y) / this.scale
         };
     }
     
@@ -358,7 +397,7 @@ class BoxRenderer {
     // Main draw function
     draw() {
         const ctx = this.ctx;
-        ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
+        ctx.clearRect(0, 0, this.displayWidth, this.displayHeight);
         
         // Check if current configuration is valid
         if (this.geometry.fourBarConfig) {
@@ -366,17 +405,17 @@ class BoxRenderer {
             
             if (!isValid) {
                 ctx.fillStyle = 'rgba(255, 0, 0, 0.1)';
-                ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
+                ctx.fillRect(0, 0, this.displayWidth, this.displayHeight);
                 
                 // Show error message with responsive font size and line wrapping
-                const fontSize = Math.min(18, this.canvas.width / 25);
+                const fontSize = Math.min(18, this.displayWidth / 25);
                 ctx.font = `${fontSize}px -apple-system, BlinkMacSystemFont, sans-serif`;
                 ctx.fillStyle = 'red';
                 ctx.textAlign = 'center';
                 ctx.textBaseline = 'middle';  // Consistent baseline
                 
                 // Calculate available width for text (80% of canvas width)
-                const maxWidth = this.canvas.width * 0.8;
+                const maxWidth = this.displayWidth * 0.8;
                 
                 // Combine messages into one string with line break
                 const message = [
@@ -386,11 +425,11 @@ class BoxRenderer {
                 
                 // Position text vertically based on canvas size
                 const lineHeight = fontSize * 1.4;  // Consistent line height
-                const startY = Math.max(lineHeight, this.canvas.height * 0.1);
+                const startY = Math.max(lineHeight, this.displayHeight * 0.1);
                 
                 // Draw each line with consistent spacing
                 message.forEach((line, i) => {
-                    ctx.fillText(line, this.canvas.width / 2, startY + i * lineHeight, maxWidth);
+                    ctx.fillText(line, this.displayWidth / 2, startY + i * lineHeight, maxWidth);
                 });
             }
             
@@ -701,13 +740,11 @@ class BoxRenderer {
     
     getMousePoint(e) {
         const rect = this.canvas.getBoundingClientRect();
-        // Account for CSS scaling
-        const scaleX = this.canvas.width / rect.width;
-        const scaleY = this.canvas.height / rect.height;
-        return this.inverseTransform({
-            x: (e.clientX - rect.left) * scaleX,
-            y: (e.clientY - rect.top) * scaleY
-        });
+        const x = e.clientX - rect.left;
+        const y = e.clientY - rect.top;
+        
+        // Convert display coordinates to world coordinates directly
+        return this.inverseTransform({x, y});
     }
     
     generateTemplate() {
