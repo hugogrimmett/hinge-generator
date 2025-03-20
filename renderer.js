@@ -373,21 +373,25 @@ class BoxRenderer {
                 ctx.font = `${fontSize}px -apple-system, BlinkMacSystemFont, sans-serif`;
                 ctx.fillStyle = 'red';
                 ctx.textAlign = 'center';
+                ctx.textBaseline = 'middle';  // Consistent baseline
                 
                 // Calculate available width for text (80% of canvas width)
                 const maxWidth = this.canvas.width * 0.8;
                 
-                // Split message into two parts
-                const msg1 = "This hinge will not allow the lid to open and close.";
-                const msg2 = "Try moving the red and blue pivot points.";
+                // Combine messages into one string with line break
+                const message = [
+                    "This hinge will not allow the lid to open and close.",
+                    "Try moving the red and blue pivot points."
+                ];
                 
                 // Position text vertically based on canvas size
-                const y1 = Math.max(fontSize + 10, this.canvas.height * 0.1);
-                const y2 = y1 + fontSize + 5;
+                const lineHeight = fontSize * 1.4;  // Consistent line height
+                const startY = Math.max(lineHeight, this.canvas.height * 0.1);
                 
-                // Draw text with max width constraint
-                ctx.fillText(msg1, this.canvas.width / 2, y1, maxWidth);
-                ctx.fillText(msg2, this.canvas.width / 2, y2, maxWidth);
+                // Draw each line with consistent spacing
+                message.forEach((line, i) => {
+                    ctx.fillText(line, this.canvas.width / 2, startY + i * lineHeight, maxWidth);
+                });
             }
             
             // Start animation if valid and not dragging
