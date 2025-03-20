@@ -196,11 +196,16 @@ class BoxRenderer {
         const ctx = this.ctx;
         const tp = this.transform(point);
         
+        // Make font size responsive to canvas width
+        const baseFontSize = Math.min(14, this.canvas.width / 40);
+        ctx.font = `${baseFontSize}px -apple-system, BlinkMacSystemFont, sans-serif`;
         ctx.fillStyle = color;
-        ctx.font = '18px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Oxygen, Ubuntu, Cantarell, "Open Sans", "Helvetica Neue", sans-serif';
         ctx.textAlign = 'center';
         ctx.textBaseline = 'middle';
-        ctx.fillText(text, tp.x, tp.y - 20);
+        
+        // Adjust vertical spacing based on canvas size
+        const verticalOffset = Math.min(20, this.canvas.width / 30);
+        ctx.fillText(text, tp.x, tp.y - verticalOffset);
     }
     
     // Draw box outline
