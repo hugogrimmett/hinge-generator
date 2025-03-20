@@ -5,19 +5,14 @@ class BoxRenderer {
         
         // Handle high-DPI displays
         const dpr = window.devicePixelRatio || 1;
-        const rect = canvas.getBoundingClientRect();
+        
+        // Canvas is already sized in HTML, just handle DPI scaling
+        this.canvas.width = this.canvas.width * dpr;
+        this.canvas.height = this.canvas.height * dpr;
         
         // Store display size for calculations
-        this.displayWidth = rect.width;
-        this.displayHeight = rect.height;
-        
-        // Set canvas size in pixels
-        canvas.width = rect.width * dpr;
-        canvas.height = rect.height * dpr;
-        
-        // Scale canvas back to desired size
-        canvas.style.width = `${rect.width}px`;
-        canvas.style.height = `${rect.height}px`;
+        this.displayWidth = this.canvas.width / dpr;
+        this.displayHeight = this.canvas.height / dpr;
         
         // Scale context to device
         this.ctx.scale(dpr, dpr);
@@ -30,10 +25,10 @@ class BoxRenderer {
             left: -margin,
             right: w + margin,
             bottom: -margin,
-            top: 2 * h + margin  // Need space for open lid
+            top: 2.4 * h + margin  // Need space for open lid
         };
         
-        // Calculate scale to fit viewport in canvas (use display size, not pixel size)
+        // Calculate scale to fit viewport in canvas
         const viewportWidth = this.viewportBounds.right - this.viewportBounds.left;
         const viewportHeight = this.viewportBounds.top - this.viewportBounds.bottom;
         
@@ -42,10 +37,10 @@ class BoxRenderer {
             this.displayHeight * 0.9 / viewportHeight
         );
         
-        // Calculate offset to center viewport (use display size)
+        // Center viewport in canvas
         this.offset = {
-            x: this.displayWidth/2 - (this.viewportBounds.left + viewportWidth/2) * this.scale,
-            y: this.displayHeight/2 + (this.viewportBounds.bottom + viewportHeight/2) * this.scale
+            x: this.displayWidth / 2,
+            y: this.displayHeight / 2
         };
         
         // Set up event listeners
@@ -101,25 +96,6 @@ class BoxRenderer {
     }
     
     updateParameters(h, w, d, alpha, g) {
-        // Handle high-DPI displays
-        const dpr = window.devicePixelRatio || 1;
-        const rect = this.canvas.getBoundingClientRect();
-        
-        // Store display size for calculations
-        this.displayWidth = rect.width;
-        this.displayHeight = rect.height;
-        
-        // Update canvas size in pixels
-        this.canvas.width = rect.width * dpr;
-        this.canvas.height = rect.height * dpr;
-        
-        // Scale canvas back to desired size
-        this.canvas.style.width = `${rect.width}px`;
-        this.canvas.style.height = `${rect.height}px`;
-        
-        // Scale context to device
-        this.ctx.scale(dpr, dpr);
-        
         // Store current pivot positions
         const boxPivotPositions = this.geometry.getBoxPivotPositions();
         const lidPivotPositions = this.geometry.getLidPivotPositions();
@@ -144,9 +120,10 @@ class BoxRenderer {
             left: -margin,
             right: w + margin,
             bottom: -margin,
-            top: 2 * h + margin
+            top: 2.4 * h + margin  // Need space for open lid
         };
         
+        // Calculate scale to fit viewport in canvas
         const viewportWidth = this.viewportBounds.right - this.viewportBounds.left;
         const viewportHeight = this.viewportBounds.top - this.viewportBounds.bottom;
         
@@ -156,8 +133,8 @@ class BoxRenderer {
         );
         
         this.offset = {
-            x: this.displayWidth/2 - (this.viewportBounds.left + viewportWidth/2) * this.scale,
-            y: this.displayHeight/2 + (this.viewportBounds.bottom + viewportHeight/2) * this.scale
+            x: this.displayWidth / 2,
+            y: this.displayHeight / 2
         };
         
         // First update constraint lines and compute valid angles
@@ -191,17 +168,23 @@ class BoxRenderer {
     
     // Transform a point from world coordinates to screen coordinates
     transform(point) {
+        const viewportWidth = this.viewportBounds.right - this.viewportBounds.left;
+        const viewportHeight = this.viewportBounds.top - this.viewportBounds.bottom;
+        
         return {
-            x: this.offset.x + point.x * this.scale,
-            y: this.offset.y - point.y * this.scale
+            x: this.offset.x + (point.x - this.viewportBounds.left - viewportWidth/2) * this.scale,
+            y: this.offset.y - (point.y - this.viewportBounds.bottom - viewportHeight/2) * this.scale
         };
     }
     
     // Transform a point from screen coordinates to world coordinates
     inverseTransform(point) {
+        const viewportWidth = this.viewportBounds.right - this.viewportBounds.left;
+        const viewportHeight = this.viewportBounds.top - this.viewportBounds.bottom;
+        
         return {
-            x: (point.x - this.offset.x) / this.scale,
-            y: (this.offset.y - point.y) / this.scale
+            x: (point.x - this.offset.x) / this.scale + this.viewportBounds.left + viewportWidth/2,
+            y: -(point.y - this.offset.y) / this.scale + this.viewportBounds.bottom + viewportHeight/2
         };
     }
     
@@ -409,26 +392,28 @@ class BoxRenderer {
                 
                 // Show error message with responsive font size and line wrapping
                 const fontSize = Math.min(18, this.displayWidth / 25);
-                ctx.font = `${fontSize}px -apple-system, BlinkMacSystemFont, sans-serif`;
+                ctx.font = `400 ${fontSize}px -apple-system, BlinkMacSystemFont, system-ui, sans-serif`;
                 ctx.fillStyle = 'red';
                 ctx.textAlign = 'center';
-                ctx.textBaseline = 'middle';  // Consistent baseline
+                ctx.textBaseline = 'middle';
                 
                 // Calculate available width for text (80% of canvas width)
                 const maxWidth = this.displayWidth * 0.8;
                 
-                // Combine messages into one string with line break
+                // Warning messages
                 const message = [
                     "This hinge will not allow the lid to open and close.",
                     "Try moving the red and blue pivot points."
                 ];
                 
                 // Position text vertically based on canvas size
-                const lineHeight = fontSize * 1.4;  // Consistent line height
+                const lineHeight = fontSize * 1.5;  // Slightly increased for better readability
                 const startY = Math.max(lineHeight, this.displayHeight * 0.1);
                 
                 // Draw each line with consistent spacing
                 message.forEach((line, i) => {
+                    // Reset font for each line to ensure consistency
+                    ctx.font = `400 ${fontSize}px -apple-system, BlinkMacSystemFont, system-ui, sans-serif`;
                     ctx.fillText(line, this.displayWidth / 2, startY + i * lineHeight, maxWidth);
                 });
             }
@@ -465,7 +450,7 @@ class BoxRenderer {
             x: (closedLidVertices[0].x + closedLidVertices[1].x) / 6,
             y: (closedLidVertices[0].y + closedLidVertices[2].y) * 2 / 3
         });
-        ctx.fillText('lid in closed position', closedLidCenter.x, closedLidCenter.y);
+        ctx.fillText('closed lid', closedLidCenter.x, closedLidCenter.y);
         
         // Open lid label
         const openLidVertices = this.geometry.getOpenLidVertices();
@@ -473,7 +458,7 @@ class BoxRenderer {
             x: (openLidVertices[0].x + openLidVertices[1].x) / 2,
             y: (openLidVertices[2].y + openLidVertices[1].y) / 2
         });
-        ctx.fillText('lid in open position', openLidCenter.x, openLidCenter.y);
+        ctx.fillText('open lid', openLidCenter.x, openLidCenter.y);
         
         // Draw four-bar linkage if initialized
         const fb = this.geometry.fourBarConfig;
@@ -739,12 +724,18 @@ class BoxRenderer {
     }
     
     getMousePoint(e) {
+        // Get canvas bounding rect relative to viewport
         const rect = this.canvas.getBoundingClientRect();
+        
+        // Calculate mouse position relative to canvas
         const x = e.clientX - rect.left;
         const y = e.clientY - rect.top;
         
-        // Convert display coordinates to world coordinates directly
-        return this.inverseTransform({x, y});
+        // Convert to model coordinates
+        return this.inverseTransform({
+            x: x * (this.canvas.width / rect.width),  // Account for DPI scaling
+            y: y * (this.canvas.height / rect.height)
+        });
     }
     
     generateTemplate() {
