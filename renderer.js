@@ -733,6 +733,26 @@ class BoxRenderer {
         pdf.text(`Lid angle: ${Math.round(this.geometry.closedAngle * 180 / Math.PI)}°`, margin, margin + 0.5);
         pdf.text(`Gap: ${this.geometry.gap}cm`, margin, margin + 1);
         
+        // Add scale line (10cm)
+        const scaleStartX = margin;
+        const scaleLineY = pageHeight - margin;
+        const scaleEndX = scaleStartX + 10; // 10cm length
+        
+        // Draw the scale line
+        pdf.setDrawColor(0);
+        pdf.setLineWidth(0.02);
+        pdf.line(scaleStartX, scaleLineY, scaleEndX, scaleLineY);
+        
+        // Add small vertical marks at start and end
+        const tickLength = 0.2; // 2mm tick length
+        pdf.line(scaleStartX, scaleLineY - tickLength/2, scaleStartX, scaleLineY + tickLength/2);
+        pdf.line(scaleEndX, scaleLineY - tickLength/2, scaleEndX, scaleLineY + tickLength/2);
+        
+        // Add labels
+        pdf.setFontSize(8);
+        pdf.text('0', scaleStartX - 0.2, scaleLineY + 0.5);
+        pdf.text('10cm', scaleEndX - 0.5, scaleLineY + 0.5);
+        
         // Save the PDF
         pdf.save('hinge-template.pdf');
     }
