@@ -17,6 +17,7 @@ class BoxRenderer {
         // Scale context to device
         this.ctx.scale(dpr, dpr);
         
+        // Create geometry
         this.geometry = new BoxGeometry(h, w, d, alpha, g);
         
         // Calculate viewport bounds and scale
@@ -43,6 +44,15 @@ class BoxRenderer {
             y: this.displayHeight / 2
         };
         
+        // Set up interaction state
+        this.isDragging = false;
+        this.selectedPoint = null;
+        this.isLocked = false;
+        this.exitAngle = null;
+        this.lastAngle = null;
+        this.lastValidConfig = null;
+        this.isTouchDevice = 'ontouchstart' in window;  // Detect touch device
+        
         // Set up event listeners
         this.canvas.addEventListener('mousedown', this.handleMouseDown.bind(this));
         this.canvas.addEventListener('mousemove', this.handleMouseMove.bind(this));
@@ -61,38 +71,29 @@ class BoxRenderer {
             generateButton.addEventListener('click', () => this.generateTemplate());
         }
         
-        // Set up interaction state
-        this.isDragging = false;
-        this.selectedPoint = null;
-        this.isLocked = false;
-        this.exitAngle = null;
-        this.lastAngle = null;
-        this.lastValidConfig = null;
-        this.isTouchDevice = 'ontouchstart' in window;  // Detect touch device
-        
         // Animation controls
         const animateButton = document.getElementById('animateButton');
         if (animateButton) {
             animateButton.addEventListener('click', () => {
                 if (this.geometry.isAnimating) {
-                    this.geometry.isAnimating = false;
+                    this.stopAnimation();
                     animateButton.textContent = 'Animate';
                 } else {
-                    this.geometry.startAnimation();
+                    this.startAnimation();
                     animateButton.textContent = 'Stop';
-                    this.animate();
                 }
             });
         }
         
-        // Initial draw
-        this.draw();
-        
-        // Animation variables
-        this.animationId = null;
+        // Animation state
+        this.geometry.isAnimating = false;
         this.animationTime = 0;
         this.animationDuration = 3000;  // 3 seconds for a full cycle
         this.lastTimestamp = null;
+        
+        // Initialize geometry and draw
+        this.geometry.initializeFourBar();
+        this.draw();
     }
     
     updateParameters(h, w, d, alpha, g) {

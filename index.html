@@ -228,6 +228,9 @@
                         canvas.style.height = (containerWidth / canvasRatio) + 'px';
                     }
                     
+                    // Force a reflow to ensure canvas dimensions are updated
+                    canvas.getBoundingClientRect();
+                    
                     boxRenderer = new BoxRenderer(
                         canvas,
                         parseFloat(document.getElementById('heightInput').value),
@@ -237,8 +240,9 @@
                         parseFloat(document.getElementById('gapInput').value)
                     );
                     
-                    // Setup all controls
+                    // Setup all controls and force an initial update
                     setupControls();
+                    boxRenderer.draw();
                 });
             });
             
@@ -295,6 +299,9 @@
                     const input = document.getElementById(control.name.toLowerCase() + 'Input');
                     
                     if (slider && input) {
+                        // Set initial values
+                        input.value = slider.value;
+                        
                         slider.addEventListener('input', () => {
                             const value = parseFloat(slider.value);
                             input.value = value;
@@ -316,7 +323,7 @@
                 if (animateButton) {
                     animateButton.addEventListener('click', () => {
                         if (boxRenderer.geometry.isAnimating) {
-                            boxRenderer.geometry.isAnimating = false;
+                            boxRenderer.geometry.stopAnimation();
                             animateButton.textContent = 'Animate';
                         } else {
                             boxRenderer.geometry.startAnimation();
@@ -325,6 +332,9 @@
                         }
                     });
                 }
+                
+                // Force initial update with current values
+                updateVisualization();
             }
             
             // Add resize handler

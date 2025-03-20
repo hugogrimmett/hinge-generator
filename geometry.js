@@ -1,9 +1,5 @@
 class BoxGeometry {
     constructor(height, width, depth, angle, gap) {
-        // Store previous pivot points if they exist
-        const prevRedOpen = this.redOpenPoint;
-        const prevBlueOpen = this.blueOpenPoint;
-        
         // Box dimensions
         this.height = height;
         this.width = width;
@@ -37,27 +33,9 @@ class BoxGeometry {
         // Four-bar linkage solver
         this.fourBarConfig = null;
         
-        // Only initialize pivot points if we don't have previous ones to preserve
-        if (!prevRedOpen || !prevBlueOpen) {
-            this.initializePivotPoints();
-        }
-        
-        // Try to restore previous pivot points
-        if (prevRedOpen) {
-            this.tryPreserveLidPivot('red', prevRedOpen);
-        }
-        if (prevBlueOpen) {
-            this.tryPreserveLidPivot('blue', prevBlueOpen);
-        }
-        
-        // Initialize pivot points if we didn't restore both
-        if (!this.redOpenPoint || !this.blueOpenPoint) {
-            this.initializePivotPoints();
-        }
-        
+        // Initialize pivot points
+        this.initializePivotPoints();
         this.updateConstraintLines();
-        
-        // Initialize four-bar linkage
         this.initializeFourBar();
     }
     
