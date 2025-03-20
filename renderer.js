@@ -742,7 +742,7 @@ class BoxRenderer {
         pdf.setFontSize(10);
         pdf.text(`Box dimensions: ${this.geometry.width}cm wide \u00D7 ${this.geometry.height}cm tall`, margin, margin);
         pdf.text(`Lid angle: ${Math.round(this.geometry.closedAngle * 180 / Math.PI)}\u00B0, depth: ${this.geometry.depth}cm`, margin, margin + 0.5);
-        pdf.text(`Gap: ${this.geometry.gap}cm`, margin, margin + 1);
+        pdf.text(`Gap when open: ${this.geometry.gap}cm`, margin, margin + 1);
         
         // Add scale line (10cm)
         const scaleStartX = margin;
