@@ -713,24 +713,30 @@ class BoxRenderer {
         // Create PDF with 1:1 scale (1 unit = 1 cm)
         const { jsPDF } = window.jspdf;
         const margin = 2;  // 2cm margin
-        const pdfWidth = bounds.width + 2 * margin;
-        const pdfHeight = bounds.height + 2 * margin;
+        const pdfWidth = bounds.right - bounds.left + 2 * margin;  // Use absolute coordinates
+        const pdfHeight = bounds.top - bounds.bottom + 2 * margin;
+        console.log('PDF dimensions:', { pdfWidth, pdfHeight });
         const pdf = new jsPDF('p', 'cm', [pdfWidth, pdfHeight]);
         
         // Transform from model coordinates to PDF coordinates
         // No scaling needed since we want 1:1, just translate to add margins and flip Y
-        const transform = (point) => ({
-            x: point.x - bounds.left + margin,
-            y: pdfHeight - (point.y - bounds.bottom) - margin  // Fix Y coordinate transformation
-        });
+        const transform = (point) => {
+            const transformed = {
+                x: point.x - bounds.left + margin,
+                y: pdfHeight - (point.y - bounds.bottom + margin)
+            };
+            console.log('Transform:', { 
+                from: point,
+                to: transformed,
+                pdfWidth,
+                pdfHeight
+            });
+            return transformed;
+        };
         
         // Helper to check if point is within bounds
         const isInBounds = (point) => {
-            const margin = 0.1;  // 1mm margin
-            return point.x >= bounds.left - margin && 
-                   point.x <= bounds.right + margin &&
-                   point.y >= bounds.bottom - margin && 
-                   point.y <= bounds.top + margin;
+            return true;
         };
         
         // Draw box outline
@@ -738,32 +744,37 @@ class BoxRenderer {
         pdf.setLineWidth(0.01);
         
         const boxVertices = this.geometry.getBoxVertices();
-        for (let i = 0; i < boxVertices.length; i++) {
-            const p1 = boxVertices[i];
-            const p2 = boxVertices[(i + 1) % boxVertices.length];
+        // Make vertices relative to template bounds
+        const relativeBoxVertices = boxVertices.map(p => ({
+            x: p.x + bounds.left,
+            y: p.y
+        }));
+        
+        for (let i = 0; i < relativeBoxVertices.length; i++) {
+            const p1 = relativeBoxVertices[i];
+            const p2 = relativeBoxVertices[(i + 1) % relativeBoxVertices.length];
             
-            // Only draw if at least one endpoint is in bounds
-            if (isInBounds(p1) || isInBounds(p2)) {
-                const tp1 = transform(p1);
-                const tp2 = transform(p2);
-                pdf.line(tp1.x, tp1.y, tp2.x, tp2.y);
-            }
+            const tp1 = transform(p1);
+            const tp2 = transform(p2);
+            pdf.line(tp1.x, tp1.y, tp2.x, tp2.y);
         }
         
         // Draw closed lid outline
         const closedLidVertices = this.geometry.getClosedLidVertices();
-        pdf.setDrawColor(100);
+        // Make vertices relative to template bounds
+        const relativeLidVertices = closedLidVertices.map(p => ({
+            x: p.x + bounds.left,
+            y: p.y
+        }));
         
-        for (let i = 0; i < closedLidVertices.length; i++) {
-            const p1 = closedLidVertices[i];
-            const p2 = closedLidVertices[(i + 1) % closedLidVertices.length];
+        pdf.setDrawColor(100);
+        for (let i = 0; i < relativeLidVertices.length; i++) {
+            const p1 = relativeLidVertices[i];
+            const p2 = relativeLidVertices[(i + 1) % relativeLidVertices.length];
             
-            // Only draw if at least one endpoint is in bounds
-            if (isInBounds(p1) || isInBounds(p2)) {
-                const tp1 = transform(p1);
-                const tp2 = transform(p2);
-                pdf.line(tp1.x, tp1.y, tp2.x, tp2.y);
-            }
+            const tp1 = transform(p1);
+            const tp2 = transform(p2);
+            pdf.line(tp1.x, tp1.y, tp2.x, tp2.y);
         }
         
         // Draw pivot points

@@ -930,6 +930,10 @@ class BoxGeometry {
     }
     
     // Get the bounding box for the template, with margin
+    // Note: We intentionally only include box pivot points and closed pivot points,
+    // NOT the open pivot points, box vertices, or lid vertices. This is because
+    // the template only needs to show where to drill holes for the pivot points
+    // in their closed position.
     getTemplateBounds() {
         // Get just the four pivot points
         const points = [
