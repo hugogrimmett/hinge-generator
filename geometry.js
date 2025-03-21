@@ -46,9 +46,9 @@ class BoxGeometry {
     }
     
     // Four-bar linkage solver
-    isValidConfiguration(inputEnd, leftPivot, rightPivot, inputLength, followerLength, outputLength) {
+    isValidConfiguration(inputEnd, inputGround, rightPivot, inputLength, followerLength, outputLength) {
         // Check if input bar length is maintained
-        const currentInputLength = this.distance(inputEnd, leftPivot);
+        const currentInputLength = this.distance(inputEnd, inputGround);
         if (Math.abs(currentInputLength - inputLength) > 0.1) {
             return false;
         }
@@ -102,7 +102,8 @@ class BoxGeometry {
     initializeFourBar() {
         // Use current closed points and box points for initialization
         this.fourBarConfig = {
-            leftPivot: this.redBoxPoint,
+            // Ground points
+            inputGround: this.redBoxPoint,
             rightPivot: this.blueBoxPoint,
             inputEnd: this.redClosedPoint,
             outputEnd: this.blueClosedPoint,
@@ -143,8 +144,8 @@ class BoxGeometry {
         
         // Calculate new input end position
         this.fourBarConfig.inputEnd = {
-            x: this.fourBarConfig.leftPivot.x + Math.cos(angle) * this.fourBarConfig.inputLength,
-            y: this.fourBarConfig.leftPivot.y + Math.sin(angle) * this.fourBarConfig.inputLength
+            x: this.fourBarConfig.inputGround.x + Math.cos(angle) * this.fourBarConfig.inputLength,
+            y: this.fourBarConfig.inputGround.y + Math.sin(angle) * this.fourBarConfig.inputLength
         };
         
         // Find intersection of follower and output circles
@@ -197,7 +198,7 @@ class BoxGeometry {
         this.movingLidVertices = this.transformPoints(transform, this.previousMovingLidVertices);
         
         // Verify lengths are maintained with 1% tolerance
-        const newInputLength = this.distance(this.fourBarConfig.leftPivot, this.fourBarConfig.inputEnd);
+        const newInputLength = this.distance(this.fourBarConfig.inputGround, this.fourBarConfig.inputEnd);
         const newFollowerLength = this.distance(this.fourBarConfig.inputEnd, this.fourBarConfig.outputEnd);
         const newOutputLength = this.distance(this.fourBarConfig.rightPivot, this.fourBarConfig.outputEnd);
         
@@ -437,7 +438,7 @@ class BoxGeometry {
         if (!this.fourBarConfig) return null;
         
         return {
-            redBox: this.fourBarConfig.leftPivot,
+            redBox: this.fourBarConfig.inputGround,
             redClosed: this.fourBarConfig.inputEnd,
             blueClosed: this.fourBarConfig.outputEnd,
             blueBox: this.fourBarConfig.rightPivot,
@@ -749,8 +750,8 @@ class BoxGeometry {
             
             // Update input end position
             const inputEnd = {
-                x: fb.leftPivot.x + Math.cos(angle) * fb.inputLength,
-                y: fb.leftPivot.y + Math.sin(angle) * fb.inputLength
+                x: fb.inputGround.x + Math.cos(angle) * fb.inputLength,
+                y: fb.inputGround.y + Math.sin(angle) * fb.inputLength
             };
             
             // Check if circles intersect at this angle

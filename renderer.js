@@ -381,7 +381,7 @@ class BoxRenderer {
     // Main draw function
     draw() {
         const ctx = this.ctx;
-        ctx.clearRect(0, 0, this.displayWidth, this.displayHeight);
+        ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
         
         // Check if current configuration is valid
         if (this.geometry.fourBarConfig) {
@@ -526,6 +526,22 @@ class BoxRenderer {
             this.drawCircle(blueLine.end, 5, 'blue');
             this.drawCircle(blueLine.boxPoint, 5, 'blue');
         }
+        
+        // Draw debug info in top left
+        ctx.save();
+        ctx.font = '12px monospace';
+        ctx.fillStyle = 'black';
+        let y = 20;
+        const points = this.geometry.getFourBarPoints();
+        if (points && points.redClosed && points.blueClosed && points.follower) {
+            const C = [points.blueClosed.x - points.redClosed.x, points.blueClosed.y - points.redClosed.y];
+            const F = [points.follower.end.x - points.follower.start.x, points.follower.end.y - points.follower.start.y];
+            const theta = Math.acos((C[0]*F[0] + C[1]*F[1]) / (Math.sqrt(C[0]*C[0] + C[1]*C[1]) * Math.sqrt(F[0]*F[0] + F[1]*F[1])));
+            ctx.fillText(`C: [${C[0].toFixed(1)}, ${C[1].toFixed(1)}]`, 10, y); y += 15;
+            ctx.fillText(`F: [${F[0].toFixed(1)}, ${F[1].toFixed(1)}]`, 10, y); y += 15;
+            ctx.fillText(`θ: ${(theta * 180 / Math.PI).toFixed(1)}°`, 10, y);
+        }
+        ctx.restore();
     }
     
     // Mouse event handlers
