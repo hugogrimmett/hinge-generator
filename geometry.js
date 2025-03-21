@@ -46,15 +46,15 @@ class BoxGeometry {
     }
     
     // Four-bar linkage solver
-    isValidConfiguration(inputEnd, inputGround, rightPivot, inputLength, followerLength, outputLength) {
+    isValidConfiguration(inputFollower, inputGround, outputGround, inputLength, followerLength, outputLength) {
         // Check if input bar length is maintained
-        const currentInputLength = this.distance(inputEnd, inputGround);
+        const currentInputLength = this.distance(inputFollower, inputGround);
         if (Math.abs(currentInputLength - inputLength) > 0.1) {
             return false;
         }
         
         // Check if configuration is possible (triangle inequality)
-        const rightToInput = this.distance(inputEnd, rightPivot);
+        const rightToInput = this.distance(inputFollower, outputGround);
         
         // Sum of follower and output must be >= distance between their pivots
         if (rightToInput > followerLength + outputLength) {
@@ -104,9 +104,11 @@ class BoxGeometry {
         this.fourBarConfig = {
             // Ground points
             inputGround: this.redBoxPoint,
-            rightPivot: this.blueBoxPoint,
-            inputEnd: this.redClosedPoint,
-            outputEnd: this.blueClosedPoint,
+            outputGround: this.blueBoxPoint,
+            // Moving points
+            inputFollower: this.redClosedPoint,
+            outputFollower: this.blueClosedPoint,
+            // Link lengths
             inputLength: this.distance(this.redBoxPoint, this.redClosedPoint),
             outputLength: this.distance(this.blueBoxPoint, this.blueClosedPoint),
             followerLength: this.distance(this.redClosedPoint, this.blueClosedPoint),
@@ -142,16 +144,16 @@ class BoxGeometry {
         // Update input angle
         this.fourBarConfig.inputAngle = angle;
         
-        // Calculate new input end position
-        this.fourBarConfig.inputEnd = {
+        // Calculate new input follower position
+        this.fourBarConfig.inputFollower = {
             x: this.fourBarConfig.inputGround.x + Math.cos(angle) * this.fourBarConfig.inputLength,
             y: this.fourBarConfig.inputGround.y + Math.sin(angle) * this.fourBarConfig.inputLength
         };
         
         // Find intersection of follower and output circles
         const intersections = this.circleIntersection(
-            this.fourBarConfig.inputEnd,
-            this.fourBarConfig.rightPivot,
+            this.fourBarConfig.inputFollower,
+            this.fourBarConfig.outputGround,
             this.fourBarConfig.followerLength,
             this.fourBarConfig.outputLength
         );
@@ -164,18 +166,18 @@ class BoxGeometry {
         
         // Choose intersection closest to previous output end
         const [pos1, pos2] = intersections;
-        if (prevConfig.outputEnd) {
-            const d1 = this.distance(pos1, prevConfig.outputEnd);
-            const d2 = this.distance(pos2, prevConfig.outputEnd);
-            this.fourBarConfig.outputEnd = d1 < d2 ? pos1 : pos2;
+        if (prevConfig.outputFollower) {
+            const d1 = this.distance(pos1, prevConfig.outputFollower);
+            const d2 = this.distance(pos2, prevConfig.outputFollower);
+            this.fourBarConfig.outputFollower = d1 < d2 ? pos1 : pos2;
             
             // Update configuration based on chosen point
-            this.fourBarConfig.config = this.fourBarConfig.outputEnd.y > this.fourBarConfig.inputEnd.y ? 1 : 0;
+            this.fourBarConfig.config = this.fourBarConfig.outputFollower.y > this.fourBarConfig.inputFollower.y ? 1 : 0;
         } else {
             // If no previous position (shouldn't happen), maintain current config
-            this.fourBarConfig.outputEnd = this.fourBarConfig.config === 1 ?
-                (pos1.y > this.fourBarConfig.inputEnd.y ? pos1 : pos2) :
-                (pos1.y <= this.fourBarConfig.inputEnd.y ? pos1 : pos2);
+            this.fourBarConfig.outputFollower = this.fourBarConfig.config === 1 ?
+                (pos1.y > this.fourBarConfig.inputFollower.y ? pos1 : pos2) :
+                (pos1.y <= this.fourBarConfig.inputFollower.y ? pos1 : pos2);
         }
         
         // Create some vectors to help with the transformation
@@ -183,13 +185,13 @@ class BoxGeometry {
         const C = [this.blueClosedPoint.x - this.redClosedPoint.x, this.blueClosedPoint.y - this.redClosedPoint.y];
 
         // Let F (Follower) be the vector from followerStart to followerEnd
-        const F = [this.fourBarConfig.outputEnd.x - this.fourBarConfig.inputEnd.x, this.fourBarConfig.outputEnd.y - this.fourBarConfig.inputEnd.y];
+        const F = [this.fourBarConfig.outputFollower.x - this.fourBarConfig.inputFollower.x, this.fourBarConfig.outputFollower.y - this.fourBarConfig.inputFollower.y];
 
         // let theta be the angle between C and F
         const theta = math.acos(math.dot(C, F) / (math.norm(C) * math.norm(F)));
 
         // Compute translation vector
-        const translation = [this.fourBarConfig.outputEnd.x - this.redClosedPoint.x,this.fourBarConfig.outputEnd.y - this.redClosedPoint.y];
+        const translation = [this.fourBarConfig.outputFollower.x - this.redClosedPoint.x,this.fourBarConfig.outputFollower.y - this.redClosedPoint.y];
 
         // Compute transformation from previous to new follower position
         const transform = this.makeTransform(theta,translation);
@@ -198,9 +200,9 @@ class BoxGeometry {
         this.movingLidVertices = this.transformPoints(transform, this.previousMovingLidVertices);
         
         // Verify lengths are maintained with 1% tolerance
-        const newInputLength = this.distance(this.fourBarConfig.inputGround, this.fourBarConfig.inputEnd);
-        const newFollowerLength = this.distance(this.fourBarConfig.inputEnd, this.fourBarConfig.outputEnd);
-        const newOutputLength = this.distance(this.fourBarConfig.rightPivot, this.fourBarConfig.outputEnd);
+        const newInputLength = this.distance(this.fourBarConfig.inputGround, this.fourBarConfig.inputFollower);
+        const newFollowerLength = this.distance(this.fourBarConfig.inputFollower, this.fourBarConfig.outputFollower);
+        const newOutputLength = this.distance(this.fourBarConfig.outputGround, this.fourBarConfig.outputFollower);
         
         const inputError = Math.abs(newInputLength - this.fourBarConfig.inputLength) / this.fourBarConfig.inputLength;
         const followerError = Math.abs(newFollowerLength - this.fourBarConfig.followerLength) / this.fourBarConfig.followerLength;
@@ -439,12 +441,12 @@ class BoxGeometry {
         
         return {
             redBox: this.fourBarConfig.inputGround,
-            redClosed: this.fourBarConfig.inputEnd,
-            blueClosed: this.fourBarConfig.outputEnd,
-            blueBox: this.fourBarConfig.rightPivot,
+            redClosed: this.fourBarConfig.inputFollower,
+            blueClosed: this.fourBarConfig.outputFollower,
+            blueBox: this.fourBarConfig.outputGround,
             follower: {
-                start: this.fourBarConfig.inputEnd,
-                end: this.fourBarConfig.outputEnd
+                start: this.fourBarConfig.inputFollower,
+                end: this.fourBarConfig.outputFollower
             }
         };
     }
@@ -748,16 +750,16 @@ class BoxGeometry {
         for (let i = 0; i <= numSteps; i++) {
             const angle = range.start - i * angleStep;
             
-            // Update input end position
-            const inputEnd = {
+            // Update input follower position
+            const inputFollower = {
                 x: fb.inputGround.x + Math.cos(angle) * fb.inputLength,
                 y: fb.inputGround.y + Math.sin(angle) * fb.inputLength
             };
             
             // Check if circles intersect at this angle
             const intersections = this.circleIntersection(
-                inputEnd,
-                fb.rightPivot,
+                inputFollower,
+                fb.outputGround,
                 fb.followerLength,
                 fb.outputLength
             );

@@ -470,12 +470,12 @@ class BoxRenderer {
         // Draw four-bar linkage if initialized
         const fb = this.geometry.fourBarConfig;
         if (fb) {
-            // Draw ground link
+            // Draw ground line
             ctx.beginPath();
-            ctx.strokeStyle = 'black';
+            ctx.strokeStyle = '#000000';
             ctx.lineWidth = 2;
-            const groundStart = this.transform(fb.leftPivot);
-            const groundEnd = this.transform(fb.rightPivot);
+            const groundStart = this.transform(fb.inputGround);
+            const groundEnd = this.transform(fb.outputGround);
             ctx.moveTo(groundStart.x, groundStart.y);
             ctx.lineTo(groundEnd.x, groundEnd.y);
             ctx.stroke();
@@ -484,18 +484,18 @@ class BoxRenderer {
             ctx.beginPath();
             ctx.strokeStyle = 'black';
             ctx.lineWidth = 2;
-            const inputEnd = this.transform(fb.inputEnd);
+            const inputFollower = this.transform(fb.inputFollower);
             ctx.moveTo(groundStart.x, groundStart.y);
-            ctx.lineTo(inputEnd.x, inputEnd.y);
+            ctx.lineTo(inputFollower.x, inputFollower.y);
             ctx.stroke();
             
             // Draw follower link
             ctx.beginPath();
             ctx.strokeStyle = 'black';
             ctx.lineWidth = 2;
-            const outputEnd = this.transform(fb.outputEnd);
-            ctx.moveTo(inputEnd.x, inputEnd.y);
-            ctx.lineTo(outputEnd.x, outputEnd.y);
+            const outputFollower = this.transform(fb.outputFollower);
+            ctx.moveTo(inputFollower.x, inputFollower.y);
+            ctx.lineTo(outputFollower.x, outputFollower.y);
             ctx.stroke();
             
             // Draw output link
@@ -503,7 +503,7 @@ class BoxRenderer {
             ctx.strokeStyle = 'black';
             ctx.lineWidth = 2;
             ctx.moveTo(groundEnd.x, groundEnd.y);
-            ctx.lineTo(outputEnd.x, outputEnd.y);
+            ctx.lineTo(outputFollower.x, outputFollower.y);
             ctx.stroke();
         }
         
