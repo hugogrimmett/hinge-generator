@@ -177,20 +177,21 @@ class BoxGeometry {
                 (pos1.y <= this.fourBarConfig.inputEnd.y ? pos1 : pos2);
         }
         
+        // Create some vectors to help with the transformation
+        // Let C (Closed) be the vector from redClosed to blueClosed
+        const C = [this.blueClosedPoint.x - this.redClosedPoint.x, this.blueClosedPoint.y - this.redClosedPoint.y];
+
+        // Let F (Follower) be the vector from followerStart to followerEnd
+        const F = [this.fourBarConfig.outputEnd.x - this.fourBarConfig.inputEnd.x, this.fourBarConfig.outputEnd.y - this.fourBarConfig.inputEnd.y];
+
+        // let theta be the angle between C and F
+        const theta = math.acos(math.dot(C, F) / (math.norm(C) * math.norm(F)));
+
+        // Compute translation vector
+        const translation = [this.fourBarConfig.outputEnd.x - this.redClosedPoint.x,this.fourBarConfig.outputEnd.y - this.redClosedPoint.y];
+
         // Compute transformation from previous to new follower position
-        const transform = this.makeTransform(
-            Math.atan2(
-                this.fourBarConfig.outputEnd.y - this.fourBarConfig.inputEnd.y,
-                this.fourBarConfig.outputEnd.x - this.fourBarConfig.inputEnd.x
-            ) - Math.atan2(
-                this.previousFollowerEnd.y - this.previousFollowerStart.y,
-                this.previousFollowerEnd.x - this.previousFollowerStart.x
-            ),
-            {
-                x: this.fourBarConfig.inputEnd.x - this.previousFollowerStart.x,
-                y: this.fourBarConfig.inputEnd.y - this.previousFollowerStart.y
-            }
-        );
+        const transform = this.makeTransform(theta,translation);
 
         // Transform previous moving lid vertices to new position
         this.movingLidVertices = this.transformPoints(transform, this.previousMovingLidVertices);
@@ -999,12 +1000,12 @@ class BoxGeometry {
         };
     }
 
-    makeTransform(rotation, translation) {
+    makeTransform(rotation,translation) {
         const cos = Math.cos(rotation);
         const sin = Math.sin(rotation);
         return math.matrix([
-            [cos, -sin, translation.x],
-            [sin,  cos, translation.y],
+            [cos, -sin, translation[0]],
+            [sin,  cos, translation[1]],
             [0,    0,   1]
         ]);
     }
