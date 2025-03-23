@@ -88,7 +88,7 @@ class BoxRenderer {
         // Animation state
         this.geometry.isAnimating = false;
         this.animationTime = 0;
-        this.animationDuration = 30000;  // 3 seconds for a full cycle
+        this.animationDuration = 4000;  // 4 seconds for a full cycle
         this.lastTimestamp = null;
         
         // Initialize geometry and draw

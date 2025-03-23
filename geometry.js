@@ -441,8 +441,8 @@ class BoxGeometry {
         
         return {
             redBox: this.fourBarConfig.inputGround,
-            redClosed: this.fourBarConfig.inputFollower,
-            blueClosed: this.fourBarConfig.outputFollower,
+            redClosed: this.redClosedPoint,  
+            blueClosed: this.blueClosedPoint,  
             blueBox: this.fourBarConfig.outputGround,
             follower: {
                 start: this.fourBarConfig.inputFollower,
