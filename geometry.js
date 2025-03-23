@@ -179,20 +179,41 @@ class BoxGeometry {
         
         // Create some vectors to help with the transformation
         // Let C (Closed) be the vector from redClosed to blueClosed
-        const C = [this.blueClosedPoint.x - this.redClosedPoint.x, this.blueClosedPoint.y - this.redClosedPoint.y];
-
+        const C = math.matrix([this.blueClosedPoint.x - this.redClosedPoint.x, this.blueClosedPoint.y - this.redClosedPoint.y]);
+        const Chat = math.divide(C, math.norm(C));
+        
         // Let F (Follower) be the vector from followerStart to followerEnd
-        const F = [this.fourBarConfig.outputFollower.x - this.fourBarConfig.inputFollower.x, this.fourBarConfig.outputFollower.y - this.fourBarConfig.inputFollower.y];
+        const F = math.matrix([this.fourBarConfig.outputFollower.x - this.fourBarConfig.inputFollower.x, 
+                             this.fourBarConfig.outputFollower.y - this.fourBarConfig.inputFollower.y]);
+        const Fhat = math.divide(F, math.norm(F));
 
+        const x1 = C.get([0]);
+        const y1 = C.get([1]);
+        const x2 = F.get([0]);
+        const y2 = F.get([1]);
+        
         // let theta be the angle between C and F
-        const theta = math.acos(math.dot(C, F) / (math.norm(C) * math.norm(F)));
+        // const theta = -math.acos(math.dot(C, F) / (math.norm(C) * math.norm(F)));
+        // const theta = Math.atan2((y2-y1),(x2-x1))- Math.atan2(y1,x1);
+        const cos_theta = math.dot(Chat, Fhat);
+        const sin_theta = (x1*y2 - y1*x2) / (math.norm(C) * math.norm(F));
 
         // Compute translation vector
-        const translation = [this.fourBarConfig.inputFollower.x - this.redClosedPoint.x,this.fourBarConfig.inputFollower.y - this.redClosedPoint.y];
+        // const translation = [this.fourBarConfig.inputFollower.x - this.redClosedPoint.x,this.fourBarConfig.inputFollower.y - this.redClosedPoint.y];
+        // const translation = [x2-(x1*Math.cos(theta) - y1*Math.sin(theta)),
+        //     y2 - (x1*Math.sin(theta) + y1*Math.cos(theta))];        
+        // const translation = [x2 - (x1 * cos_theta - y1 * sin_theta), 
+        //                    y2 - (x1 * sin_theta + y1 * cos_theta)];
+
+        const translation = [this.fourBarConfig.inputFollower.x - (this.redClosedPoint.x * cos_theta - this.redClosedPoint.y * sin_theta),
+            this.fourBarConfig.inputFollower.y - (this.redClosedPoint.x * sin_theta +this.redClosedPoint.y * cos_theta)]
 
         // Compute transformation from previous to new follower position
-        const transform = this.makeTransform(-theta,translation);
-
+        // const transform = this.makeTransform(theta,translation);
+        const transform = math.matrix([[cos_theta, -sin_theta, translation[0]], 
+            [sin_theta, cos_theta, translation[1]], 
+            [0, 0, 1]]);
+        
         // Transform previous moving lid vertices to new position
         this.movingLidVertices = this.transformPoints(transform, this.getClosedLidVertices());
         

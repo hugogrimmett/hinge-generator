@@ -88,7 +88,7 @@ class BoxRenderer {
         // Animation state
         this.geometry.isAnimating = false;
         this.animationTime = 0;
-        this.animationDuration = 4000;  // 4 seconds for a full cycle
+        this.animationDuration = 2000;  // 4 seconds for a full cycle
         this.lastTimestamp = null;
         
         // Initialize geometry and draw
@@ -539,7 +539,22 @@ class BoxRenderer {
             const theta = Math.acos((C[0]*F[0] + C[1]*F[1]) / (Math.sqrt(C[0]*C[0] + C[1]*C[1]) * Math.sqrt(F[0]*F[0] + F[1]*F[1])));
             ctx.fillText(`C: [${C[0].toFixed(1)}, ${C[1].toFixed(1)}]`, 10, y); y += 15;
             ctx.fillText(`F: [${F[0].toFixed(1)}, ${F[1].toFixed(1)}]`, 10, y); y += 15;
-            ctx.fillText(`θ: ${(theta * 180 / Math.PI).toFixed(1)}°`, 10, y);
+            ctx.fillText(`θ: ${(theta * 180 / Math.PI).toFixed(1)}°`, 10, y); y += 15;
+            
+            const C2 = math.matrix([points.blueClosed.x - points.redClosed.x, points.blueClosed.y - points.redClosed.y]);
+            const Chat = math.divide(C2, math.norm(C2));
+            const F2 = math.matrix([points.follower.end.x - points.follower.start.x, 
+                points.follower.end.y - points.follower.start.y]);
+            const Fhat = math.divide(F2, math.norm(F2));
+            const x1 = C2.get([0]);
+            const y1 = C2.get([1]);
+            const x2 = F2.get([0]);
+            const y2 = F2.get([1]);
+            const cos_theta = math.dot(Chat, Fhat);
+            const sin_theta = (x1*y2 - y1*x2) / (math.norm(C2) * math.norm(F2));    
+            const translation = [x2 - (x1 * cos_theta - y1 * sin_theta), 
+                           y2 - (x1 * sin_theta + y1 * cos_theta)];
+            ctx.fillText(`T: [${translation[0].toFixed(1)}, ${translation[1].toFixed(1)}]`, 10, y);
         }
         ctx.restore();
     }
