@@ -467,9 +467,9 @@ class BoxRenderer {
         });
         ctx.fillText('open lid', openLidCenter.x, openLidCenter.y);
         
-        // Draw four-bar linkage if initialized
+        // Draw four-bar linkage if initialized and animating
         const fb = this.geometry.fourBarConfig;
-        if (fb) {
+        if (fb && this.geometry.isAnimating) {
             // Draw ground line
             ctx.beginPath();
             ctx.strokeStyle = '#000000';
@@ -742,6 +742,8 @@ class BoxRenderer {
     startAnimation() {
         if (this.animationId) return;  // Already animating
         
+        this.geometry.isAnimating = true;  // Set animation flag
+        
         const animate = (timestamp) => {
             // Stop animation if mouse is down or range is not reachable
             if (this.isDragging || !this.geometry.isValidRangeReachable()) {
@@ -789,6 +791,7 @@ class BoxRenderer {
             this.animationId = null;
             this.lastTimestamp = null;
             
+            this.geometry.isAnimating = false;
             // Hide linkage by clearing four-bar config
             const prevConfig = this.geometry.fourBarConfig;
             this.geometry.fourBarConfig = null;
