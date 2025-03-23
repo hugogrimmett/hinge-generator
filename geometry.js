@@ -193,8 +193,6 @@ class BoxGeometry {
         const y2 = F.get([1]);
         
         // let theta be the angle between C and F
-        // const theta = -math.acos(math.dot(C, F) / (math.norm(C) * math.norm(F)));
-        // const theta = Math.atan2((y2-y1),(x2-x1))- Math.atan2(y1,x1);
         const cos_theta = math.dot(Chat, Fhat);
         const sin_theta = (x1*y2 - y1*x2) / (math.norm(C) * math.norm(F));
 
@@ -204,6 +202,8 @@ class BoxGeometry {
         //     y2 - (x1*Math.sin(theta) + y1*Math.cos(theta))];        
         // const translation = [x2 - (x1 * cos_theta - y1 * sin_theta), 
         //                    y2 - (x1 * sin_theta + y1 * cos_theta)];
+
+        // the translation was always wrong because I was using x1, x2 etc which was defined by the difference between C and F which was obviously always zero
 
         const translation = [this.fourBarConfig.inputFollower.x - (this.redClosedPoint.x * cos_theta - this.redClosedPoint.y * sin_theta),
             this.fourBarConfig.inputFollower.y - (this.redClosedPoint.x * sin_theta +this.redClosedPoint.y * cos_theta)]

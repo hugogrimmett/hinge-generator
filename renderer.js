@@ -432,9 +432,9 @@ class BoxRenderer {
         this.drawLid(this.geometry.getClosedLidVertices(), 'black');
         this.drawLid(this.geometry.getOpenLidVertices(), 'black');
         
-        // Draw moving lid if available
+        // Draw moving lid if available and animating
         const movingLidVertices = this.geometry.getMovingLidVertices();
-        if (movingLidVertices) {
+        if (movingLidVertices && this.geometry.isAnimating) {
             this.drawLid(movingLidVertices, '#66c2a588');  // Semi-transparent teal
         }
         
