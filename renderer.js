@@ -138,17 +138,16 @@ class BoxRenderer {
         // Then recompute four-bar linkage configuration
         this.geometry.initializeFourBar();
         
-        // Update animation state based on configuration validity
-        if (!this.geometry.fourBarConfig) {
-            // Stop animation if configuration is invalid
-            this.geometry.isAnimating = false;
-        } else {
-            // Start new animation from closed position if configuration is valid
-            this.geometry.startAnimation();
-            this.animate();
-        }
+        // Stop any existing animation
+        this.stopAnimation();
         
-        this.draw();
+        // Check if configuration is valid and start animation if it is
+        if (this.geometry.isValidRangeReachable()) {
+            this.geometry.fourBarConfig = this.geometry.getFourBarConfig();  // Get fresh config
+            this.startAnimation();
+        } else {
+            this.draw();  // Only draw if we're not starting animation
+        }
     }
     
     // Transform a point from world coordinates to screen coordinates
@@ -806,8 +805,8 @@ class BoxRenderer {
         const rect = this.canvas.getBoundingClientRect();
         
         // Calculate mouse position relative to canvas
-        const x = e.clientX - rect.left;
-        const y = e.clientY - rect.top;
+        const x = e.clientX - (rect.left);
+        const y = e.clientY - (rect.top);
         
         // Convert to model coordinates
         return this.inverseTransform({
