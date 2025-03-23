@@ -35,7 +35,6 @@ class BoxGeometry {
         
         // Moving lid state
         this.movingLidVertices = null;
-        this.previousMovingLidVertices = null;
         this.previousFollowerStart = null;
         this.previousFollowerEnd = null;
         
@@ -122,7 +121,6 @@ class BoxGeometry {
         
         // Initialize moving lid with closed lid vertices
         this.movingLidVertices = this.getClosedLidVertices();
-        this.previousMovingLidVertices = this.movingLidVertices.map(v => ({...v}));
         
         const points = this.getFourBarPoints();
         this.previousFollowerStart = {...points.redClosed};
@@ -136,7 +134,6 @@ class BoxGeometry {
         const oldPoints = this.getFourBarPoints();
         this.previousFollowerStart = {...oldPoints.redClosed};
         this.previousFollowerEnd = {...oldPoints.blueClosed};
-        this.previousMovingLidVertices = this.movingLidVertices.map(v => ({...v}));
 
         // Store current state
         const prevConfig = { ...this.fourBarConfig };
@@ -197,7 +194,7 @@ class BoxGeometry {
         const transform = this.makeTransform(theta,translation);
 
         // Transform previous moving lid vertices to new position
-        this.movingLidVertices = this.transformPoints(transform, this.previousMovingLidVertices);
+        this.movingLidVertices = this.transformPoints(transform, this.getClosedLidVertices());
         
         // Verify lengths are maintained with 1% tolerance
         const newInputLength = this.distance(this.fourBarConfig.inputGround, this.fourBarConfig.inputFollower);
@@ -989,6 +986,7 @@ class BoxGeometry {
             height: maxY - minY
         };
     }
+
     
     // Helper functions for homogeneous coordinates
     toHomogeneous(point) {
