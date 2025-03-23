@@ -188,10 +188,10 @@ class BoxGeometry {
         const theta = math.acos(math.dot(C, F) / (math.norm(C) * math.norm(F)));
 
         // Compute translation vector
-        const translation = [this.fourBarConfig.outputFollower.x - this.redClosedPoint.x,this.fourBarConfig.outputFollower.y - this.redClosedPoint.y];
+        const translation = [this.fourBarConfig.inputFollower.x - this.redClosedPoint.x,this.fourBarConfig.inputFollower.y - this.redClosedPoint.y];
 
         // Compute transformation from previous to new follower position
-        const transform = this.makeTransform(theta,translation);
+        const transform = this.makeTransform(-theta,translation);
 
         // Transform previous moving lid vertices to new position
         this.movingLidVertices = this.transformPoints(transform, this.getClosedLidVertices());
