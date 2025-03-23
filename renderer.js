@@ -71,29 +71,21 @@ class BoxRenderer {
             generateButton.addEventListener('click', () => this.generateTemplate());
         }
         
-        // Animation controls
-        const animateButton = document.getElementById('animateButton');
-        if (animateButton) {
-            animateButton.addEventListener('click', () => {
-                if (this.geometry.isAnimating) {
-                    this.stopAnimation();
-                    animateButton.textContent = 'Animate';
-                } else {
-                    this.startAnimation();
-                    animateButton.textContent = 'Stop';
-                }
-            });
-        }
-        
         // Animation state
-        this.geometry.isAnimating = false;
+        this.geometry.isAnimating = true;
         this.animationTime = 0;
-        this.animationDuration = 2000;  // 4 seconds for a full cycle
+        this.animationDuration = 2000;  // 2 seconds for a full cycle
         this.lastTimestamp = null;
         
         // Initialize geometry and draw
         this.geometry.initializeFourBar();
-        this.draw();
+        
+        // Start animation if configuration is valid
+        if (this.geometry.isValidRangeReachable()) {
+            this.startAnimation();
+        } else {
+            this.draw();
+        }
     }
     
     updateParameters(h, w, d, alpha, g) {
@@ -150,17 +142,9 @@ class BoxRenderer {
         if (!this.geometry.fourBarConfig) {
             // Stop animation if configuration is invalid
             this.geometry.isAnimating = false;
-            const animateButton = document.getElementById('animateButton');
-            if (animateButton) {
-                animateButton.textContent = 'Animate';
-            }
         } else {
             // Start new animation from closed position if configuration is valid
             this.geometry.startAnimation();
-            const animateButton = document.getElementById('animateButton');
-            if (animateButton) {
-                animateButton.textContent = 'Stop';
-            }
             this.animate();
         }
         
@@ -221,7 +205,7 @@ class BoxRenderer {
         
         // Make font size responsive to canvas width
         const baseFontSize = Math.min(14, this.canvas.width / 40);
-        ctx.font = `${baseFontSize}px -apple-system, BlinkMacSystemFont, sans-serif`;
+        ctx.font = `${baseFontSize}px -apple-system, BlinkMacSystemFont, system-ui, sans-serif`;
         ctx.fillStyle = color;
         ctx.textAlign = 'center';
         ctx.textBaseline = 'middle';
@@ -383,48 +367,6 @@ class BoxRenderer {
         const ctx = this.ctx;
         ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
         
-        // Check if current configuration is valid
-        if (this.geometry.fourBarConfig) {
-            const isValid = this.geometry.isValidRangeReachable();
-            
-            if (!isValid) {
-                ctx.fillStyle = 'rgba(255, 0, 0, 0.1)';
-                ctx.fillRect(0, 0, this.displayWidth, this.displayHeight);
-                
-                // Show error message with responsive font size and line wrapping
-                const fontSize = Math.min(18, this.displayWidth / 25);
-                ctx.font = `400 ${fontSize}px -apple-system, BlinkMacSystemFont, system-ui, sans-serif`;
-                ctx.fillStyle = 'red';
-                ctx.textAlign = 'center';
-                ctx.textBaseline = 'middle';
-                
-                // Calculate available width for text (80% of canvas width)
-                const maxWidth = this.displayWidth * 0.8;
-                
-                // Warning messages
-                const message = [
-                    "This hinge will not allow the lid to open and close.",
-                    "Try moving the red and blue pivot points."
-                ];
-                
-                // Position text vertically based on canvas size
-                const lineHeight = fontSize * 1.5;  // Slightly increased for better readability
-                const startY = Math.max(lineHeight, this.displayHeight * 0.1);
-                
-                // Draw each line with consistent spacing
-                message.forEach((line, i) => {
-                    // Reset font for each line to ensure consistency
-                    ctx.font = `400 ${fontSize}px -apple-system, BlinkMacSystemFont, system-ui, sans-serif`;
-                    ctx.fillText(line, this.displayWidth / 2, startY + i * lineHeight, maxWidth);
-                });
-            }
-            
-            // Start animation if valid and not dragging
-            if (isValid && !this.isDragging && !this.animationId) {
-                this.startAnimation();
-            }
-        }
-        
         // Draw box outline
         this.drawBox();
         
@@ -439,17 +381,10 @@ class BoxRenderer {
         }
         
         // Draw labels
-        ctx.font = '16px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Oxygen, Ubuntu, Cantarell, "Open Sans", "Helvetica Neue", sans-serif';
+        ctx.font = '14px -apple-system, BlinkMacSystemFont, system-ui, sans-serif';
         ctx.fillStyle = 'black';
-        ctx.textAlign = 'left';
-        
-        // Box label
-        const boxVertices = this.geometry.getBoxVertices();
-        const boxCenter = this.transform({
-            x: (boxVertices[0].x + boxVertices[2].x) / 2,
-            y: (boxVertices[0].y + boxVertices[2].y) / 2
-        });
-        ctx.fillText('box', boxCenter.x - 10, boxCenter.y);
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
         
         // Closed lid label
         const closedLidVertices = this.geometry.getClosedLidVertices();
@@ -466,6 +401,47 @@ class BoxRenderer {
             y: (openLidVertices[2].y + openLidVertices[1].y) / 2
         });
         ctx.fillText('open lid', openLidCenter.x, openLidCenter.y);
+        
+        // Check if current configuration is valid
+        const isValid = this.geometry.isValidRangeReachable();
+        
+        if (!isValid) {
+            ctx.fillStyle = 'rgba(255, 0, 0, 0.1)';
+            ctx.fillRect(0, 0, this.displayWidth, this.displayHeight);
+            
+            // Show error message with responsive font size and line wrapping
+            const fontSize = Math.min(18, this.displayWidth / 25);
+            ctx.font = `400 ${fontSize}px -apple-system, BlinkMacSystemFont, system-ui, sans-serif`;
+            ctx.fillStyle = 'red';
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+            
+            // Calculate available width for text (80% of canvas width)
+            const maxWidth = this.displayWidth * 0.8;
+            
+            // Warning messages
+            const message = [
+                "This hinge will not allow the lid to open and close.",
+                "Try moving the red and blue pivot points."
+            ];
+            
+            // Position text vertically based on canvas size
+            const lineHeight = fontSize * 1.5;  // Slightly increased for better readability
+            const startY = Math.max(lineHeight, this.displayHeight * 0.1);
+            
+            // Draw each line with consistent spacing
+            message.forEach((line, i) => {
+                // Reset font for each line to ensure consistency
+                ctx.font = `400 ${fontSize}px -apple-system, BlinkMacSystemFont, system-ui, sans-serif`;
+                ctx.fillText(line, this.displayWidth / 2, startY + i * lineHeight, maxWidth);
+            });
+            
+            // Stop any existing animation
+            this.stopAnimation();
+        } else if (!this.isDragging && !this.animationId) {
+            // Start animation if valid and not already animating
+            this.startAnimation();
+        }
         
         // Draw four-bar linkage if initialized and animating
         const fb = this.geometry.fourBarConfig;
@@ -622,12 +598,14 @@ class BoxRenderer {
     }
     
     handleMouseUp() {
-        this.isDragging = false;
-        this.selectedPoint = null;
-        
-        // Try to restart animation
-        if (this.geometry.fourBarConfig && this.geometry.isValidRangeReachable()) {
-            this.startAnimation();
+        if (this.isDragging) {
+            this.isDragging = false;
+            this.selectedPoint = null;
+            
+            // Check if configuration is valid and start animation if it is
+            if (this.geometry.isValidRangeReachable()) {
+                this.startAnimation();
+            }
         }
     }
     
@@ -741,6 +719,10 @@ class BoxRenderer {
     
     startAnimation() {
         if (this.animationId) return;  // Already animating
+        
+        // Initialize four-bar linkage
+        this.geometry.initializeFourBar();
+        this.geometry.fourBarConfig = this.geometry.getFourBarConfig();
         
         this.geometry.isAnimating = true;  // Set animation flag
         

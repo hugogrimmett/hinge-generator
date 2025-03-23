@@ -99,32 +99,9 @@ class BoxGeometry {
     }
     
     initializeFourBar() {
-        // Use current closed points and box points for initialization
-        this.fourBarConfig = {
-            // Ground points
-            inputGround: this.redBoxPoint,
-            outputGround: this.blueBoxPoint,
-            // Moving points
-            inputFollower: this.redClosedPoint,
-            outputFollower: this.blueClosedPoint,
-            // Link lengths
-            inputLength: this.distance(this.redBoxPoint, this.redClosedPoint),
-            outputLength: this.distance(this.blueBoxPoint, this.blueClosedPoint),
-            followerLength: this.distance(this.redClosedPoint, this.blueClosedPoint),
-            inputAngle: Math.atan2(
-                this.redClosedPoint.y - this.redBoxPoint.y,
-                this.redClosedPoint.x - this.redBoxPoint.x
-            ),
-            // Store configuration (above/below input link)
-            config: this.blueClosedPoint.y > this.redClosedPoint.y ? 1 : 0
-        };
-        
-        // Initialize moving lid with closed lid vertices
-        this.movingLidVertices = this.getClosedLidVertices();
-        
-        const points = this.getFourBarPoints();
-        this.previousFollowerStart = {...points.redClosed};
-        this.previousFollowerEnd = {...points.blueClosed};
+        // Don't initialize four-bar linkage until animation starts
+        this.fourBarConfig = null;
+        this.movingLidVertices = null;
     }
     
     updateFourBarPosition(angle) {
@@ -469,6 +446,28 @@ class BoxGeometry {
         };
     }
     
+    // Get four-bar configuration without modifying state
+    getFourBarConfig() {
+        return {
+            // Ground points
+            inputGround: this.redBoxPoint,
+            outputGround: this.blueBoxPoint,
+            // Moving points
+            inputFollower: this.redClosedPoint,
+            outputFollower: this.blueClosedPoint,
+            // Link lengths
+            inputLength: this.distance(this.redBoxPoint, this.redClosedPoint),
+            outputLength: this.distance(this.blueBoxPoint, this.blueClosedPoint),
+            followerLength: this.distance(this.redClosedPoint, this.blueClosedPoint),
+            inputAngle: Math.atan2(
+                this.redClosedPoint.y - this.redBoxPoint.y,
+                this.redClosedPoint.x - this.redBoxPoint.x
+            ),
+            // Store configuration (above/below input link)
+            config: this.blueClosedPoint.y > this.redClosedPoint.y ? 1 : 0
+        };
+    }
+    
     // Move points with constraints
     moveRedOpenPoint(point) {
         // Constrain to lid boundaries
@@ -645,6 +644,17 @@ class BoxGeometry {
         this.animationStartTime = Date.now();
         // Always start from closed position (range.start)
         this.animationStartAngle = range.start;
+        
+        // Initialize four-bar linkage
+        this.fourBarConfig = this.getFourBarConfig();
+        
+        // Initialize moving lid with closed lid vertices
+        this.movingLidVertices = this.getClosedLidVertices();
+        
+        const points = this.getFourBarPoints();
+        this.previousFollowerStart = {...points.redClosed};
+        this.previousFollowerEnd = {...points.blueClosed};
+        
         // Initialize in closed position
         this.updateFourBarPosition(range.start);
     }
@@ -755,10 +765,9 @@ class BoxGeometry {
     
     isValidRangeReachable() {
         const range = this.getValidAngleRange();
-        const fb = this.fourBarConfig;
-        if (!fb) return false;
         
-        // Store current configuration
+        // Get temporary four-bar config for validation
+        const fb = this.getFourBarConfig();
         const prevConfig = { ...fb };
         
         // Check angles at regular intervals
@@ -783,14 +792,10 @@ class BoxGeometry {
             );
             
             if (intersections.length === 0) {
-                // Restore original configuration
-                Object.assign(fb, prevConfig);
                 return false;
             }
         }
         
-        // Restore original configuration
-        Object.assign(fb, prevConfig);
         return true;
     }
     
