@@ -839,27 +839,20 @@ class BoxRenderer {
         
         // Create PDF with 1:1 scale (1 unit = 1 cm)
         const { jsPDF } = window.jspdf;
-        const margin = 2;  // 2cm margin
+        const margin = 0.5;  // 2cm margin
         const pdfWidth = bounds.maxX - bounds.minX + 2 * margin;  // Use absolute coordinates
         const pdfHeight = bounds.maxY - bounds.minY + 2 * margin;
         console.log('PDF dimensions:', { pdfWidth, pdfHeight });
-        const pdf = new jsPDF('p', 'cm', [pdfWidth, pdfHeight]);
+        // const pdf = new jsPDF('p', 'cm', [pdfWidth, pdfHeight]);
+        const orientation = pdfWidth > pdfHeight ? 'l' : 'p';
+        const pdf = new jsPDF(orientation, 'cm', [pdfWidth, pdfHeight]);
         
         // Transform from model coordinates to PDF coordinates
         // No scaling needed since we want 1:1, just translate to add margins and flip Y
-        const transform = (point) => {
-            const transformed = {
-                x: point.x - bounds.minX + margin,
-                y: pdfHeight - (point.y - bounds.minY + margin)
-            };
-            console.log('Transform:', { 
-                from: point,
-                to: transformed,
-                pdfWidth,
-                pdfHeight
-            });
-            return transformed;
-        };
+        const transform = (point) => ({
+            x: point.x - bounds.minX + margin,
+            y: bounds.maxY - point.y + margin  // Flip Y relative to maxY instead of using pdfHeight
+        });
         
         // Helper to check if point is within bounds
         const isInBounds = (point) => {
