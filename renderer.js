@@ -268,17 +268,8 @@ class BoxRenderer {
     drawConnectionLine(line, color) {
         const ctx = this.ctx;
         
-        // Draw dashed line between points
-        ctx.beginPath();
-        ctx.setLineDash([5, 5]);
-        ctx.strokeStyle = color === 'red' ? '#ff6666' : color === 'blue' ? '#4d94ff' : color;  // More vibrant
-        ctx.lineWidth = 1;
-        
         const start = this.transform(line.start);
         const end = this.transform(line.end);
-        ctx.moveTo(start.x, start.y);
-        ctx.lineTo(end.x, end.y);
-        ctx.stroke();
         
         // Reset line dash
         ctx.setLineDash([]);
@@ -307,21 +298,28 @@ class BoxRenderer {
         ctx.setLineDash([]);  // Reset dash
         
         // Draw thick connecting lines
-        ctx.beginPath();
-        const openPoint = this.transform(line.end);
-        const closedPoint = this.transform(line.start);
-        
-        ctx.moveTo(openPoint.x, openPoint.y);
-        ctx.lineTo(boxPoint.x, boxPoint.y);
-        ctx.lineTo(closedPoint.x, closedPoint.y);
-        
-        ctx.setLineDash([]);
         ctx.lineWidth = 3;
         ctx.strokeStyle = color === 'red' ? '#ff6666' : color === 'blue' ? '#4d94ff' : color;  // More vibrant
+        
+        // Draw dashed line from box point to open point
+        ctx.beginPath();
+        ctx.setLineDash([8, 8]);  // Larger dashes for thicker line
+        const openPoint = this.transform(line.end);
+        ctx.moveTo(boxPoint.x, boxPoint.y);
+        ctx.lineTo(openPoint.x, openPoint.y);
+        ctx.stroke();
+        
+        // Draw solid line from box point to closed point
+        ctx.beginPath();
+        ctx.setLineDash([]);  // Reset to solid line
+        const closedPoint = this.transform(line.start);
+        ctx.moveTo(boxPoint.x, boxPoint.y);
+        ctx.lineTo(closedPoint.x, closedPoint.y);
         ctx.stroke();
         
         // Reset line style
         ctx.lineWidth = 1;
+        ctx.setLineDash([]);
     }
     
     // Draw 4-bar linkage
