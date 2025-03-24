@@ -259,7 +259,7 @@ class BoxGeometry {
         // Initialize red points at default positions
         this.redOpenPoint = {
             x: this.width - this.gap - this.depth/2,
-            y: this.height + this.depth/2
+            y: this.height + this.height/3
         };
         
         // Initialize blue points at default positions (different location)
@@ -274,7 +274,7 @@ class BoxGeometry {
         
         // Initialize box points at default positions if they don't exist
         if (!this.redBoxPoint) {
-            const redLen = this.height * 0.5;
+            const redLen = this.height * 0.1;
             this.redBoxPoint = {
                 x: this.centerOfRotation.x,
                 y: this.centerOfRotation.y - redLen
@@ -282,7 +282,7 @@ class BoxGeometry {
         }
         
         if (!this.blueBoxPoint) {
-            const blueLen = this.height * -0.5;
+            const blueLen = this.height * -0.1;
             this.blueBoxPoint = {
                 x: this.centerOfRotation.x,
                 y: this.centerOfRotation.y - blueLen
