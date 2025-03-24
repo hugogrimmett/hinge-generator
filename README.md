@@ -11,3 +11,10 @@ Project plan:
 - Compute, and indicate to the user, whether the chosen configuration meets the requirements of being a valid hinge that meets the required motion. If the hinge is valid, then animate its motion.
 - Allow the user to create a template which allows them to test or build this hinge design. The template should be at least a to-scale PDF that indicates (a) the positions of the 4-bar linkage pivot points relative to the box and lid, and (b) the lenghts of the input and output rods.
 - As an extension, offer the generation of a file that can be given to a 3D printer to test the hinge mechanism prior to box manufacture.
+
+## Features to Add
+
+- [ ] Better legibility on "open lid" and "closed lid" text
+- [ ] Moving lid and box collision detection
+- [ ] Clearance between moving lid and box pivot points
+- [ ] Fix drifting box pivot points when changing box parameters
