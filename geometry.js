@@ -272,16 +272,15 @@ class BoxGeometry {
         this.updateRedClosedPoint();
         this.updateBlueClosedPoint();
         
-        // Initialize box points at default positions if they don't exist
-        if (!this.redBoxPoint) {
+        // Initialize box points at default positions only if they don't exist
+        // This allows setBoxPivotPositions to restore them properly
+        if (!this.redBoxPoint && !this.blueBoxPoint) {
             const redLen = this.height * 0.1;
             this.redBoxPoint = {
                 x: this.centerOfRotation.x,
                 y: this.centerOfRotation.y - redLen
             };
-        }
-        
-        if (!this.blueBoxPoint) {
+            
             const blueLen = this.height * -0.1;
             this.blueBoxPoint = {
                 x: this.centerOfRotation.x,
