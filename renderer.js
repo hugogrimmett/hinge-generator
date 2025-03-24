@@ -155,6 +155,10 @@ class BoxRenderer {
     
     // Transform a point from world coordinates to screen coordinates
     transform(point) {
+        if (!point || typeof point.x !== 'number' || typeof point.y !== 'number') {
+            console.error('Invalid point:', point);
+            throw new Error('Invalid point coordinates');
+        }
         const viewportWidth = this.viewportBounds.right - this.viewportBounds.left;
         const viewportHeight = this.viewportBounds.top - this.viewportBounds.bottom;
         
@@ -836,8 +840,8 @@ class BoxRenderer {
         // Create PDF with 1:1 scale (1 unit = 1 cm)
         const { jsPDF } = window.jspdf;
         const margin = 2;  // 2cm margin
-        const pdfWidth = bounds.right - bounds.left + 2 * margin;  // Use absolute coordinates
-        const pdfHeight = bounds.top - bounds.bottom + 2 * margin;
+        const pdfWidth = bounds.maxX - bounds.minX + 2 * margin;  // Use absolute coordinates
+        const pdfHeight = bounds.maxY - bounds.minY + 2 * margin;
         console.log('PDF dimensions:', { pdfWidth, pdfHeight });
         const pdf = new jsPDF('p', 'cm', [pdfWidth, pdfHeight]);
         
@@ -845,8 +849,8 @@ class BoxRenderer {
         // No scaling needed since we want 1:1, just translate to add margins and flip Y
         const transform = (point) => {
             const transformed = {
-                x: point.x - bounds.left + margin,
-                y: pdfHeight - (point.y - bounds.bottom + margin)
+                x: point.x - bounds.minX + margin,
+                y: pdfHeight - (point.y - bounds.minY + margin)
             };
             console.log('Transform:', { 
                 from: point,
@@ -869,7 +873,7 @@ class BoxRenderer {
         const boxVertices = this.geometry.getBoxVertices();
         // Make vertices relative to template bounds
         const relativeBoxVertices = boxVertices.map(p => ({
-            x: p.x + bounds.left,
+            x: p.x + bounds.minX,
             y: p.y
         }));
         
@@ -879,14 +883,19 @@ class BoxRenderer {
             
             const tp1 = transform(p1);
             const tp2 = transform(p2);
-            pdf.line(tp1.x, tp1.y, tp2.x, tp2.y);
+            if (typeof tp1.x === 'number' && typeof tp1.y === 'number' && 
+                typeof tp2.x === 'number' && typeof tp2.y === 'number') {
+                pdf.line(tp1.x, tp1.y, tp2.x, tp2.y);
+            } else {
+                console.error('Invalid line coordinates:', { tp1, tp2 });
+            }
         }
         
         // Draw closed lid outline
         const closedLidVertices = this.geometry.getClosedLidVertices();
         // Make vertices relative to template bounds
         const relativeLidVertices = closedLidVertices.map(p => ({
-            x: p.x + bounds.left,
+            x: p.x + bounds.minX,
             y: p.y
         }));
         
@@ -897,7 +906,12 @@ class BoxRenderer {
             
             const tp1 = transform(p1);
             const tp2 = transform(p2);
-            pdf.line(tp1.x, tp1.y, tp2.x, tp2.y);
+            if (typeof tp1.x === 'number' && typeof tp1.y === 'number' && 
+                typeof tp2.x === 'number' && typeof tp2.y === 'number') {
+                pdf.line(tp1.x, tp1.y, tp2.x, tp2.y);
+            } else {
+                console.error('Invalid line coordinates:', { tp1, tp2 });
+            }
         }
         
         // Draw pivot points
@@ -921,9 +935,14 @@ class BoxRenderer {
             const tp2 = transform(p2);
             
             // Draw line
-            pdf.setDrawColor(color === 'red' ? '#ff0000' : '#0000ff');
-            pdf.setLineWidth(0.01);  // thin line
-            pdf.line(tp1.x, tp1.y, tp2.x, tp2.y);
+            if (typeof tp1.x === 'number' && typeof tp1.y === 'number' && 
+                typeof tp2.x === 'number' && typeof tp2.y === 'number') {
+                pdf.setDrawColor(color === 'red' ? '#ff0000' : '#0000ff');
+                pdf.setLineWidth(0.01);  // thin line
+                pdf.line(tp1.x, tp1.y, tp2.x, tp2.y);
+            } else {
+                console.error('Invalid line coordinates:', { tp1, tp2 });
+            }
             
             // Calculate length in cm (using original points for true length)
             const dx = p2.x - p1.x;
@@ -961,17 +980,38 @@ class BoxRenderer {
         // Draw the scale line
         pdf.setDrawColor(0);
         pdf.setLineWidth(0.02);
-        pdf.line(scaleStartX, scaleLineY, scaleEndX, scaleLineY);
+        if (typeof scaleStartX === 'number' && typeof scaleLineY === 'number' && 
+            typeof scaleEndX === 'number') {
+            pdf.line(scaleStartX, scaleLineY, scaleEndX, scaleLineY);
+        } else {
+            console.error('Invalid scale line coordinates:', { scaleStartX, scaleLineY, scaleEndX });
+        }
         
         // Add small vertical marks at start and end
         const tickLength = 0.2; // 2mm tick length
-        pdf.line(scaleStartX, scaleLineY - tickLength/2, scaleStartX, scaleLineY + tickLength/2);
-        pdf.line(scaleEndX, scaleLineY - tickLength/2, scaleEndX, scaleLineY + tickLength/2);
+        if (typeof scaleStartX === 'number' && typeof scaleLineY === 'number') {
+            pdf.line(scaleStartX, scaleLineY - tickLength/2, scaleStartX, scaleLineY + tickLength/2);
+        } else {
+            console.error('Invalid tick start coordinates:', { scaleStartX, scaleLineY });
+        }
+        if (typeof scaleEndX === 'number' && typeof scaleLineY === 'number') {
+            pdf.line(scaleEndX, scaleLineY - tickLength/2, scaleEndX, scaleLineY + tickLength/2);
+        } else {
+            console.error('Invalid tick end coordinates:', { scaleEndX, scaleLineY });
+        }
         
         // Add labels
         pdf.setFontSize(8);
-        pdf.text('0', scaleStartX - 0.2, scaleLineY + 0.5);
-        pdf.text('10cm', scaleEndX - 0.5, scaleLineY + 0.5);
+        if (typeof scaleStartX === 'number') {
+            pdf.text('0', scaleStartX - 0.2, scaleLineY + 0.5);
+        } else {
+            console.error('Invalid label start coordinates:', { scaleStartX });
+        }
+        if (typeof scaleEndX === 'number') {
+            pdf.text('10cm', scaleEndX - 0.5, scaleLineY + 0.5);
+        } else {
+            console.error('Invalid label end coordinates:', { scaleEndX });
+        }
         
         // Save the PDF
         pdf.save('hinge-template.pdf');
