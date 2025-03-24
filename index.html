@@ -362,7 +362,20 @@
             let resizeTimeout;
             window.addEventListener('resize', () => {
                 clearTimeout(resizeTimeout);
-                resizeTimeout = setTimeout(updateVisualization, 250);  // Debounce resize events
+                resizeTimeout = setTimeout(() => {
+                    updateVisualization();
+                }, 250);
+            });
+            
+            // Add visibility change handler
+            document.addEventListener('visibilitychange', () => {
+                if (document.visibilityState === 'hidden' && boxRenderer.geometry.isAnimating) {
+                    // Just stop the animation when tab becomes hidden
+                    boxRenderer.stopAnimation();
+                } else if (document.visibilityState === 'visible' && boxRenderer.geometry.isAnimating) {
+                    // Start animation if it was running before
+                    boxRenderer.startAnimation();
+                }
             });
         </script>
     </body>
