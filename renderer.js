@@ -236,7 +236,7 @@ class BoxRenderer {
         }
         
         ctx.closePath();
-        ctx.fillStyle = 'rgba(200, 200, 200, 0.3)';  // Increased opacity from 0.1 to 0.3
+        ctx.fillStyle = 'rgba(200, 200, 200, 0.1)';
         ctx.fill();
         ctx.strokeStyle = '#000';
         ctx.lineWidth = 2;
@@ -257,7 +257,7 @@ class BoxRenderer {
         }
         
         ctx.closePath();
-        ctx.fillStyle = 'rgba(200, 200, 200, 0.3)';  // Same as box
+        ctx.fillStyle = 'rgba(200, 200, 200, 0.1)';
         ctx.fill();
         ctx.strokeStyle = color;
         ctx.lineWidth = 2;
