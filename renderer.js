@@ -841,31 +841,6 @@ class BoxRenderer {
         // Initialize PDF with a temporary size - we'll add properly sized pages
         const pdf = new jsPDF('p', 'cm', [21, 29.7]);  // A4 portrait as initial size
         
-        // Page 1: Template with pivot points - size based on template bounds
-        const page1Width = bounds.maxX * unitConv.toCm - bounds.minX * unitConv.toCm + 2 * margin;
-        const page1Height = bounds.maxY * unitConv.toCm - bounds.minY * unitConv.toCm + 2 * margin;
-        const page1Orientation = page1Width > page1Height ? 'l' : 'p';
-        
-        // Remove the default first page and add our custom sized one
-        pdf.deletePage(1);
-        pdf.addPage([Math.max(page1Width, page1Height), Math.min(page1Width, page1Height)], page1Orientation);
-        
-        // Transform for page 1 (template view)
-        const transformTemplate = (point) => ({
-            x: point.x * unitConv.toCm - bounds.minX * unitConv.toCm + margin,
-            y: bounds.maxY * unitConv.toCm - point.y * unitConv.toCm + margin
-        });
-        
-        // Transform for page 3 (full box view)
-        const transformFullBox = (point) => {
-            const boxWidth = this.geometry.width * unitConv.toCm;
-            const boxHeight = this.geometry.height * unitConv.toCm;
-            return {
-                x: point.x * unitConv.toCm + margin,
-                y: boxHeight - point.y * unitConv.toCm + margin
-            };
-        };
-        
         // Helper functions for drawing
         const drawBoxOutline = (transform) => {
             pdf.setDrawColor(0);
@@ -913,7 +888,7 @@ class BoxRenderer {
             }
         };
         
-        const drawConnectionLines = (transform, withLabels = true) => {
+        const drawConnectionLines = (transform, withLabels = true, fontSize = 8) => {
             const drawConnection = (p1, p2, color) => {
                 const tp1 = transform(p1);
                 const tp2 = transform(p2);
@@ -930,7 +905,7 @@ class BoxRenderer {
                     const midX = (tp1.x + tp2.x) / 2;
                     const midY = (tp1.y + tp2.y) / 2;
                     
-                    pdf.setFontSize(8);
+                    pdf.setFontSize(fontSize);
                     pdf.setTextColor(color === 'red' ? '#ff0000' : '#0000ff');
                     const text = `${length.toFixed(1)}${unitConv.label}`;
                     const textWidth = pdf.getTextWidth(text);
@@ -943,10 +918,21 @@ class BoxRenderer {
             drawConnection(this.geometry.blueBoxPoint, this.geometry.blueClosedPoint, 'blue');
         };
         
-        const drawScaleLine = (pageWidth, pageHeight) => {
+        const drawScaleLine = (pageWidth, pageHeight, fontSize = 8) => {
+            // Calculate scale length to fit within the page width
+            const maxScaleLength = pageWidth - 2 * margin;
+            let scaleLength = unitConv.scaleLength;
+            let scaleLengthCm = scaleLength * unitConv.toCm;
+            
+            // Adjust scale length if it's too big
+            while (scaleLengthCm > maxScaleLength && scaleLength > 1) {
+                scaleLength = Math.floor(scaleLength / 2);
+                scaleLengthCm = scaleLength * unitConv.toCm;
+            }
+            
             const scaleStartX = margin;
             const scaleLineY = pageHeight - margin;
-            const scaleEndX = scaleStartX + unitConv.scaleLength * unitConv.toCm;
+            const scaleEndX = scaleStartX + scaleLengthCm;
             
             pdf.setDrawColor(0);
             pdf.setLineWidth(0.02);
@@ -955,14 +941,35 @@ class BoxRenderer {
             pdf.line(scaleStartX, scaleLineY - 0.1, scaleStartX, scaleLineY + 0.1);
             pdf.line(scaleEndX, scaleLineY - 0.1, scaleEndX, scaleLineY + 0.1);
             
-            pdf.text(`${unitConv.scaleLength}${unitConv.label}`, (scaleStartX + scaleEndX) / 2 - 0.5, scaleLineY + 0.3);
+            pdf.setFontSize(fontSize);
+            const text = `${scaleLength}${unitConv.label}`;
+            const textWidth = pdf.getTextWidth(text);
+            pdf.text(text, (scaleStartX + scaleEndX) / 2 - textWidth/2, scaleLineY + 0.3);
         };
         
-        // Page 1: Just the pivot points and connections
+        // Page 1: Template with pivot points - size based on template bounds
+        const page1Width = bounds.maxX * unitConv.toCm - bounds.minX * unitConv.toCm + 2 * margin;
+        const page1Height = bounds.maxY * unitConv.toCm - bounds.minY * unitConv.toCm + 2 * margin;
+        const page1Orientation = page1Width > page1Height ? 'l' : 'p';
+        
+        // Calculate font size based on page dimensions
+        const page1FontSize = Math.min(8, Math.max(6, Math.min(page1Width, page1Height) / 10));
+        
+        // Remove the default first page and add our custom sized one
+        pdf.deletePage(1);
+        pdf.addPage([Math.max(page1Width, page1Height), Math.min(page1Width, page1Height)], page1Orientation);
+        
+        // Transform for page 1 (template view)
+        const transformTemplate = (point) => ({
+            x: point.x * unitConv.toCm - bounds.minX * unitConv.toCm + margin,
+            y: bounds.maxY * unitConv.toCm - point.y * unitConv.toCm + margin
+        });
+        
         drawBoxOutline(transformTemplate);
+        drawClosedLidOutline(transformTemplate);
         drawPivotPoints(transformTemplate);
-        drawConnectionLines(transformTemplate, false);
-        drawScaleLine(page1Width, page1Height);
+        drawConnectionLines(transformTemplate, true, page1FontSize);
+        drawScaleLine(page1Width, page1Height, page1FontSize);
         
         // Page 2: Text information - size based on text content
         const textMargin = 1;  // Larger margin for text page
@@ -995,17 +1002,53 @@ class BoxRenderer {
         pdf.text(`  Blue: ${blueLength.toFixed(1)}${unitConv.label}`, textMargin + 1, textMargin + lineHeight * 6);
         pdf.setTextColor(0);
         
-        // Page 3: Complete box outline - size based on box dimensions
-        const page3Width = this.geometry.width * unitConv.toCm + 2 * margin;
-        const page3Height = this.geometry.height * unitConv.toCm + 2 * margin;
-        const page3Orientation = page3Width > page3Height ? 'l' : 'p';
+        // Full template page with complete box outline
+        const getFullTemplateBounds = () => {
+            const points = [
+                ...this.geometry.getBoxVertices(),
+                ...this.geometry.getClosedLidVertices(),
+                this.geometry.redBoxPoint,
+                this.geometry.blueBoxPoint
+            ];
+            
+            const bounds = {
+                minX: Infinity,
+                maxX: -Infinity,
+                minY: Infinity,
+                maxY: -Infinity
+            };
+            
+            points.forEach(p => {
+                bounds.minX = Math.min(bounds.minX, p.x);
+                bounds.maxX = Math.max(bounds.maxX, p.x);
+                bounds.minY = Math.min(bounds.minY, p.y);
+                bounds.maxY = Math.max(bounds.maxY, p.y);
+            });
+            
+            return bounds;
+        };
         
-        pdf.addPage([Math.max(page3Width, page3Height), Math.min(page3Width, page3Height)], page3Orientation);
-        drawBoxOutline(transformFullBox);
-        drawClosedLidOutline(transformFullBox);
-        drawPivotPoints(transformFullBox);
-        drawConnectionLines(transformFullBox, false);
-        drawScaleLine(page3Width, page3Height);
+        const fullTemplateBounds = getFullTemplateBounds();
+        const fullTemplateWidth = (fullTemplateBounds.maxX - fullTemplateBounds.minX) * unitConv.toCm + 2 * margin;
+        const fullTemplateHeight = (fullTemplateBounds.maxY - fullTemplateBounds.minY) * unitConv.toCm + 2 * margin;
+        const fullTemplateOrientation = fullTemplateWidth > fullTemplateHeight ? 'l' : 'p';
+        
+        // Calculate font size based on page dimensions
+        const fullTemplateFontSize = Math.min(8, Math.max(6, Math.min(fullTemplateWidth, fullTemplateHeight) / 10));
+        
+        pdf.addPage([Math.max(fullTemplateWidth, fullTemplateHeight), Math.min(fullTemplateWidth, fullTemplateHeight)], fullTemplateOrientation);
+        
+        // Transform for full template view
+        const transformFullTemplate = (point) => ({
+            x: (point.x - fullTemplateBounds.minX) * unitConv.toCm + margin,
+            y: (fullTemplateBounds.maxY - point.y) * unitConv.toCm + margin
+        });
+        
+        drawBoxOutline(transformFullTemplate);
+        drawClosedLidOutline(transformFullTemplate);
+        drawPivotPoints(transformFullTemplate);
+        drawConnectionLines(transformFullTemplate, true, fullTemplateFontSize);
+        drawScaleLine(fullTemplateWidth, fullTemplateHeight, fullTemplateFontSize);
         
         // Save the PDF
         pdf.save('hinge-template.pdf');
