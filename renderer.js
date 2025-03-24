@@ -823,35 +823,29 @@ class BoxRenderer {
     }
     
     generateTemplate() {
-        // Get template bounds
         const bounds = this.geometry.getTemplateBounds();
         
-        // Debug output
-        console.log('Box Points:', {
-            red: this.geometry.redBoxPoint,
-            blue: this.geometry.blueBoxPoint
-        });
-        console.log('Closed Points:', {
-            red: this.geometry.redClosedPoint,
-            blue: this.geometry.blueClosedPoint
-        });
-        console.log('Bounds:', bounds);
+        // Get selected units and conversion factors for PDF (which uses cm)
+        const selectedUnit = document.querySelector('input[name="units"]:checked').value;
+        const unitConversions = {
+            mm: { toCm: 0.1, label: 'mm', scaleLength: 100 },    // divide by 10 to convert mm to cm
+            cm: { toCm: 1, label: 'cm', scaleLength: 10 },       // no conversion needed
+            in: { toCm: 2.54, label: 'in', scaleLength: 3 }      // multiply by 2.54 to convert inches to cm
+        };
+        const unitConv = unitConversions[selectedUnit];
         
-        // Create PDF with 1:1 scale (1 unit = 1 cm)
+        // Create PDF with proper physical scale
         const { jsPDF } = window.jspdf;
-        const margin = 0.5;  // 2cm margin
-        const pdfWidth = bounds.maxX - bounds.minX + 2 * margin;  // Use absolute coordinates
-        const pdfHeight = bounds.maxY - bounds.minY + 2 * margin;
-        console.log('PDF dimensions:', { pdfWidth, pdfHeight });
-        // const pdf = new jsPDF('p', 'cm', [pdfWidth, pdfHeight]);
+        const margin = 0.5;  // 0.5cm margin
+        const pdfWidth = bounds.maxX * unitConv.toCm - bounds.minX * unitConv.toCm + 2 * margin;
+        const pdfHeight = bounds.maxY * unitConv.toCm - bounds.minY * unitConv.toCm + 2 * margin;
         const orientation = pdfWidth > pdfHeight ? 'l' : 'p';
         const pdf = new jsPDF(orientation, 'cm', [pdfWidth, pdfHeight]);
         
-        // Transform from model coordinates to PDF coordinates
-        // No scaling needed since we want 1:1, just translate to add margins and flip Y
+        // Transform from model coordinates to PDF coordinates (in cm)
         const transform = (point) => ({
-            x: point.x - bounds.minX + margin,
-            y: bounds.maxY - point.y + margin  // Flip Y relative to maxY instead of using pdfHeight
+            x: point.x * unitConv.toCm - bounds.minX * unitConv.toCm + margin,
+            y: bounds.maxY * unitConv.toCm - point.y * unitConv.toCm + margin  // Flip Y relative to maxY
         });
         
         // Helper to check if point is within bounds
@@ -937,7 +931,7 @@ class BoxRenderer {
                 console.error('Invalid line coordinates:', { tp1, tp2 });
             }
             
-            // Calculate length in cm (using original points for true length)
+            // Calculate length in selected units
             const dx = p2.x - p1.x;
             const dy = p2.y - p1.y;
             const length = Math.sqrt(dx * dx + dy * dy);
@@ -949,7 +943,7 @@ class BoxRenderer {
             // Add length label
             pdf.setFontSize(8);
             pdf.setTextColor(color === 'red' ? '#ff0000' : '#0000ff');
-            const text = `${length.toFixed(1)}cm`;
+            const text = `${length.toFixed(1)}${unitConv.label}`;
             const textWidth = pdf.getTextWidth(text);
             pdf.text(text, midX - textWidth/2, midY - 0.15);  // Center text above line
             pdf.setTextColor(0);  // Reset to black
@@ -961,50 +955,26 @@ class BoxRenderer {
         
         // Add dimensions at top
         pdf.setFontSize(10);
-        pdf.text(`Box dimensions: ${this.geometry.width}cm wide \u00D7 ${this.geometry.height}cm tall`, margin, margin);
-        pdf.text(`Lid angle: ${Math.round(this.geometry.closedAngle * 180 / Math.PI)}\u00B0, depth: ${this.geometry.depth}cm`, margin, margin + 0.5);
-        pdf.text(`Gap when open: ${this.geometry.gap}cm`, margin, margin + 1);
+        pdf.text(`Box dimensions: ${this.geometry.width.toFixed(1)}${unitConv.label} wide \u00D7 ${this.geometry.height.toFixed(1)}${unitConv.label} tall`, margin, margin);
+        pdf.text(`Lid angle: ${Math.round(this.geometry.closedAngle * 180 / Math.PI)}\u00B0, depth: ${this.geometry.depth.toFixed(1)}${unitConv.label}`, margin, margin + 0.5);
+        pdf.text(`Gap when open: ${this.geometry.gap.toFixed(1)}${unitConv.label}`, margin, margin + 1);
         
-        // Add scale line (10cm)
+        // Add scale line
         const scaleStartX = margin;
         const scaleLineY = pdfHeight - margin;
-        const scaleEndX = scaleStartX + 10; // 10cm length
+        const scaleEndX = scaleStartX + unitConv.scaleLength * unitConv.toCm; // Convert scale length to cm
         
         // Draw the scale line
         pdf.setDrawColor(0);
         pdf.setLineWidth(0.02);
-        if (typeof scaleStartX === 'number' && typeof scaleLineY === 'number' && 
-            typeof scaleEndX === 'number') {
-            pdf.line(scaleStartX, scaleLineY, scaleEndX, scaleLineY);
-        } else {
-            console.error('Invalid scale line coordinates:', { scaleStartX, scaleLineY, scaleEndX });
-        }
+        pdf.line(scaleStartX, scaleLineY, scaleEndX, scaleLineY);
         
-        // Add small vertical marks at start and end
-        const tickLength = 0.2; // 2mm tick length
-        if (typeof scaleStartX === 'number' && typeof scaleLineY === 'number') {
-            pdf.line(scaleStartX, scaleLineY - tickLength/2, scaleStartX, scaleLineY + tickLength/2);
-        } else {
-            console.error('Invalid tick start coordinates:', { scaleStartX, scaleLineY });
-        }
-        if (typeof scaleEndX === 'number' && typeof scaleLineY === 'number') {
-            pdf.line(scaleEndX, scaleLineY - tickLength/2, scaleEndX, scaleLineY + tickLength/2);
-        } else {
-            console.error('Invalid tick end coordinates:', { scaleEndX, scaleLineY });
-        }
+        // Add small vertical lines at ends
+        pdf.line(scaleStartX, scaleLineY - 0.1, scaleStartX, scaleLineY + 0.1);
+        pdf.line(scaleEndX, scaleLineY - 0.1, scaleEndX, scaleLineY + 0.1);
         
-        // Add labels
-        pdf.setFontSize(8);
-        if (typeof scaleStartX === 'number') {
-            pdf.text('0', scaleStartX - 0.2, scaleLineY + 0.5);
-        } else {
-            console.error('Invalid label start coordinates:', { scaleStartX });
-        }
-        if (typeof scaleEndX === 'number') {
-            pdf.text('10cm', scaleEndX - 0.5, scaleLineY + 0.5);
-        } else {
-            console.error('Invalid label end coordinates:', { scaleEndX });
-        }
+        // Add text below scale line
+        pdf.text(`${unitConv.scaleLength}${unitConv.label}`, (scaleStartX + scaleEndX) / 2 - 0.5, scaleLineY + 0.3);
         
         // Save the PDF
         pdf.save('hinge-template.pdf');

@@ -144,6 +144,14 @@
             text-align: center;
             margin-top: 20px;
         }
+        .units-selector {
+            display: flex;
+            align-items: center;
+            margin-bottom: 10px;
+        }
+        .units-selector span {
+            margin-right: 10px;
+        }
     </style>
 </head>
 <body>
@@ -188,6 +196,12 @@
                 </div>
                 
                 <div>
+                    <div class="units-selector">
+                        <span>Units:</span>
+                        <label><input type="radio" name="units" value="mm" checked> mm</label>
+                        <label><input type="radio" name="units" value="cm"> cm</label>
+                        <label><input type="radio" name="units" value="in"> in</label>
+                    </div>
                     <button id="generateTemplateButton">Generate Template</button>
                 </div>
             </div>
