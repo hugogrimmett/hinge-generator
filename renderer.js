@@ -283,21 +283,31 @@ class BoxRenderer {
         // Reset line dash
         ctx.setLineDash([]);
         
-        // Draw perpendicular line
+        // Draw perpendicular line from box pivot point to constraint line
         ctx.beginPath();
         ctx.setLineDash([2, 2]);  // Dotted line
         ctx.strokeStyle = color === 'red' ? '#ff8080' : color === 'blue' ? '#80b3ff' : `${color}33`;  // Lighter but still vibrant
         
-        const perpStart = this.transform(line.perpStart);
-        const perpEnd = this.transform(line.perpEnd);
-        ctx.moveTo(perpStart.x, perpStart.y);
-        ctx.lineTo(perpEnd.x, perpEnd.y);
+        const boxPoint = this.transform(line.boxPoint);
+        
+        // Calculate perpendicular line endpoint on the constraint line
+        // First, get vector from start to end of constraint line
+        const dx = end.x - start.x;
+        const dy = end.y - start.y;
+        
+        // Calculate projection of box point onto constraint line
+        const t = ((boxPoint.x - start.x) * dx + (boxPoint.y - start.y) * dy) / (dx * dx + dy * dy);
+        const projX = start.x + t * dx;
+        const projY = start.y + t * dy;
+        
+        // Draw perpendicular line from box point to projection point
+        ctx.moveTo(boxPoint.x, boxPoint.y);
+        ctx.lineTo(projX, projY);
         ctx.stroke();
         ctx.setLineDash([]);  // Reset dash
         
         // Draw thick connecting lines
         ctx.beginPath();
-        const boxPoint = this.transform(line.boxPoint);
         const openPoint = this.transform(line.end);
         const closedPoint = this.transform(line.start);
         
