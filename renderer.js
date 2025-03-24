@@ -873,7 +873,7 @@ class BoxRenderer {
         const boxVertices = this.geometry.getBoxVertices();
         // Make vertices relative to template bounds
         const relativeBoxVertices = boxVertices.map(p => ({
-            x: p.x + bounds.minX,
+            x: p.x,
             y: p.y
         }));
         
@@ -895,7 +895,7 @@ class BoxRenderer {
         const closedLidVertices = this.geometry.getClosedLidVertices();
         // Make vertices relative to template bounds
         const relativeLidVertices = closedLidVertices.map(p => ({
-            x: p.x + bounds.minX,
+            x: p.x,
             y: p.y
         }));
         
