@@ -1008,7 +1008,7 @@ class BoxGeometry {
         // Add margin of 25% of the width/height
         const width = maxX - minX;
         const height = maxY - minY;
-        const margin = Math.max(width, height) * 0.25;  // Use larger dimension for margin
+        const margin = Math.max(width, height) * 0.1;  // Use larger dimension for margin
         
         return {
             minX: minX - margin,
