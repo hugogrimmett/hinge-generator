@@ -38,7 +38,6 @@ class BoxRenderer {
             this.displayHeight * 0.9 / viewportHeight
         );
         
-        // Center viewport in canvas
         this.offset = {
             x: this.displayWidth / 2,
             y: this.displayHeight / 2
@@ -96,16 +95,25 @@ class BoxRenderer {
         // Create new geometry with updated parameters
         this.geometry = new BoxGeometry(h, w, d, alpha, g);
         
-        // Restore pivot positions if they were previously set
+        // Initialize basic geometry but skip constraint lines
+        this.geometry.initializePivotPoints();
+        
+        // Restore box pivot positions first since lid positions depend on them
         if (boxPivotPositions) {
             this.geometry.setBoxPivotPositions(boxPivotPositions);
         }
+        
+        // Then restore lid pivot positions
         if (lidPivotPositions) {
             this.geometry.setLidPivotPositions(lidPivotPositions);
         }
         
-        // Update constraint lines based on restored positions
+        // Now update constraint lines based on restored positions
         this.geometry.updateConstraintLines();
+        
+        // Update closed points based on restored positions
+        this.geometry.updateRedClosedPoint();
+        this.geometry.updateBlueClosedPoint();
         
         // Recalculate viewport bounds and scale
         const margin = Math.max(h, w) * 0.1;
@@ -129,11 +137,6 @@ class BoxRenderer {
             x: this.displayWidth / 2,
             y: this.displayHeight / 2
         };
-        
-        // First update constraint lines and compute valid angles
-        this.geometry.updateConstraintLines();
-        this.geometry.updateRedClosedPoint();
-        this.geometry.updateBlueClosedPoint();
         
         // Then recompute four-bar linkage configuration
         this.geometry.initializeFourBar();

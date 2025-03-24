@@ -272,23 +272,22 @@ class BoxGeometry {
         this.updateRedClosedPoint();
         this.updateBlueClosedPoint();
         
-        // Update constraint lines before placing box points
-        this.updateConstraintLines();
+        // Initialize box points at default positions if they don't exist
+        if (!this.redBoxPoint) {
+            const redLen = this.height * 0.5;
+            this.redBoxPoint = {
+                x: this.centerOfRotation.x,
+                y: this.centerOfRotation.y - redLen
+            };
+        }
         
-        // Initialize box points on their constraint lines
-        // Red box point at 0.5 * height up the perpendicular line
-        const redLen = this.height * 0.5;
-        this.redBoxPoint = {
-            x: this.centerOfRotation.x - this.redConstraintLine.perpX * redLen,
-            y: this.centerOfRotation.y - this.redConstraintLine.perpY * redLen
-        };
-        
-        // Blue box point at -0.5 * height down the perpendicular line
-        const blueLen = this.height * -0.5;
-        this.blueBoxPoint = {
-            x: this.centerOfRotation.x - this.blueConstraintLine.perpX * blueLen,
-            y: this.centerOfRotation.y - this.blueConstraintLine.perpY * blueLen
-        };
+        if (!this.blueBoxPoint) {
+            const blueLen = this.height * -0.5;
+            this.blueBoxPoint = {
+                x: this.centerOfRotation.x,
+                y: this.centerOfRotation.y - blueLen
+            };
+        }
     }
     
     updateConstraintLines() {
@@ -316,7 +315,9 @@ class BoxGeometry {
             perpEnd: {
                 x: center.x + redPerpX * this.height * 1.25,
                 y: center.y + redPerpY * this.height * 1.25
-            }
+            },
+            dirX: redDirX,
+            dirY: redDirY
         };
         
         // Blue constraint line (similar calculation)
@@ -340,7 +341,9 @@ class BoxGeometry {
             perpEnd: {
                 x: center.x + bluePerpX * this.height * 1.25,
                 y: center.y + bluePerpY * this.height * 1.25
-            }
+            },
+            dirX: blueDirX,
+            dirY: blueDirY
         };
     }
     
@@ -771,7 +774,7 @@ class BoxGeometry {
         const prevConfig = { ...fb };
         
         // Check angles at regular intervals
-        const numSteps = 360;  // Check every 10 degrees
+        const numSteps = 360;  // Check every 1 degrees
         const angleStep = (range.start - range.end) / numSteps;
         
         for (let i = 0; i <= numSteps; i++) {
@@ -847,14 +850,14 @@ class BoxGeometry {
             return;
         }
         
-        // Set red box point
+        // Set red box point - use perpendicular distance from COR
         const redLen = this.height * positions.red.ratio * positions.red.side;
         this.redBoxPoint = {
             x: this.centerOfRotation.x - this.redConstraintLine.perpX * redLen,
             y: this.centerOfRotation.y - this.redConstraintLine.perpY * redLen
         };
         
-        // Set blue box point
+        // Set blue box point - use perpendicular distance from COR
         const blueLen = this.height * positions.blue.ratio * positions.blue.side;
         this.blueBoxPoint = {
             x: this.centerOfRotation.x - this.blueConstraintLine.perpX * blueLen,
@@ -1002,14 +1005,18 @@ class BoxGeometry {
             maxY = Math.max(maxY, p.y);
         }
         
-        // Return exact bounds based only on the pivot points
+        // Add margin of 25% of the width/height
+        const width = maxX - minX;
+        const height = maxY - minY;
+        const margin = Math.max(width, height) * 0.25;  // Use larger dimension for margin
+        
         return {
-            left: minX,
-            right: maxX,
-            top: maxY,
-            bottom: minY,
-            width: maxX - minX,
-            height: maxY - minY
+            minX: minX - margin,
+            minY: minY - margin,
+            maxX: maxX + margin,
+            maxY: maxY + margin,
+            width: width + 2 * margin,
+            height: height + 2 * margin
         };
     }
 
