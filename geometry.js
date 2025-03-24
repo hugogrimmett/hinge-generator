@@ -29,6 +29,7 @@ class BoxGeometry {
         this.isAnimating = false;
         this.animationStartTime = null;
         this.animationStartAngle = null;
+        this.lastFollowerChoice = null; // Store which intersection we're using
         
         // Four-bar linkage solver
         this.fourBarConfig = null;
@@ -144,14 +145,17 @@ class BoxGeometry {
             const d1 = this.distance(pos1, prevConfig.outputFollower);
             const d2 = this.distance(pos2, prevConfig.outputFollower);
             this.fourBarConfig.outputFollower = d1 < d2 ? pos1 : pos2;
-            
-            // Update configuration based on chosen point
-            this.fourBarConfig.config = this.fourBarConfig.outputFollower.y > this.fourBarConfig.inputFollower.y ? 1 : 0;
+            this.lastFollowerChoice = d1 < d2 ? 0 : 1; // Store which intersection we chose
+        } else if (this.lastFollowerChoice !== null) {
+            // Use last known choice if available
+            this.fourBarConfig.outputFollower = intersections[this.lastFollowerChoice];
         } else {
-            // If no previous position (shouldn't happen), maintain current config
+            // If no previous position, maintain current config
             this.fourBarConfig.outputFollower = this.fourBarConfig.config === 1 ?
                 (pos1.y > this.fourBarConfig.inputFollower.y ? pos1 : pos2) :
                 (pos1.y <= this.fourBarConfig.inputFollower.y ? pos1 : pos2);
+            // Store initial choice
+            this.lastFollowerChoice = this.fourBarConfig.outputFollower === pos1 ? 0 : 1;
         }
         
         // Create some vectors to help with the transformation
@@ -173,20 +177,10 @@ class BoxGeometry {
         const cos_theta = math.dot(Chat, Fhat);
         const sin_theta = (x1*y2 - y1*x2) / (math.norm(C) * math.norm(F));
 
-        // Compute translation vector
-        // const translation = [this.fourBarConfig.inputFollower.x - this.redClosedPoint.x,this.fourBarConfig.inputFollower.y - this.redClosedPoint.y];
-        // const translation = [x2-(x1*Math.cos(theta) - y1*Math.sin(theta)),
-        //     y2 - (x1*Math.sin(theta) + y1*Math.cos(theta))];        
-        // const translation = [x2 - (x1 * cos_theta - y1 * sin_theta), 
-        //                    y2 - (x1 * sin_theta + y1 * cos_theta)];
-
-        // the translation was always wrong because I was using x1, x2 etc which was defined by the difference between C and F which was obviously always zero
-
         const translation = [this.fourBarConfig.inputFollower.x - (this.redClosedPoint.x * cos_theta - this.redClosedPoint.y * sin_theta),
             this.fourBarConfig.inputFollower.y - (this.redClosedPoint.x * sin_theta +this.redClosedPoint.y * cos_theta)]
 
         // Compute transformation from previous to new follower position
-        // const transform = this.makeTransform(theta,translation);
         const transform = math.matrix([[cos_theta, -sin_theta, translation[0]], 
             [sin_theta, cos_theta, translation[1]], 
             [0, 0, 1]]);

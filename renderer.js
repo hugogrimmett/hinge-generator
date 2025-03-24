@@ -778,13 +778,9 @@ class BoxRenderer {
             cancelAnimationFrame(this.animationId);
             this.animationId = null;
             this.lastTimestamp = null;
-            
             this.geometry.isAnimating = false;
-            // Hide linkage by clearing four-bar config
-            const prevConfig = this.geometry.fourBarConfig;
-            this.geometry.fourBarConfig = null;
+            // Just redraw without modifying the configuration
             this.draw();
-            this.geometry.fourBarConfig = prevConfig;
         }
     }
     
