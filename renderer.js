@@ -843,8 +843,8 @@ class BoxRenderer {
         
         // Helper functions for drawing
         const drawBoxOutline = (transform) => {
-            pdf.setDrawColor(0);
-            pdf.setLineWidth(0.01);
+            pdf.setDrawColor(40);  // Dark gray instead of pure black
+            pdf.setLineWidth(0.015);  // Slightly thicker lines
             
             const boxVertices = this.geometry.getBoxVertices();
             for (let i = 0; i < boxVertices.length; i++) {
@@ -858,8 +858,9 @@ class BoxRenderer {
         };
         
         const drawClosedLidOutline = (transform) => {
-            pdf.setDrawColor(100);
-            pdf.setLineWidth(0.01);
+            pdf.setDrawColor(120);  // Lighter gray for lid
+            pdf.setLineWidth(0.015);  // Match box line weight
+            pdf.setLineDashPattern([0.05, 0.05], 0);  // Dotted line for lid
             
             const lidVertices = this.geometry.getClosedLidVertices();
             for (let i = 0; i < lidVertices.length; i++) {
@@ -870,21 +871,26 @@ class BoxRenderer {
                 const tp2 = transform(p2);
                 pdf.line(tp1.x, tp1.y, tp2.x, tp2.y);
             }
+            pdf.setLineDashPattern([], 0);  // Reset to solid line
         };
         
         const drawPivotPoints = (transform) => {
             const points = [
-                { point: this.geometry.redBoxPoint, color: 'red' },
-                { point: this.geometry.blueBoxPoint, color: 'blue' },
-                { point: this.geometry.redClosedPoint, color: 'red' },
-                { point: this.geometry.blueClosedPoint, color: 'blue' }
+                { point: this.geometry.redBoxPoint, color: '#E63946' },  // Warmer red
+                { point: this.geometry.blueBoxPoint, color: '#457B9D' }, // Muted blue
+                { point: this.geometry.redClosedPoint, color: '#E63946' },
+                { point: this.geometry.blueClosedPoint, color: '#457B9D' }
             ];
             
-            const radius = 0.1;  // 1mm radius for points
+            const radius = 0.08;  // Slightly smaller points
+            pdf.setLineWidth(0.01);
             for (const {point, color} of points) {
                 const p = transform(point);
-                pdf.setFillColor(color === 'red' ? '#ff0000' : '#0000ff');
+                pdf.setFillColor(color);
                 pdf.circle(p.x, p.y, radius, 'F');
+                // Add subtle border
+                pdf.setDrawColor(40);
+                pdf.circle(p.x, p.y, radius, 'S');
             }
         };
         
@@ -893,9 +899,12 @@ class BoxRenderer {
                 const tp1 = transform(p1);
                 const tp2 = transform(p2);
                 
-                pdf.setDrawColor(color === 'red' ? '#ff0000' : '#0000ff');
-                pdf.setLineWidth(0.01);
+                // Draw line with gradient effect
+                pdf.setLineDashPattern([0.1, 0.05], 0);  // Dashed line
+                pdf.setDrawColor(color === '#E63946' ? '#E63946' : '#457B9D');
+                pdf.setLineWidth(0.015);
                 pdf.line(tp1.x, tp1.y, tp2.x, tp2.y);
+                pdf.setLineDashPattern([], 0);
                 
                 if (withLabels) {
                     const dx = p2.x - p1.x;
@@ -905,17 +914,25 @@ class BoxRenderer {
                     const midX = (tp1.x + tp2.x) / 2;
                     const midY = (tp1.y + tp2.y) / 2;
                     
+                    // Draw label with background
                     pdf.setFontSize(fontSize);
-                    pdf.setTextColor(color === 'red' ? '#ff0000' : '#0000ff');
                     const text = `${length.toFixed(1)}${unitConv.label}`;
                     const textWidth = pdf.getTextWidth(text);
-                    pdf.text(text, midX - textWidth/2, midY - 0.15);
-                    pdf.setTextColor(0);
+                    const padding = 0.1;
+                    
+                    // White background for better readability
+                    pdf.setFillColor(255);
+                    pdf.rect(midX - textWidth/2 - padding, midY - fontSize/72*2.54 - padding, 
+                            textWidth + padding*2, fontSize/72*2.54 + padding*2, 'F');
+                    
+                    pdf.setTextColor(color === '#E63946' ? '#E63946' : '#457B9D');
+                    pdf.text(text, midX - textWidth/2, midY);
                 }
             };
             
-            drawConnection(this.geometry.redBoxPoint, this.geometry.redClosedPoint, 'red');
-            drawConnection(this.geometry.blueBoxPoint, this.geometry.blueClosedPoint, 'blue');
+            drawConnection(this.geometry.redBoxPoint, this.geometry.redClosedPoint, '#E63946');
+            drawConnection(this.geometry.blueBoxPoint, this.geometry.blueClosedPoint, '#457B9D');
+            pdf.setTextColor(40);  // Reset text color
         };
         
         const drawScaleLine = (pageWidth, pageHeight, fontSize = 8) => {
@@ -924,7 +941,6 @@ class BoxRenderer {
             let scaleLength = unitConv.scaleLength;
             let scaleLengthCm = scaleLength * unitConv.toCm;
             
-            // Adjust scale length if it's too big
             while (scaleLengthCm > maxScaleLength && scaleLength > 1) {
                 scaleLength = Math.floor(scaleLength / 2);
                 scaleLengthCm = scaleLength * unitConv.toCm;
@@ -934,17 +950,33 @@ class BoxRenderer {
             const scaleLineY = pageHeight - margin;
             const scaleEndX = scaleStartX + scaleLengthCm;
             
-            pdf.setDrawColor(0);
+            // Draw scale line with modern style
+            pdf.setDrawColor(40);
             pdf.setLineWidth(0.02);
             pdf.line(scaleStartX, scaleLineY, scaleEndX, scaleLineY);
             
-            pdf.line(scaleStartX, scaleLineY - 0.1, scaleStartX, scaleLineY + 0.1);
-            pdf.line(scaleEndX, scaleLineY - 0.1, scaleEndX, scaleLineY + 0.1);
+            // End ticks with subtle extension
+            const tickHeight = 0.15;
+            pdf.setLineWidth(0.015);
+            pdf.line(scaleStartX, scaleLineY - tickHeight/2, scaleStartX, scaleLineY + tickHeight/2);
+            pdf.line(scaleEndX, scaleLineY - tickHeight/2, scaleEndX, scaleLineY + tickHeight/2);
             
+            // Scale label with background
             pdf.setFontSize(fontSize);
             const text = `${scaleLength}${unitConv.label}`;
             const textWidth = pdf.getTextWidth(text);
-            pdf.text(text, (scaleStartX + scaleEndX) / 2 - textWidth/2, scaleLineY + 0.3);
+            const padding = 0.1;
+            
+            const textX = (scaleStartX + scaleEndX) / 2 - textWidth/2;
+            const textY = scaleLineY + 0.3;
+            
+            // White background for better readability
+            pdf.setFillColor(255);
+            pdf.rect(textX - padding, textY - fontSize/72*2.54, 
+                    textWidth + padding*2, fontSize/72*2.54 + padding*2, 'F');
+            
+            pdf.setTextColor(40);
+            pdf.text(text, textX, textY);
         };
         
         // Page 1: Template with pivot points - size based on template bounds
