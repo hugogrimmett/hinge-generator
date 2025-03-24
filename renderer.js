@@ -834,147 +834,178 @@ class BoxRenderer {
         };
         const unitConv = unitConversions[selectedUnit];
         
-        // Create PDF with proper physical scale
+        // Create initial PDF (we'll set size per page)
         const { jsPDF } = window.jspdf;
         const margin = 0.5;  // 0.5cm margin
-        const pdfWidth = bounds.maxX * unitConv.toCm - bounds.minX * unitConv.toCm + 2 * margin;
-        const pdfHeight = bounds.maxY * unitConv.toCm - bounds.minY * unitConv.toCm + 2 * margin;
-        const orientation = pdfWidth > pdfHeight ? 'l' : 'p';
-        const pdf = new jsPDF(orientation, 'cm', [pdfWidth, pdfHeight]);
         
-        // Transform from model coordinates to PDF coordinates (in cm)
-        const transform = (point) => ({
+        // Initialize PDF with a temporary size - we'll add properly sized pages
+        const pdf = new jsPDF('p', 'cm', [21, 29.7]);  // A4 portrait as initial size
+        
+        // Page 1: Template with pivot points - size based on template bounds
+        const page1Width = bounds.maxX * unitConv.toCm - bounds.minX * unitConv.toCm + 2 * margin;
+        const page1Height = bounds.maxY * unitConv.toCm - bounds.minY * unitConv.toCm + 2 * margin;
+        const page1Orientation = page1Width > page1Height ? 'l' : 'p';
+        
+        // Remove the default first page and add our custom sized one
+        pdf.deletePage(1);
+        pdf.addPage([Math.max(page1Width, page1Height), Math.min(page1Width, page1Height)], page1Orientation);
+        
+        // Transform for page 1 (template view)
+        const transformTemplate = (point) => ({
             x: point.x * unitConv.toCm - bounds.minX * unitConv.toCm + margin,
-            y: bounds.maxY * unitConv.toCm - point.y * unitConv.toCm + margin  // Flip Y relative to maxY
+            y: bounds.maxY * unitConv.toCm - point.y * unitConv.toCm + margin
         });
         
-        // Helper to check if point is within bounds
-        const isInBounds = (point) => {
-            return true;
+        // Transform for page 3 (full box view)
+        const transformFullBox = (point) => {
+            const boxWidth = this.geometry.width * unitConv.toCm;
+            const boxHeight = this.geometry.height * unitConv.toCm;
+            return {
+                x: point.x * unitConv.toCm + margin,
+                y: boxHeight - point.y * unitConv.toCm + margin
+            };
         };
         
-        // Draw box outline
-        pdf.setDrawColor(0);
-        pdf.setLineWidth(0.01);
-        
-        const boxVertices = this.geometry.getBoxVertices();
-        // Make vertices relative to template bounds
-        const relativeBoxVertices = boxVertices.map(p => ({
-            x: p.x,
-            y: p.y
-        }));
-        
-        for (let i = 0; i < relativeBoxVertices.length; i++) {
-            const p1 = relativeBoxVertices[i];
-            const p2 = relativeBoxVertices[(i + 1) % relativeBoxVertices.length];
+        // Helper functions for drawing
+        const drawBoxOutline = (transform) => {
+            pdf.setDrawColor(0);
+            pdf.setLineWidth(0.01);
             
-            const tp1 = transform(p1);
-            const tp2 = transform(p2);
-            if (typeof tp1.x === 'number' && typeof tp1.y === 'number' && 
-                typeof tp2.x === 'number' && typeof tp2.y === 'number') {
+            const boxVertices = this.geometry.getBoxVertices();
+            for (let i = 0; i < boxVertices.length; i++) {
+                const p1 = boxVertices[i];
+                const p2 = boxVertices[(i + 1) % boxVertices.length];
+                
+                const tp1 = transform(p1);
+                const tp2 = transform(p2);
                 pdf.line(tp1.x, tp1.y, tp2.x, tp2.y);
-            } else {
-                console.error('Invalid line coordinates:', { tp1, tp2 });
             }
-        }
+        };
         
-        // Draw closed lid outline
-        const closedLidVertices = this.geometry.getClosedLidVertices();
-        // Make vertices relative to template bounds
-        const relativeLidVertices = closedLidVertices.map(p => ({
-            x: p.x,
-            y: p.y
-        }));
-        
-        pdf.setDrawColor(100);
-        for (let i = 0; i < relativeLidVertices.length; i++) {
-            const p1 = relativeLidVertices[i];
-            const p2 = relativeLidVertices[(i + 1) % relativeLidVertices.length];
+        const drawClosedLidOutline = (transform) => {
+            pdf.setDrawColor(100);
+            pdf.setLineWidth(0.01);
             
-            const tp1 = transform(p1);
-            const tp2 = transform(p2);
-            if (typeof tp1.x === 'number' && typeof tp1.y === 'number' && 
-                typeof tp2.x === 'number' && typeof tp2.y === 'number') {
+            const lidVertices = this.geometry.getClosedLidVertices();
+            for (let i = 0; i < lidVertices.length; i++) {
+                const p1 = lidVertices[i];
+                const p2 = lidVertices[(i + 1) % lidVertices.length];
+                
+                const tp1 = transform(p1);
+                const tp2 = transform(p2);
                 pdf.line(tp1.x, tp1.y, tp2.x, tp2.y);
-            } else {
-                console.error('Invalid line coordinates:', { tp1, tp2 });
             }
-        }
+        };
         
-        // Draw pivot points
-        const points = [
-            { point: this.geometry.redBoxPoint, color: 'red' },
-            { point: this.geometry.blueBoxPoint, color: 'blue' },
-            { point: this.geometry.redClosedPoint, color: 'red' },
-            { point: this.geometry.blueClosedPoint, color: 'blue' }
-        ];
-        
-        const radius = 0.1;  // 1mm radius for points
-        for (const {point, color} of points) {
-            const p = transform(point);
-            pdf.setFillColor(color === 'red' ? '#ff0000' : '#0000ff');
-            pdf.circle(p.x, p.y, radius, 'F');
-        }
-
-        // Draw connection lines and their lengths
-        const drawConnection = (p1, p2, color) => {
-            const tp1 = transform(p1);
-            const tp2 = transform(p2);
+        const drawPivotPoints = (transform) => {
+            const points = [
+                { point: this.geometry.redBoxPoint, color: 'red' },
+                { point: this.geometry.blueBoxPoint, color: 'blue' },
+                { point: this.geometry.redClosedPoint, color: 'red' },
+                { point: this.geometry.blueClosedPoint, color: 'blue' }
+            ];
             
-            // Draw line
-            if (typeof tp1.x === 'number' && typeof tp1.y === 'number' && 
-                typeof tp2.x === 'number' && typeof tp2.y === 'number') {
+            const radius = 0.1;  // 1mm radius for points
+            for (const {point, color} of points) {
+                const p = transform(point);
+                pdf.setFillColor(color === 'red' ? '#ff0000' : '#0000ff');
+                pdf.circle(p.x, p.y, radius, 'F');
+            }
+        };
+        
+        const drawConnectionLines = (transform, withLabels = true) => {
+            const drawConnection = (p1, p2, color) => {
+                const tp1 = transform(p1);
+                const tp2 = transform(p2);
+                
                 pdf.setDrawColor(color === 'red' ? '#ff0000' : '#0000ff');
-                pdf.setLineWidth(0.01);  // thin line
+                pdf.setLineWidth(0.01);
                 pdf.line(tp1.x, tp1.y, tp2.x, tp2.y);
-            } else {
-                console.error('Invalid line coordinates:', { tp1, tp2 });
-            }
+                
+                if (withLabels) {
+                    const dx = p2.x - p1.x;
+                    const dy = p2.y - p1.y;
+                    const length = Math.sqrt(dx * dx + dy * dy);
+                    
+                    const midX = (tp1.x + tp2.x) / 2;
+                    const midY = (tp1.y + tp2.y) / 2;
+                    
+                    pdf.setFontSize(8);
+                    pdf.setTextColor(color === 'red' ? '#ff0000' : '#0000ff');
+                    const text = `${length.toFixed(1)}${unitConv.label}`;
+                    const textWidth = pdf.getTextWidth(text);
+                    pdf.text(text, midX - textWidth/2, midY - 0.15);
+                    pdf.setTextColor(0);
+                }
+            };
             
-            // Calculate length in selected units
-            const dx = p2.x - p1.x;
-            const dy = p2.y - p1.y;
-            const length = Math.sqrt(dx * dx + dy * dy);
-            
-            // Calculate midpoint for label
-            const midX = (tp1.x + tp2.x) / 2;
-            const midY = (tp1.y + tp2.y) / 2;
-            
-            // Add length label
-            pdf.setFontSize(8);
-            pdf.setTextColor(color === 'red' ? '#ff0000' : '#0000ff');
-            const text = `${length.toFixed(1)}${unitConv.label}`;
-            const textWidth = pdf.getTextWidth(text);
-            pdf.text(text, midX - textWidth/2, midY - 0.15);  // Center text above line
-            pdf.setTextColor(0);  // Reset to black
+            drawConnection(this.geometry.redBoxPoint, this.geometry.redClosedPoint, 'red');
+            drawConnection(this.geometry.blueBoxPoint, this.geometry.blueClosedPoint, 'blue');
         };
         
-        // Draw red and blue connections
-        drawConnection(this.geometry.redBoxPoint, this.geometry.redClosedPoint, 'red');
-        drawConnection(this.geometry.blueBoxPoint, this.geometry.blueClosedPoint, 'blue');
+        const drawScaleLine = (pageWidth, pageHeight) => {
+            const scaleStartX = margin;
+            const scaleLineY = pageHeight - margin;
+            const scaleEndX = scaleStartX + unitConv.scaleLength * unitConv.toCm;
+            
+            pdf.setDrawColor(0);
+            pdf.setLineWidth(0.02);
+            pdf.line(scaleStartX, scaleLineY, scaleEndX, scaleLineY);
+            
+            pdf.line(scaleStartX, scaleLineY - 0.1, scaleStartX, scaleLineY + 0.1);
+            pdf.line(scaleEndX, scaleLineY - 0.1, scaleEndX, scaleLineY + 0.1);
+            
+            pdf.text(`${unitConv.scaleLength}${unitConv.label}`, (scaleStartX + scaleEndX) / 2 - 0.5, scaleLineY + 0.3);
+        };
         
-        // Add dimensions at top
+        // Page 1: Just the pivot points and connections
+        drawBoxOutline(transformTemplate);
+        drawPivotPoints(transformTemplate);
+        drawConnectionLines(transformTemplate, false);
+        drawScaleLine(page1Width, page1Height);
+        
+        // Page 2: Text information - size based on text content
+        const textMargin = 1;  // Larger margin for text page
+        const lineHeight = 0.5;  // Height between lines
+        const textWidth = 8;  // Width needed for text content
+        const textHeight = 4;  // Height needed for text content
+        const page2Width = textWidth + 2 * textMargin;
+        const page2Height = textHeight + 2 * textMargin;
+        const page2Orientation = page2Width > page2Height ? 'l' : 'p';
+        
+        pdf.addPage([Math.max(page2Width, page2Height), Math.min(page2Width, page2Height)], page2Orientation);
+        
         pdf.setFontSize(10);
-        pdf.text(`Box dimensions: ${this.geometry.width.toFixed(1)}${unitConv.label} wide \u00D7 ${this.geometry.height.toFixed(1)}${unitConv.label} tall`, margin, margin);
-        pdf.text(`Lid angle: ${Math.round(this.geometry.closedAngle * 180 / Math.PI)}\u00B0, depth: ${this.geometry.depth.toFixed(1)}${unitConv.label}`, margin, margin + 0.5);
-        pdf.text(`Gap when open: ${this.geometry.gap.toFixed(1)}${unitConv.label}`, margin, margin + 1);
+        const redLength = Math.sqrt(
+            Math.pow(this.geometry.redClosedPoint.x - this.geometry.redBoxPoint.x, 2) +
+            Math.pow(this.geometry.redClosedPoint.y - this.geometry.redBoxPoint.y, 2)
+        );
+        const blueLength = Math.sqrt(
+            Math.pow(this.geometry.blueClosedPoint.x - this.geometry.blueBoxPoint.x, 2) +
+            Math.pow(this.geometry.blueClosedPoint.y - this.geometry.blueBoxPoint.y, 2)
+        );
         
-        // Add scale line
-        const scaleStartX = margin;
-        const scaleLineY = pdfHeight - margin;
-        const scaleEndX = scaleStartX + unitConv.scaleLength * unitConv.toCm; // Convert scale length to cm
+        pdf.text(`Box dimensions: ${this.geometry.width.toFixed(1)}${unitConv.label} wide \u00D7 ${this.geometry.height.toFixed(1)}${unitConv.label} tall`, textMargin, textMargin);
+        pdf.text(`Lid angle: ${Math.round(this.geometry.closedAngle * 180 / Math.PI)}\u00B0, depth: ${this.geometry.depth.toFixed(1)}${unitConv.label}`, textMargin, textMargin + lineHeight);
+        pdf.text(`Gap when open: ${this.geometry.gap.toFixed(1)}${unitConv.label}`, textMargin, textMargin + lineHeight * 2);
+        pdf.text(`Rod lengths:`, textMargin, textMargin + lineHeight * 4);
+        pdf.setTextColor('#ff0000');
+        pdf.text(`  Red: ${redLength.toFixed(1)}${unitConv.label}`, textMargin + 1, textMargin + lineHeight * 5);
+        pdf.setTextColor('#0000ff');
+        pdf.text(`  Blue: ${blueLength.toFixed(1)}${unitConv.label}`, textMargin + 1, textMargin + lineHeight * 6);
+        pdf.setTextColor(0);
         
-        // Draw the scale line
-        pdf.setDrawColor(0);
-        pdf.setLineWidth(0.02);
-        pdf.line(scaleStartX, scaleLineY, scaleEndX, scaleLineY);
+        // Page 3: Complete box outline - size based on box dimensions
+        const page3Width = this.geometry.width * unitConv.toCm + 2 * margin;
+        const page3Height = this.geometry.height * unitConv.toCm + 2 * margin;
+        const page3Orientation = page3Width > page3Height ? 'l' : 'p';
         
-        // Add small vertical lines at ends
-        pdf.line(scaleStartX, scaleLineY - 0.1, scaleStartX, scaleLineY + 0.1);
-        pdf.line(scaleEndX, scaleLineY - 0.1, scaleEndX, scaleLineY + 0.1);
-        
-        // Add text below scale line
-        pdf.text(`${unitConv.scaleLength}${unitConv.label}`, (scaleStartX + scaleEndX) / 2 - 0.5, scaleLineY + 0.3);
+        pdf.addPage([Math.max(page3Width, page3Height), Math.min(page3Width, page3Height)], page3Orientation);
+        drawBoxOutline(transformFullBox);
+        drawClosedLidOutline(transformFullBox);
+        drawPivotPoints(transformFullBox);
+        drawConnectionLines(transformFullBox, false);
+        drawScaleLine(page3Width, page3Height);
         
         // Save the PDF
         pdf.save('hinge-template.pdf');
