@@ -135,6 +135,11 @@ class BoxRenderer {
         } else {
             this.draw();
         }
+        
+        // Help text state
+        this.helpTextOpacity = 1;
+        this.showHelpText = true;
+        this.lastInteractionTime = 0;
     }
     
     updateParameters(h, w, d, alpha, g) {
@@ -573,6 +578,23 @@ class BoxRenderer {
             this.drawCircle(blueLine.boxPoint, 5, 'blue');
         }
         
+        // Draw help text if needed
+        if (this.helpTextOpacity > 0) {
+            ctx.save();
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'top';
+            ctx.font = '20px -apple-system, BlinkMacSystemFont, system-ui, sans-serif';
+            ctx.fillStyle = `rgba(0, 0, 0, ${this.helpTextOpacity})`;
+            ctx.fillText('Try moving the blue and red pivot points', this.canvas.width / 2, 60);
+            ctx.fillText('to see how it affects the motion of the lid', this.canvas.width / 2, 85);
+            ctx.restore();
+            
+            // Fade out if we're no longer showing
+            if (!this.showHelpText && Date.now() - this.lastInteractionTime > 300) {
+                this.helpTextOpacity = Math.max(0, this.helpTextOpacity - 0.01); // Slower fade
+            }
+        }
+        
         // Draw debug info in top left
         // ctx.save();
         // ctx.font = '12px monospace';
@@ -592,6 +614,12 @@ class BoxRenderer {
     
     // Mouse event handlers
     handleMouseDown(e) {
+        // Hide help text on first interaction
+        if (this.showHelpText) {
+            this.showHelpText = false;
+            this.lastInteractionTime = Date.now();
+        }
+        
         const point = this.getMousePoint(e);
         const hitArea = this.isTouchDevice ? 20 / this.scale : 10 / this.scale;  // Larger hit area for touch
         
@@ -700,6 +728,12 @@ class BoxRenderer {
             const point = this.getTouchPoint(e.touches[0]);
             const hitArea = 20 / this.scale;  // Larger hit area for touch
             
+            // Hide help text on first interaction
+            if (this.showHelpText) {
+                this.showHelpText = false;
+                this.lastInteractionTime = Date.now();
+            }
+            
             // Stop animation when starting to drag
             this.stopAnimation();
             
@@ -780,11 +814,8 @@ class BoxRenderer {
     
     // Animation loop
     animate() {
-        if (this.geometry.isAnimating) {
-            this.geometry.updateAnimation();
-            this.draw();
-            requestAnimationFrame(this.animate.bind(this));
-        }
+        this.draw();
+        requestAnimationFrame(this.animate.bind(this));
     }
     
     startAnimation() {
@@ -961,33 +992,49 @@ class BoxRenderer {
                 
                 // Draw line with gradient effect
                 pdf.setLineDashPattern([0.1, 0.05], 0);  // Dashed line
-                pdf.setDrawColor(color === '#E63946' ? '#E63946' : '#457B9D');
-                pdf.setLineWidth(0.015);
-                pdf.line(tp1.x, tp1.y, tp2.x, tp2.y);
-                pdf.setLineDashPattern([], 0);
+                pdf.setDrawColor(color === '#E63946' ? '#E63946' : color === '#457B9D' ? '#457B9D' : `${color}33`);  // Lighter but still vibrant
                 
-                if (withLabels) {
-                    const dx = p2.x - p1.x;
-                    const dy = p2.y - p1.y;
-                    const length = Math.sqrt(dx * dx + dy * dy);
-                    
-                    const midX = (tp1.x + tp2.x) / 2;
-                    const midY = (tp1.y + tp2.y) / 2;
-                    
-                    // Draw label with background
-                    pdf.setFontSize(fontSize);
-                    const text = `${length.toFixed(1)}${unitConv.label}`;
-                    const textWidth = pdf.getTextWidth(text);
-                    const padding = 0.1;
-                    
-                    // White background for better readability
-                    pdf.setFillColor(255);
-                    pdf.rect(midX - textWidth/2 - padding, midY - fontSize/72*2.54 - padding, 
-                            textWidth + padding*2, fontSize/72*2.54 + padding*2, 'F');
-                    
-                    pdf.setTextColor(color === '#E63946' ? '#E63946' : '#457B9D');
-                    pdf.text(text, midX - textWidth/2, midY);
-                }
+                const boxPoint = this.geometry.redBoxPoint;
+                
+                // Calculate perpendicular line endpoint on the constraint line
+                // First, get vector from start to end of constraint line
+                const dx = tp2.x - tp1.x;
+                const dy = tp2.y - tp1.y;
+                
+                // Calculate projection of box point onto constraint line
+                const t = ((boxPoint.x - tp1.x) * dx + (boxPoint.y - tp1.y) * dy) / (dx * dx + dy * dy);
+                const projX = tp1.x + t * dx;
+                const projY = tp1.y + t * dy;
+                
+                // Draw perpendicular line from box point to projection point
+                pdf.moveTo(boxPoint.x, boxPoint.y);
+                pdf.lineTo(projX, projY);
+                pdf.stroke();
+                pdf.setLineDashPattern([]);  // Reset dash
+                
+                // Draw thick connecting lines
+                pdf.lineWidth = 3;
+                pdf.setDrawColor(color === '#E63946' ? '#E63946' : color === '#457B9D' ? '#457B9D' : color);  // More vibrant
+                
+                // Draw dashed line from box point to open point
+                pdf.beginPath();
+                pdf.setLineDashPattern([8, 8]);  // Larger dashes for thicker line
+                const openPoint = tp2;
+                pdf.moveTo(boxPoint.x, boxPoint.y);
+                pdf.lineTo(openPoint.x, openPoint.y);
+                pdf.stroke();
+                
+                // Draw solid line from box point to closed point
+                pdf.beginPath();
+                pdf.setLineDashPattern([]);  // Reset to solid line
+                const closedPoint = tp1;
+                pdf.moveTo(boxPoint.x, boxPoint.y);
+                pdf.lineTo(closedPoint.x, closedPoint.y);
+                pdf.stroke();
+                
+                // Reset line style
+                pdf.lineWidth = 1;
+                pdf.setLineDashPattern([]);
             };
             
             drawConnection(this.geometry.redBoxPoint, this.geometry.redClosedPoint, '#E63946');
