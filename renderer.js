@@ -958,9 +958,9 @@ class BoxRenderer {
         // Get selected units and conversion factors for PDF (which uses cm)
         const selectedUnit = document.querySelector('input[name="units"]:checked').value;
         const unitConversions = {
-            mm: { toCm: 0.1, label: 'mm', scaleLength: 100 },    // divide by 10 to convert mm to cm
-            cm: { toCm: 1, label: 'cm', scaleLength: 10 },       // no conversion needed
-            in: { toCm: 2.54, label: 'in', scaleLength: 3 }      // multiply by 2.54 to convert inches to cm
+            mm: { toUnit: 0.1, label: 'mm', scaleLength: 100 },    // divide by 10 to convert mm to cm
+            cm: { toUnit: 1, label: 'cm', scaleLength: 10 },       // no conversion needed
+            in: { toUnit: 2.54, label: 'in', scaleLength: 3 }      // multiply by 2.54 to convert inches to cm
         };
         const unitConv = unitConversions[selectedUnit];
         
@@ -1033,20 +1033,20 @@ class BoxRenderer {
                 pdf.setDrawColor(color === '#E63946' ? '#E63946' : color === '#457B9D' ? '#457B9D' : color);
                 pdf.line(tp1.x, tp1.y, tp2.x, tp2.y);
                 
-                // Calculate length in cm
+                // Calculate length in model units
                 const length = Math.sqrt(
                     Math.pow(boxPoint.x - lidPoint.x, 2) + 
                     Math.pow(boxPoint.y - lidPoint.y, 2)
-                ) * unitConv.toCm;
-                
+                );
+
                 // Position text at midpoint of line
                 const midX = (tp1.x + tp2.x) / 2;
                 const midY = (tp1.y + tp2.y) / 2;
                 
-                // Draw length label
+                // Draw length label using current unit system
                 pdf.setFontSize(fontSize);
                 pdf.setTextColor(40);
-                pdf.text(`${length.toFixed(1)} cm`, midX, midY);
+                pdf.text(`${(length).toFixed(1)}${unitConv.label}`, midX, midY);
             };
             
             // Draw lines between red and blue pivot points
@@ -1061,11 +1061,11 @@ class BoxRenderer {
             // Calculate scale length to fit within the page width
             const maxScaleLength = pageWidth - 2 * margin;
             let scaleLength = unitConv.scaleLength;
-            let scaleLengthCm = scaleLength * unitConv.toCm;
+            let scaleLengthCm = scaleLength * unitConv.toUnit;
             
             while (scaleLengthCm > maxScaleLength && scaleLength > 1) {
                 scaleLength = Math.floor(scaleLength / 2);
-                scaleLengthCm = scaleLength * unitConv.toCm;
+                scaleLengthCm = scaleLength * unitConv.toUnit;
             }
             
             const scaleStartX = margin;
@@ -1102,8 +1102,8 @@ class BoxRenderer {
         };
         
         // Page 1: Template with pivot points - size based on template bounds
-        const page1Width = bounds.maxX * unitConv.toCm - bounds.minX * unitConv.toCm + 2 * margin;
-        const page1Height = bounds.maxY * unitConv.toCm - bounds.minY * unitConv.toCm + 2 * margin;
+        const page1Width = bounds.maxX * unitConv.toUnit - bounds.minX * unitConv.toUnit + 2 * margin;
+        const page1Height = bounds.maxY * unitConv.toUnit - bounds.minY * unitConv.toUnit + 2 * margin;
         const page1Orientation = page1Width > page1Height ? 'l' : 'p';
         
         // Calculate font size based on page dimensions
@@ -1115,8 +1115,8 @@ class BoxRenderer {
         
         // Transform for page 1 (template view)
         const transformTemplate = (point) => ({
-            x: point.x * unitConv.toCm - bounds.minX * unitConv.toCm + margin,
-            y: bounds.maxY * unitConv.toCm - point.y * unitConv.toCm + margin
+            x: point.x * unitConv.toUnit - bounds.minX * unitConv.toUnit + margin,
+            y: bounds.maxY * unitConv.toUnit - point.y * unitConv.toUnit + margin
         });
         
         drawBoxOutline(transformTemplate);
@@ -1183,8 +1183,8 @@ class BoxRenderer {
         };
         
         const fullTemplateBounds = getFullTemplateBounds();
-        const fullTemplateWidth = (fullTemplateBounds.maxX - fullTemplateBounds.minX) * unitConv.toCm + 2 * margin;
-        const fullTemplateHeight = (fullTemplateBounds.maxY - fullTemplateBounds.minY) * unitConv.toCm + 2 * margin;
+        const fullTemplateWidth = (fullTemplateBounds.maxX - fullTemplateBounds.minX) * unitConv.toUnit + 2 * margin;
+        const fullTemplateHeight = (fullTemplateBounds.maxY - fullTemplateBounds.minY) * unitConv.toUnit + 2 * margin;
         const fullTemplateOrientation = fullTemplateWidth > fullTemplateHeight ? 'l' : 'p';
         
         // Calculate font size based on page dimensions
@@ -1194,8 +1194,8 @@ class BoxRenderer {
         
         // Transform for full template view
         const transformFullTemplate = (point) => ({
-            x: (point.x - fullTemplateBounds.minX) * unitConv.toCm + margin,
-            y: (fullTemplateBounds.maxY - point.y) * unitConv.toCm + margin
+            x: (point.x - fullTemplateBounds.minX) * unitConv.toUnit + margin,
+            y: (fullTemplateBounds.maxY - point.y) * unitConv.toUnit + margin
         });
         
         drawBoxOutline(transformFullTemplate);
