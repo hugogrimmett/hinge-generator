@@ -484,56 +484,40 @@ class BoxGeometry {
             return;
         }
         
-        // Store which side of the line we're on before updating
-        const center = this.centerOfRotation;
-        const currentDist = this.distance(this.redBoxPoint, center);
-        
-        // Calculate side using cross product of (closed->open) and (closed->boxpoint)
-        const v1 = {
-            x: this.redOpenPoint.x - this.redClosedPoint.x,
-            y: this.redOpenPoint.y - this.redClosedPoint.y
-        };
-        const v2 = {
-            x: this.redOpenPoint.x - this.redBoxPoint.x,
-            y: this.redOpenPoint.y - this.redBoxPoint.y
-        };
-        const currentSide = Math.sign(v1.x * v2.y - v1.y * v2.x);
-        
-        // Store current link lengths
+        // Store current link lengths and positions
         const prevRedLinkLength = this.distance(this.redBoxPoint, this.redOpenPoint);
         const prevBlueLinkLength = this.distance(this.blueBoxPoint, this.blueOpenPoint);
+        const prevRedBoxPoint = { ...this.redBoxPoint };
         
         // Update red open point
         this.redOpenPoint = point;
         this.updateRedClosedPoint();
         this.updateConstraintLines();
         
-        // Update box point to stay on new constraint line, maintaining distance and side
-        this.redBoxPoint = {
-            x: center.x - this.redConstraintLine.perpX * currentDist * currentSide,
-            y: center.y - this.redConstraintLine.perpY * currentDist * currentSide
-        };
-        
         // If link lengths should be constrained, update blue point to match
         if (this.constrainLinkLengths) {
             const newRedLinkLength = this.distance(this.redBoxPoint, this.redOpenPoint);
-            const scaleFactor = newRedLinkLength / prevRedLinkLength;
             
-            // Scale blue link length proportionally
-            const blueBoxToOpen = {
-                x: this.blueOpenPoint.x - this.blueBoxPoint.x,
-                y: this.blueOpenPoint.y - this.blueBoxPoint.y
-            };
+            // Try to adjust blue points to match new length while staying in bounds
+            const result = this.adjustPointWithConstraints(
+                this.blueOpenPoint,
+                this.blueBoxPoint,
+                newRedLinkLength,
+                lidVertices
+            );
             
-            // Move blue open point to maintain angle but scale distance
-            this.blueOpenPoint = {
-                x: this.blueBoxPoint.x + blueBoxToOpen.x * scaleFactor,
-                y: this.blueBoxPoint.y + blueBoxToOpen.y * scaleFactor
-            };
-            
-            // Update blue closed point and constraints
-            this.updateBlueClosedPoint();
-            this.updateConstraintLines();
+            if (result) {
+                this.blueOpenPoint = result.openPoint;
+                this.blueBoxPoint = result.boxPoint;
+                this.updateBlueClosedPoint();
+                this.updateConstraintLines();
+            } else {
+                // If no valid solution found, revert red point changes
+                this.redOpenPoint = point;
+                this.redBoxPoint = prevRedBoxPoint;
+                this.updateRedClosedPoint();
+                this.updateConstraintLines();
+            }
         }
     }
     
@@ -544,56 +528,40 @@ class BoxGeometry {
             return;
         }
         
-        // Store which side of the line we're on before updating
-        const center = this.centerOfRotation;
-        const currentDist = this.distance(this.blueBoxPoint, center);
-        
-        // Calculate side using cross product of (closed->open) and (closed->boxpoint)
-        const v1 = {
-            x: this.blueOpenPoint.x - this.blueClosedPoint.x,
-            y: this.blueOpenPoint.y - this.blueClosedPoint.y
-        };
-        const v2 = {
-            x: this.blueOpenPoint.x - this.blueBoxPoint.x,
-            y: this.blueOpenPoint.y - this.blueBoxPoint.y
-        };
-        const currentSide = Math.sign(v1.x * v2.y - v1.y * v2.x);
-        
-        // Store current link lengths
+        // Store current link lengths and positions
         const prevRedLinkLength = this.distance(this.redBoxPoint, this.redOpenPoint);
         const prevBlueLinkLength = this.distance(this.blueBoxPoint, this.blueOpenPoint);
+        const prevBlueBoxPoint = { ...this.blueBoxPoint };
         
         // Update blue open point
         this.blueOpenPoint = point;
         this.updateBlueClosedPoint();
         this.updateConstraintLines();
         
-        // Update box point to stay on new constraint line, maintaining distance and side
-        this.blueBoxPoint = {
-            x: center.x - this.blueConstraintLine.perpX * currentDist * currentSide,
-            y: center.y - this.blueConstraintLine.perpY * currentDist * currentSide
-        };
-        
         // If link lengths should be constrained, update red point to match
         if (this.constrainLinkLengths) {
             const newBlueLinkLength = this.distance(this.blueBoxPoint, this.blueOpenPoint);
-            const scaleFactor = newBlueLinkLength / prevBlueLinkLength;
             
-            // Scale red link length proportionally
-            const redBoxToOpen = {
-                x: this.redOpenPoint.x - this.redBoxPoint.x,
-                y: this.redOpenPoint.y - this.redBoxPoint.y
-            };
+            // Try to adjust red points to match new length while staying in bounds
+            const result = this.adjustPointWithConstraints(
+                this.redOpenPoint,
+                this.redBoxPoint,
+                newBlueLinkLength,
+                lidVertices
+            );
             
-            // Move red open point to maintain angle but scale distance
-            this.redOpenPoint = {
-                x: this.redBoxPoint.x + redBoxToOpen.x * scaleFactor,
-                y: this.redBoxPoint.y + redBoxToOpen.y * scaleFactor
-            };
-            
-            // Update red closed point and constraints
-            this.updateRedClosedPoint();
-            this.updateConstraintLines();
+            if (result) {
+                this.redOpenPoint = result.openPoint;
+                this.redBoxPoint = result.boxPoint;
+                this.updateRedClosedPoint();
+                this.updateConstraintLines();
+            } else {
+                // If no valid solution found, revert blue point changes
+                this.blueOpenPoint = point;
+                this.blueBoxPoint = prevBlueBoxPoint;
+                this.updateBlueClosedPoint();
+                this.updateConstraintLines();
+            }
         }
     }
     
@@ -1122,5 +1090,102 @@ class BoxGeometry {
     
     getMovingLidVertices() {
         return this.movingLidVertices;
+    }
+    
+    // Helper to find a valid point on a circle that lies within a polygon
+    findValidPointOnCircle(center, radius, polygon, preferredAngle = null) {
+        // If preferred angle is provided, try it first
+        if (preferredAngle !== null) {
+            const point = {
+                x: center.x + radius * Math.cos(preferredAngle),
+                y: center.y + radius * Math.sin(preferredAngle)
+            };
+            if (this.isPointInPolygon(point, polygon)) {
+                return point;
+            }
+        }
+        
+        // Try angles in increasing steps from the preferred angle
+        const angleStep = Math.PI / 180; // 1 degree steps
+        const maxSteps = 360; // Full circle
+        
+        const startAngle = preferredAngle || Math.atan2(polygon[0].y - center.y, polygon[0].x - center.x);
+        
+        for (let i = 1; i <= maxSteps; i++) {
+            // Try both clockwise and counterclockwise from the start angle
+            const angles = [
+                startAngle + i * angleStep,
+                startAngle - i * angleStep
+            ];
+            
+            for (const angle of angles) {
+                const point = {
+                    x: center.x + radius * Math.cos(angle),
+                    y: center.y + radius * Math.sin(angle)
+                };
+                
+                if (this.isPointInPolygon(point, polygon)) {
+                    return point;
+                }
+            }
+        }
+        
+        return null; // No valid point found
+    }
+    
+    // Helper to adjust a point to maintain link length and stay within bounds
+    adjustPointWithConstraints(openPoint, boxPoint, targetLength, lidVertices) {
+        // First try to maintain box point position and just move the open point
+        const angle = Math.atan2(openPoint.y - boxPoint.y, openPoint.x - boxPoint.x);
+        const validOpenPoint = this.findValidPointOnCircle(boxPoint, targetLength, lidVertices, angle);
+        
+        if (validOpenPoint) {
+            return {
+                openPoint: validOpenPoint,
+                boxPoint: boxPoint
+            };
+        }
+        
+        // If that fails, try to move the box point along its constraint line
+        const center = this.centerOfRotation;
+        const constraintLine = boxPoint === this.redBoxPoint ? this.redConstraintLine : this.blueConstraintLine;
+        const currentDist = this.distance(boxPoint, center);
+        
+        // Try different distances from COR along constraint line
+        const stepSize = this.height / 50; // Small steps relative to box height
+        const maxSteps = 20; // Don't try too far
+        
+        for (let i = 0; i <= maxSteps; i++) {
+            // Try both directions from current position
+            const distances = [
+                currentDist + i * stepSize,
+                Math.max(0, currentDist - i * stepSize)
+            ];
+            
+            for (const dist of distances) {
+                // Try both sides of constraint line
+                const sides = [1, -1];
+                
+                for (const side of sides) {
+                    const newBoxPoint = {
+                        x: center.x - constraintLine.perpX * dist * side,
+                        y: center.y - constraintLine.perpY * dist * side
+                    };
+                    
+                    // Try to find valid open point with this box point
+                    const validOpenPoint = this.findValidPointOnCircle(newBoxPoint, targetLength, lidVertices);
+                    
+                    if (validOpenPoint) {
+                        return {
+                            openPoint: validOpenPoint,
+                            boxPoint: newBoxPoint
+                        };
+                    }
+                }
+            }
+        }
+        
+        // If all else fails, return null to indicate no valid solution
+        return null;
     }
 }
