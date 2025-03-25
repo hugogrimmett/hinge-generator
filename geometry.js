@@ -486,7 +486,8 @@ class BoxGeometry {
                 other: this.blueOpenPoint,
                 otherBox: this.blueBoxPoint,
                 updateClosed: () => this.updateRedClosedPoint(),
-                constraintLine: this.redConstraintLine
+                constraintLine: this.redConstraintLine,
+                updateBox: (p) => { this.redBoxPoint = p; }
             },
             blueOpen: {
                 self: this.blueOpenPoint,
@@ -494,7 +495,8 @@ class BoxGeometry {
                 other: this.redOpenPoint,
                 otherBox: this.redBoxPoint,
                 updateClosed: () => this.updateBlueClosedPoint(),
-                constraintLine: this.blueConstraintLine
+                constraintLine: this.blueConstraintLine,
+                updateBox: (p) => { this.blueBoxPoint = p; }
             }
         };
         
@@ -509,7 +511,6 @@ class BoxGeometry {
         
         // Store current positions and lengths
         const prevSelfLength = this.distance(current.box, current.self);
-        const prevOtherLength = this.distance(current.otherBox, current.other);
         const prevBoxPoint = { ...current.box };
         
         // Update point position
@@ -543,19 +544,15 @@ class BoxGeometry {
         }
         
         // Update box point to closest valid position
-        if (type === 'redOpen') {
-            this.redBoxPoint = bestPoint;
-        } else {
-            this.blueBoxPoint = bestPoint;
-        }
+        current.updateBox(bestPoint);
         
         // Update closed point and constraints
         current.updateClosed();
         this.updateConstraintLines();
         
-        // If link lengths should be constrained, update other point to match
+        // If link lengths should be constrained, update other points to match
         if (this.constrainLinkLengths) {
-            const newLength = this.distance(current.box, type === 'redOpen' ? this.redOpenPoint : this.blueOpenPoint);
+            const newLength = this.distance(bestPoint, type === 'redOpen' ? this.redOpenPoint : this.blueOpenPoint);
             
             // Try to adjust other points to match new length while staying in bounds
             const result = this.adjustPointWithConstraints(
@@ -566,7 +563,6 @@ class BoxGeometry {
             );
             
             if (result) {
-                // Update other points
                 if (type === 'redOpen') {
                     this.blueOpenPoint = result.openPoint;
                     this.blueBoxPoint = result.boxPoint;
@@ -607,10 +603,11 @@ class BoxGeometry {
             redBox: {
                 self: this.redBoxPoint,
                 open: this.redOpenPoint,
-                other: this.redOpenPoint,
-                otherBox: this.redBoxPoint,
+                other: this.blueOpenPoint,
+                otherBox: this.blueBoxPoint,
                 updateClosed: () => this.updateRedClosedPoint(),
-                constraintLine: this.redConstraintLine
+                constraintLine: this.redConstraintLine,
+                updateBox: (p) => { this.redBoxPoint = p; }
             },
             blueBox: {
                 self: this.blueBoxPoint,
@@ -618,7 +615,8 @@ class BoxGeometry {
                 other: this.redOpenPoint,
                 otherBox: this.redBoxPoint,
                 updateClosed: () => this.updateBlueClosedPoint(),
-                constraintLine: this.blueConstraintLine
+                constraintLine: this.blueConstraintLine,
+                updateBox: (p) => { this.blueBoxPoint = p; }
             }
         };
         
@@ -631,21 +629,14 @@ class BoxGeometry {
         
         // Project point onto constraint line
         const line = current.constraintLine;
-        if (type === 'redBox') {
-            this.redBoxPoint = this.projectPointOntoLineSegment(point, line.perpStart, line.perpEnd);
-        } else {
-            this.blueBoxPoint = this.projectPointOntoLineSegment(point, line.perpStart, line.perpEnd);
-        }
-        
+        const newBoxPoint = this.projectPointOntoLineSegment(point, line.perpStart, line.perpEnd);
+        current.updateBox(newBoxPoint);
         current.updateClosed();
         this.updateConstraintLines();
         
         // If link lengths should be constrained, update other points to match
         if (this.constrainLinkLengths) {
-            const newLength = this.distance(
-                type === 'redBox' ? this.redBoxPoint : this.blueBoxPoint,
-                current.open
-            );
+            const newLength = this.distance(newBoxPoint, current.open);
             const lidVertices = this.getOpenLidVertices();
             
             // Try to adjust other points to match new length while staying in bounds
@@ -669,13 +660,8 @@ class BoxGeometry {
                 this.updateConstraintLines();
             } else {
                 // If no valid solution found, revert changes
-                if (type === 'redBox') {
-                    this.redBoxPoint = prevBoxPoint;
-                    this.updateRedClosedPoint();
-                } else {
-                    this.blueBoxPoint = prevBoxPoint;
-                    this.updateBlueClosedPoint();
-                }
+                current.updateBox(prevBoxPoint);
+                current.updateClosed();
                 this.updateConstraintLines();
             }
         }
