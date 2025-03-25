@@ -582,8 +582,8 @@ class BoxRenderer {
             this.drawCircle(blueLine.boxPoint, 5, 'blue');
         }
         
-        // Draw help text if needed
-        if (this.helpTextOpacity > 0) {
+        // Draw help text if needed and no error
+        if (this.helpTextOpacity > 0 && isValid) {
             ctx.save();
             ctx.textAlign = 'center';
             ctx.textBaseline = 'top';
@@ -756,7 +756,7 @@ class BoxRenderer {
         
         // Convert to model coordinates
         return this.inverseTransform({
-            x: x * (this.canvas.width / rect.width),
+            x: x * (this.canvas.width / rect.width),  // Account for DPI scaling
             y: y * (this.canvas.height / rect.height)
         });
     }
