@@ -410,12 +410,28 @@
             
             // Add resize handler
             let resizeTimeout;
+            let lastInnerHeight = window.innerHeight;
+            
+            function handleViewportChange() {
+                const heightDiff = Math.abs(window.innerHeight - lastInnerHeight);
+                // Only update if height change is significant (address bar show/hide)
+                if (heightDiff > 50) {
+                    lastInnerHeight = window.innerHeight;
+                    return;  // Skip visualization update for address bar changes
+                }
+                updateVisualization();
+            }
+            
             window.addEventListener('resize', () => {
                 clearTimeout(resizeTimeout);
-                resizeTimeout = setTimeout(() => {
-                    updateVisualization();
-                }, 250);
+                resizeTimeout = setTimeout(handleViewportChange, 250);
             });
+            
+            // Handle scroll-induced viewport changes on mobile
+            window.addEventListener('scroll', () => {
+                clearTimeout(resizeTimeout);
+                resizeTimeout = setTimeout(handleViewportChange, 250);
+            }, { passive: true });
             
             // Add visibility change handler
             document.addEventListener('visibilitychange', () => {
