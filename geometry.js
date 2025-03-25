@@ -39,6 +39,9 @@ class BoxGeometry {
         this.previousFollowerStart = null;
         this.previousFollowerEnd = null;
         
+        // Link length constraint
+        this.constrainLinkLengths = false;
+        
         // Initialize pivot points
         this.initializePivotPoints();
         this.updateConstraintLines();
@@ -496,6 +499,11 @@ class BoxGeometry {
         };
         const currentSide = Math.sign(v1.x * v2.y - v1.y * v2.x);
         
+        // Store current link lengths
+        const prevRedLinkLength = this.distance(this.redBoxPoint, this.redOpenPoint);
+        const prevBlueLinkLength = this.distance(this.blueBoxPoint, this.blueOpenPoint);
+        
+        // Update red open point
         this.redOpenPoint = point;
         this.updateRedClosedPoint();
         this.updateConstraintLines();
@@ -505,6 +513,28 @@ class BoxGeometry {
             x: center.x - this.redConstraintLine.perpX * currentDist * currentSide,
             y: center.y - this.redConstraintLine.perpY * currentDist * currentSide
         };
+        
+        // If link lengths should be constrained, update blue point to match
+        if (this.constrainLinkLengths) {
+            const newRedLinkLength = this.distance(this.redBoxPoint, this.redOpenPoint);
+            const scaleFactor = newRedLinkLength / prevRedLinkLength;
+            
+            // Scale blue link length proportionally
+            const blueBoxToOpen = {
+                x: this.blueOpenPoint.x - this.blueBoxPoint.x,
+                y: this.blueOpenPoint.y - this.blueBoxPoint.y
+            };
+            
+            // Move blue open point to maintain angle but scale distance
+            this.blueOpenPoint = {
+                x: this.blueBoxPoint.x + blueBoxToOpen.x * scaleFactor,
+                y: this.blueBoxPoint.y + blueBoxToOpen.y * scaleFactor
+            };
+            
+            // Update blue closed point and constraints
+            this.updateBlueClosedPoint();
+            this.updateConstraintLines();
+        }
     }
     
     moveBlueOpenPoint(point) {
@@ -529,6 +559,11 @@ class BoxGeometry {
         };
         const currentSide = Math.sign(v1.x * v2.y - v1.y * v2.x);
         
+        // Store current link lengths
+        const prevRedLinkLength = this.distance(this.redBoxPoint, this.redOpenPoint);
+        const prevBlueLinkLength = this.distance(this.blueBoxPoint, this.blueOpenPoint);
+        
+        // Update blue open point
         this.blueOpenPoint = point;
         this.updateBlueClosedPoint();
         this.updateConstraintLines();
@@ -538,6 +573,28 @@ class BoxGeometry {
             x: center.x - this.blueConstraintLine.perpX * currentDist * currentSide,
             y: center.y - this.blueConstraintLine.perpY * currentDist * currentSide
         };
+        
+        // If link lengths should be constrained, update red point to match
+        if (this.constrainLinkLengths) {
+            const newBlueLinkLength = this.distance(this.blueBoxPoint, this.blueOpenPoint);
+            const scaleFactor = newBlueLinkLength / prevBlueLinkLength;
+            
+            // Scale red link length proportionally
+            const redBoxToOpen = {
+                x: this.redOpenPoint.x - this.redBoxPoint.x,
+                y: this.redOpenPoint.y - this.redBoxPoint.y
+            };
+            
+            // Move red open point to maintain angle but scale distance
+            this.redOpenPoint = {
+                x: this.redBoxPoint.x + redBoxToOpen.x * scaleFactor,
+                y: this.redBoxPoint.y + redBoxToOpen.y * scaleFactor
+            };
+            
+            // Update red closed point and constraints
+            this.updateRedClosedPoint();
+            this.updateConstraintLines();
+        }
     }
     
     moveRedBoxPoint(point) {

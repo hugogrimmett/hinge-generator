@@ -70,6 +70,35 @@ class BoxRenderer {
             generateButton.addEventListener('click', () => this.generateTemplate());
         }
         
+        // Add link length constraint checkbox listener
+        const constrainLinkLengthsCheckbox = document.getElementById('constrainLinkLengths');
+        if (constrainLinkLengthsCheckbox) {
+            constrainLinkLengthsCheckbox.addEventListener('change', (e) => {
+                this.geometry.constrainLinkLengths = e.target.checked;
+                if (e.target.checked) {
+                    // When enabling constraint, make both links the same length as the red link
+                    const redLinkLength = this.geometry.distance(this.geometry.redBoxPoint, this.geometry.redOpenPoint);
+                    const blueBoxToOpen = {
+                        x: this.geometry.blueOpenPoint.x - this.geometry.blueBoxPoint.x,
+                        y: this.geometry.blueOpenPoint.y - this.geometry.blueBoxPoint.y
+                    };
+                    const blueLinkLength = this.geometry.distance(this.geometry.blueBoxPoint, this.geometry.blueOpenPoint);
+                    const scaleFactor = redLinkLength / blueLinkLength;
+                    
+                    // Move blue open point to match red link length
+                    this.geometry.blueOpenPoint = {
+                        x: this.geometry.blueBoxPoint.x + blueBoxToOpen.x * scaleFactor,
+                        y: this.geometry.blueBoxPoint.y + blueBoxToOpen.y * scaleFactor
+                    };
+                    
+                    // Update blue closed point and constraints
+                    this.geometry.updateBlueClosedPoint();
+                    this.geometry.updateConstraintLines();
+                    this.draw();
+                }
+            });
+        }
+        
         // Animation state
         this.geometry.isAnimating = true;
         this.animationTime = 0;

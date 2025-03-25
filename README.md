@@ -14,7 +14,8 @@ Project plan:
 
 ## Features to Add
 
+
+- [ ] Add option to constrain input and output rod lengths to the same length
 - [ ] Better legibility on "open lid" and "closed lid" text
 - [ ] Moving lid and box collision detection
 - [ ] Clearance between moving lid and box pivot points
-- [ ] Fix drifting box pivot points when changing box parameters
