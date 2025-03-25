@@ -477,108 +477,186 @@ class BoxGeometry {
     }
     
     // Move points with constraints
-    moveRedOpenPoint(point) {
+    moveLidPoint(point, type) {
+        // Get the points we're working with based on type
+        const points = {
+            redOpen: {
+                self: this.redOpenPoint,
+                box: this.redBoxPoint,
+                other: this.blueOpenPoint,
+                otherBox: this.blueBoxPoint,
+                updateClosed: () => this.updateRedClosedPoint(),
+                constraintLine: this.redConstraintLine
+            },
+            blueOpen: {
+                self: this.blueOpenPoint,
+                box: this.blueBoxPoint,
+                other: this.redOpenPoint,
+                otherBox: this.redBoxPoint,
+                updateClosed: () => this.updateBlueClosedPoint(),
+                constraintLine: this.blueConstraintLine
+            }
+        };
+        
+        const current = points[type];
+        if (!current) return;
+        
         // Constrain to lid boundaries
         const lidVertices = this.getOpenLidVertices();
         if (!this.isPointInPolygon(point, lidVertices)) {
             return;
         }
         
-        // Store current link lengths and positions
-        const prevRedLinkLength = this.distance(this.redBoxPoint, this.redOpenPoint);
-        const prevBlueLinkLength = this.distance(this.blueBoxPoint, this.blueOpenPoint);
-        const prevRedBoxPoint = { ...this.redBoxPoint };
+        // Store current positions and lengths
+        const prevSelfLength = this.distance(current.box, current.self);
+        const prevOtherLength = this.distance(current.otherBox, current.other);
+        const prevBoxPoint = { ...current.box };
         
-        // Update red open point
-        this.redOpenPoint = point;
-        this.updateRedClosedPoint();
+        // Update point position
+        if (type === 'redOpen') {
+            this.redOpenPoint = point;
+        } else {
+            this.blueOpenPoint = point;
+        }
+        
+        // Update closed point and constraints
+        current.updateClosed();
         this.updateConstraintLines();
         
-        // If link lengths should be constrained, update blue point to match
+        // If link lengths should be constrained, update other point to match
         if (this.constrainLinkLengths) {
-            const newRedLinkLength = this.distance(this.redBoxPoint, this.redOpenPoint);
+            const newLength = this.distance(current.box, type === 'redOpen' ? this.redOpenPoint : this.blueOpenPoint);
             
-            // Try to adjust blue points to match new length while staying in bounds
+            // Try to adjust other points to match new length while staying in bounds
             const result = this.adjustPointWithConstraints(
-                this.blueOpenPoint,
-                this.blueBoxPoint,
-                newRedLinkLength,
+                current.other,
+                current.otherBox,
+                newLength,
                 lidVertices
             );
             
             if (result) {
-                this.blueOpenPoint = result.openPoint;
-                this.blueBoxPoint = result.boxPoint;
-                this.updateBlueClosedPoint();
+                // Update other points
+                if (type === 'redOpen') {
+                    this.blueOpenPoint = result.openPoint;
+                    this.blueBoxPoint = result.boxPoint;
+                    this.updateBlueClosedPoint();
+                } else {
+                    this.redOpenPoint = result.openPoint;
+                    this.redBoxPoint = result.boxPoint;
+                    this.updateRedClosedPoint();
+                }
                 this.updateConstraintLines();
             } else {
-                // If no valid solution found, revert red point changes
-                this.redOpenPoint = point;
-                this.redBoxPoint = prevRedBoxPoint;
-                this.updateRedClosedPoint();
+                // If no valid solution found, revert changes
+                if (type === 'redOpen') {
+                    this.redOpenPoint = point;
+                    this.redBoxPoint = prevBoxPoint;
+                    this.updateRedClosedPoint();
+                } else {
+                    this.blueOpenPoint = point;
+                    this.blueBoxPoint = prevBoxPoint;
+                    this.updateBlueClosedPoint();
+                }
                 this.updateConstraintLines();
             }
         }
     }
     
+    moveRedOpenPoint(point) {
+        this.moveLidPoint(point, 'redOpen');
+    }
+    
     moveBlueOpenPoint(point) {
-        // Constrain to lid boundaries
-        const lidVertices = this.getOpenLidVertices();
-        if (!this.isPointInPolygon(point, lidVertices)) {
-            return;
+        this.moveLidPoint(point, 'blueOpen');
+    }
+    
+    moveBoxPoint(point, type) {
+        // Get the points we're working with based on type
+        const points = {
+            redBox: {
+                self: this.redBoxPoint,
+                open: this.redOpenPoint,
+                other: this.redOpenPoint,
+                otherBox: this.redBoxPoint,
+                updateClosed: () => this.updateRedClosedPoint(),
+                constraintLine: this.redConstraintLine
+            },
+            blueBox: {
+                self: this.blueBoxPoint,
+                open: this.blueOpenPoint,
+                other: this.redOpenPoint,
+                otherBox: this.redBoxPoint,
+                updateClosed: () => this.updateBlueClosedPoint(),
+                constraintLine: this.blueConstraintLine
+            }
+        };
+        
+        const current = points[type];
+        if (!current || !current.constraintLine) return;
+        
+        // Store current positions and lengths
+        const prevSelfLength = this.distance(current.self, current.open);
+        const prevBoxPoint = { ...current.self };
+        
+        // Project point onto constraint line
+        const line = current.constraintLine;
+        if (type === 'redBox') {
+            this.redBoxPoint = this.projectPointOntoLineSegment(point, line.perpStart, line.perpEnd);
+        } else {
+            this.blueBoxPoint = this.projectPointOntoLineSegment(point, line.perpStart, line.perpEnd);
         }
         
-        // Store current link lengths and positions
-        const prevRedLinkLength = this.distance(this.redBoxPoint, this.redOpenPoint);
-        const prevBlueLinkLength = this.distance(this.blueBoxPoint, this.blueOpenPoint);
-        const prevBlueBoxPoint = { ...this.blueBoxPoint };
-        
-        // Update blue open point
-        this.blueOpenPoint = point;
-        this.updateBlueClosedPoint();
+        current.updateClosed();
         this.updateConstraintLines();
         
-        // If link lengths should be constrained, update red point to match
+        // If link lengths should be constrained, update other points to match new length
         if (this.constrainLinkLengths) {
-            const newBlueLinkLength = this.distance(this.blueBoxPoint, this.blueOpenPoint);
+            const newLength = this.distance(
+                type === 'redBox' ? this.redBoxPoint : this.blueBoxPoint,
+                current.open
+            );
+            const lidVertices = this.getOpenLidVertices();
             
-            // Try to adjust red points to match new length while staying in bounds
+            // Try to adjust other points to match new length while staying in bounds
             const result = this.adjustPointWithConstraints(
-                this.redOpenPoint,
-                this.redBoxPoint,
-                newBlueLinkLength,
+                current.other,
+                current.otherBox,
+                newLength,
                 lidVertices
             );
             
             if (result) {
-                this.redOpenPoint = result.openPoint;
-                this.redBoxPoint = result.boxPoint;
-                this.updateRedClosedPoint();
+                if (type === 'redBox') {
+                    this.blueOpenPoint = result.openPoint;
+                    this.blueBoxPoint = result.boxPoint;
+                    this.updateBlueClosedPoint();
+                } else {
+                    this.redOpenPoint = result.openPoint;
+                    this.redBoxPoint = result.boxPoint;
+                    this.updateRedClosedPoint();
+                }
                 this.updateConstraintLines();
             } else {
-                // If no valid solution found, revert blue point changes
-                this.blueOpenPoint = point;
-                this.blueBoxPoint = prevBlueBoxPoint;
-                this.updateBlueClosedPoint();
+                // If no valid solution found, revert changes
+                if (type === 'redBox') {
+                    this.redBoxPoint = prevBoxPoint;
+                    this.updateRedClosedPoint();
+                } else {
+                    this.blueBoxPoint = prevBoxPoint;
+                    this.updateBlueClosedPoint();
+                }
                 this.updateConstraintLines();
             }
         }
     }
     
     moveRedBoxPoint(point) {
-        if (!this.redConstraintLine) return;
-        
-        // Project point onto constraint line
-        const line = this.redConstraintLine;
-        this.redBoxPoint = this.projectPointOntoLineSegment(point, line.perpStart, line.perpEnd);
+        this.moveBoxPoint(point, 'redBox');
     }
     
     moveBlueBoxPoint(point) {
-        if (!this.blueConstraintLine) return;
-        
-        // Project point onto constraint line
-        const line = this.blueConstraintLine;
-        this.blueBoxPoint = this.projectPointOntoLineSegment(point, line.perpStart, line.perpEnd);
+        this.moveBoxPoint(point, 'blueBox');
     }
     
     // Helper to project point onto line segment
@@ -1135,7 +1213,10 @@ class BoxGeometry {
     
     // Helper to adjust a point to maintain link length and stay within bounds
     adjustPointWithConstraints(openPoint, boxPoint, targetLength, lidVertices) {
-        // First try to maintain box point position and just move the open point
+        const center = this.centerOfRotation;
+        const constraintLine = boxPoint === this.redBoxPoint ? this.redConstraintLine : this.blueConstraintLine;
+        
+        // First try to maintain current box point position
         const angle = Math.atan2(openPoint.y - boxPoint.y, openPoint.x - boxPoint.x);
         const validOpenPoint = this.findValidPointOnCircle(boxPoint, targetLength, lidVertices, angle);
         
@@ -1146,9 +1227,7 @@ class BoxGeometry {
             };
         }
         
-        // If that fails, try to move the box point along its constraint line
-        const center = this.centerOfRotation;
-        const constraintLine = boxPoint === this.redBoxPoint ? this.redConstraintLine : this.blueConstraintLine;
+        // If that fails, try different positions along the constraint line
         const currentDist = this.distance(boxPoint, center);
         
         // Try different distances from COR along constraint line
@@ -1167,13 +1246,14 @@ class BoxGeometry {
                 const sides = [1, -1];
                 
                 for (const side of sides) {
+                    // Ensure box point stays on perpendicular line through COR
                     const newBoxPoint = {
                         x: center.x - constraintLine.perpX * dist * side,
                         y: center.y - constraintLine.perpY * dist * side
                     };
                     
                     // Try to find valid open point with this box point
-                    const validOpenPoint = this.findValidPointOnCircle(newBoxPoint, targetLength, lidVertices);
+                    const validOpenPoint = this.findValidPointOnCircle(newBoxPoint, targetLength, lidVertices, angle);
                     
                     if (validOpenPoint) {
                         return {
