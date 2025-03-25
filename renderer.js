@@ -78,23 +78,44 @@ class BoxRenderer {
                 if (e.target.checked) {
                     // When enabling constraint, make both links the same length as the red link
                     const redLinkLength = this.geometry.distance(this.geometry.redBoxPoint, this.geometry.redOpenPoint);
-                    const blueBoxToOpen = {
-                        x: this.geometry.blueOpenPoint.x - this.geometry.blueBoxPoint.x,
-                        y: this.geometry.blueOpenPoint.y - this.geometry.blueBoxPoint.y
-                    };
-                    const blueLinkLength = this.geometry.distance(this.geometry.blueBoxPoint, this.geometry.blueOpenPoint);
-                    const scaleFactor = redLinkLength / blueLinkLength;
+                    const lidVertices = this.geometry.getOpenLidVertices();
                     
-                    // Move blue open point to match red link length
-                    this.geometry.blueOpenPoint = {
-                        x: this.geometry.blueBoxPoint.x + blueBoxToOpen.x * scaleFactor,
-                        y: this.geometry.blueBoxPoint.y + blueBoxToOpen.y * scaleFactor
-                    };
+                    // Try to adjust blue points to match red link length while staying in bounds
+                    const result = this.geometry.adjustPointWithConstraints(
+                        this.geometry.blueOpenPoint,
+                        this.geometry.blueBoxPoint,
+                        redLinkLength,
+                        lidVertices
+                    );
                     
-                    // Update blue closed point and constraints
-                    this.geometry.updateBlueClosedPoint();
-                    this.geometry.updateConstraintLines();
-                    this.draw();
+                    if (result) {
+                        this.geometry.blueOpenPoint = result.openPoint;
+                        this.geometry.blueBoxPoint = result.boxPoint;
+                        this.geometry.updateBlueClosedPoint();
+                        this.geometry.updateConstraintLines();
+                        this.draw();
+                    } else {
+                        // If no valid solution found, try adjusting red points to match blue length
+                        const blueLinkLength = this.geometry.distance(this.geometry.blueBoxPoint, this.geometry.blueOpenPoint);
+                        const redResult = this.geometry.adjustPointWithConstraints(
+                            this.geometry.redOpenPoint,
+                            this.geometry.redBoxPoint,
+                            blueLinkLength,
+                            lidVertices
+                        );
+                        
+                        if (redResult) {
+                            this.geometry.redOpenPoint = redResult.openPoint;
+                            this.geometry.redBoxPoint = redResult.boxPoint;
+                            this.geometry.updateRedClosedPoint();
+                            this.geometry.updateConstraintLines();
+                            this.draw();
+                        } else {
+                            // If neither works, uncheck the box
+                            e.target.checked = false;
+                            this.geometry.constrainLinkLengths = false;
+                        }
+                    }
                 }
             });
         }
