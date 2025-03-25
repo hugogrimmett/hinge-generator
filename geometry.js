@@ -519,6 +519,36 @@ class BoxGeometry {
             this.blueOpenPoint = point;
         }
         
+        // Project box point onto perpendicular line through COR
+        const center = this.centerOfRotation;
+        const line = current.constraintLine;
+        const dist = this.distance(current.box, center);
+        
+        // Try both sides of the perpendicular line and keep the one closer to current position
+        const sides = [1, -1];
+        let bestPoint = null;
+        let bestDist = Infinity;
+        
+        for (const side of sides) {
+            const newPoint = {
+                x: center.x - line.perpX * dist * side,
+                y: center.y - line.perpY * dist * side
+            };
+            
+            const distToOld = this.distance(newPoint, current.box);
+            if (distToOld < bestDist) {
+                bestDist = distToOld;
+                bestPoint = newPoint;
+            }
+        }
+        
+        // Update box point to closest valid position
+        if (type === 'redOpen') {
+            this.redBoxPoint = bestPoint;
+        } else {
+            this.blueBoxPoint = bestPoint;
+        }
+        
         // Update closed point and constraints
         current.updateClosed();
         this.updateConstraintLines();
@@ -610,7 +640,7 @@ class BoxGeometry {
         current.updateClosed();
         this.updateConstraintLines();
         
-        // If link lengths should be constrained, update other points to match new length
+        // If link lengths should be constrained, update other points to match
         if (this.constrainLinkLengths) {
             const newLength = this.distance(
                 type === 'redBox' ? this.redBoxPoint : this.blueBoxPoint,
