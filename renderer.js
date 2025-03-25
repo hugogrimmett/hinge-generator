@@ -123,7 +123,7 @@ class BoxRenderer {
         // Animation state
         this.geometry.isAnimating = true;
         this.animationTime = 0;
-        this.animationDuration = 2000;  // 2 seconds for a full cycle
+        this.animationDuration = 2500;  // 2 seconds for a full cycle
         this.lastTimestamp = null;
         
         // Initialize geometry and draw
@@ -887,6 +887,9 @@ class BoxRenderer {
             if (progress > 1) {
                 progress = 2 - progress;  // Return back to closed position
             }
+            
+            // Apply easing to progress
+            progress = (1 - Math.cos(progress * Math.PI)) / 2;
             
             // Get angle range and interpolate
             const range = this.geometry.getValidAngleRange();

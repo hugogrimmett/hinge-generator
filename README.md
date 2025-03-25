@@ -18,5 +18,5 @@ Project plan:
 - [ ] Better legibility on "open lid" and "closed lid" text
 - [ ] Moving lid and box collision detection
 - [ ] Clearance between moving lid and box pivot points
-- [ ] Make the animation slow down around the open and closed positions
 - [ ] Animation restarts when scrolling - looks ungraceful
+- [ ] Lock the pivot points in proportionally to the lid when changing the box parameters
