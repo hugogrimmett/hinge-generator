@@ -95,25 +95,29 @@ class BoxRenderer {
         // Create new geometry with updated parameters
         this.geometry = new BoxGeometry(h, w, d, alpha, g);
         
-        // Initialize basic geometry but skip constraint lines
+        // Initialize center of rotation first since it only depends on the box geometry, not the pivot positions
+        this.geometry.centerOfRotation = {  
+            x: (w - g)/2,
+            y: h
+        };
+        
+        // Initialize pivot points (which will use the new COR)
         this.geometry.initializePivotPoints();
-        
-        // Restore box pivot positions first since lid positions depend on them
-        if (boxPivotPositions) {
-            this.geometry.setBoxPivotPositions(boxPivotPositions);
-        }
-        
+
         // Then restore lid pivot positions
         if (lidPivotPositions) {
             this.geometry.setLidPivotPositions(lidPivotPositions);
         }
         
-        // Now update constraint lines based on restored positions
-        this.geometry.updateConstraintLines();
-        
+        this.geometry.updateConstraintLines();        
         // Update closed points based on restored positions
         this.geometry.updateRedClosedPoint();
         this.geometry.updateBlueClosedPoint();
+        
+        // Restore box pivot positions 
+        if (boxPivotPositions) {
+            this.geometry.setBoxPivotPositions(boxPivotPositions);
+        }
         
         // Recalculate viewport bounds and scale
         const margin = Math.max(h, w) * 0.1;

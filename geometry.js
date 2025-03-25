@@ -177,6 +177,15 @@ class BoxGeometry {
         const cos_theta = math.dot(Chat, Fhat);
         const sin_theta = (x1*y2 - y1*x2) / (math.norm(C) * math.norm(F));
 
+        // Compute translation vector
+        // const translation = [this.fourBarConfig.inputFollower.x - this.redClosedPoint.x,this.fourBarConfig.inputFollower.y - this.redClosedPoint.y];
+        // const translation = [x2-(x1*Math.cos(theta) - y1*Math.sin(theta)),
+        //     y2 - (x1*Math.sin(theta) + y1*Math.cos(theta))];        
+        // const translation = [x2 - (x1 * cos_theta - y1 * sin_theta), 
+        //                    y2 - (x1 * sin_theta + y1 * cos_theta)];
+
+        // the translation was always wrong because I was using x1, x2 etc which was defined by the difference between C and F which was obviously always zero
+
         const translation = [this.fourBarConfig.inputFollower.x - (this.redClosedPoint.x * cos_theta - this.redClosedPoint.y * sin_theta),
             this.fourBarConfig.inputFollower.y - (this.redClosedPoint.x * sin_theta +this.redClosedPoint.y * cos_theta)]
 
@@ -837,24 +846,31 @@ class BoxGeometry {
         };
     }
     
-    // Set box pivot positions based on relative positions
     setBoxPivotPositions(positions) {
         if (!positions || !this.redConstraintLine || !this.blueConstraintLine) {
             return;
         }
         
-        // Set red box point - use perpendicular distance from COR
-        const redLen = this.height * positions.red.ratio * positions.red.side;
+        const center = this.centerOfRotation;
+        
+        // Red box point
+        const redDist = this.height * positions.red.ratio;
+        const redSide = positions.red.side;
+        
+        // Update box point to stay on constraint line with correct distance and side
         this.redBoxPoint = {
-            x: this.centerOfRotation.x - this.redConstraintLine.perpX * redLen,
-            y: this.centerOfRotation.y - this.redConstraintLine.perpY * redLen
+            x: center.x - this.redConstraintLine.perpX * redDist * redSide,
+            y: center.y - this.redConstraintLine.perpY * redDist * redSide
         };
         
-        // Set blue box point - use perpendicular distance from COR
-        const blueLen = this.height * positions.blue.ratio * positions.blue.side;
+        // Blue box point
+        const blueDist = this.height * positions.blue.ratio;
+        const blueSide = positions.blue.side;
+        
+        // Update box point to stay on constraint line with correct distance and side
         this.blueBoxPoint = {
-            x: this.centerOfRotation.x - this.blueConstraintLine.perpX * blueLen,
-            y: this.centerOfRotation.y - this.blueConstraintLine.perpY * blueLen
+            x: center.x - this.blueConstraintLine.perpX * blueDist * blueSide,
+            y: center.y - this.blueConstraintLine.perpY * blueDist * blueSide
         };
         
         // Re-initialize four-bar linkage with new positions
