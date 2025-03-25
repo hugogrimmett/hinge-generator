@@ -444,6 +444,14 @@ class BoxRenderer {
         ctx.fillStyle = '#ffffff';
         ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
         
+        // Check if current configuration is valid and draw error background if not
+        const isValid = this.geometry.isValidRangeReachable();
+        if (!isValid) {
+            // Add a light pink overlay for error state
+            ctx.fillStyle = 'rgba(255, 235, 235, 1)';
+            ctx.fillRect(0, 0, this.displayWidth, this.displayHeight);
+        }
+        
         // Draw box outline
         this.drawBox();
         
@@ -479,14 +487,7 @@ class BoxRenderer {
         });
         ctx.fillText('open lid', openLidCenter.x, openLidCenter.y);
         
-        // Check if current configuration is valid
-        const isValid = this.geometry.isValidRangeReachable();
-        
         if (!isValid) {
-            // Add a light pink overlay for error state
-            ctx.fillStyle = 'rgba(255, 235, 235, 1)';
-            ctx.fillRect(0, 0, this.displayWidth, this.displayHeight);
-            
             // Show error message with responsive font size and line wrapping
             const fontSize = Math.min(18, this.displayWidth / 25);
             ctx.font = `400 ${fontSize}px -apple-system, BlinkMacSystemFont, system-ui, sans-serif`;
