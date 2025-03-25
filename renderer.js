@@ -1001,7 +1001,7 @@ class BoxRenderer {
                 const tp2 = transform(p2);
                 pdf.line(tp1.x, tp1.y, tp2.x, tp2.y);
             }
-            pdf.setLineDashPattern([], 0);  // Reset to solid line
+            pdf.setLineDashPattern([], 0);  // Reset dash
         };
         
         const drawPivotPoints = (transform) => {
@@ -1025,59 +1025,35 @@ class BoxRenderer {
         };
         
         const drawConnectionLines = (transform, withLabels = true, fontSize = 8) => {
-            const drawConnection = (p1, p2, color) => {
-                const tp1 = transform(p1);
-                const tp2 = transform(p2);
+            const drawConnection = (boxPoint, lidPoint, color) => {
+                const tp1 = transform(boxPoint);
+                const tp2 = transform(lidPoint);
                 
-                // Draw line with gradient effect
-                pdf.setLineDashPattern([0.1, 0.05], 0);  // Dashed line
-                pdf.setDrawColor(color === '#E63946' ? '#E63946' : color === '#457B9D' ? '#457B9D' : `${color}33`);  // Lighter but still vibrant
-                
-                const boxPoint = this.geometry.redBoxPoint;
-                
-                // Calculate perpendicular line endpoint on the constraint line
-                // First, get vector from start to end of constraint line
-                const dx = tp2.x - tp1.x;
-                const dy = tp2.y - tp1.y;
-                
-                // Calculate projection of box point onto constraint line
-                const t = ((boxPoint.x - tp1.x) * dx + (boxPoint.y - tp1.y) * dy) / (dx * dx + dy * dy);
-                const projX = tp1.x + t * dx;
-                const projY = tp1.y + t * dy;
-                
-                // Draw perpendicular line from box point to projection point
-                pdf.moveTo(boxPoint.x, boxPoint.y);
-                pdf.lineTo(projX, projY);
-                pdf.stroke();
-                pdf.setLineDashPattern([]);  // Reset dash
-                
-                // Draw thick connecting lines
                 pdf.lineWidth = 3;
-                pdf.setDrawColor(color === '#E63946' ? '#E63946' : color === '#457B9D' ? '#457B9D' : color);  // More vibrant
+                pdf.setDrawColor(color === '#E63946' ? '#E63946' : color === '#457B9D' ? '#457B9D' : color);
+                pdf.line(tp1.x, tp1.y, tp2.x, tp2.y);
                 
-                // Draw dashed line from box point to open point
-                pdf.beginPath();
-                pdf.setLineDashPattern([8, 8]);  // Larger dashes for thicker line
-                const openPoint = tp2;
-                pdf.moveTo(boxPoint.x, boxPoint.y);
-                pdf.lineTo(openPoint.x, openPoint.y);
-                pdf.stroke();
+                // Calculate length in cm
+                const length = Math.sqrt(
+                    Math.pow(boxPoint.x - lidPoint.x, 2) + 
+                    Math.pow(boxPoint.y - lidPoint.y, 2)
+                ) * unitConv.toCm;
                 
-                // Draw solid line from box point to closed point
-                pdf.beginPath();
-                pdf.setLineDashPattern([]);  // Reset to solid line
-                const closedPoint = tp1;
-                pdf.moveTo(boxPoint.x, boxPoint.y);
-                pdf.lineTo(closedPoint.x, closedPoint.y);
-                pdf.stroke();
+                // Position text at midpoint of line
+                const midX = (tp1.x + tp2.x) / 2;
+                const midY = (tp1.y + tp2.y) / 2;
                 
-                // Reset line style
-                pdf.lineWidth = 1;
-                pdf.setLineDashPattern([]);
+                // Draw length label
+                pdf.setFontSize(fontSize);
+                pdf.setTextColor(40);
+                pdf.text(`${length.toFixed(1)} cm`, midX, midY);
             };
             
+            // Draw lines between red and blue pivot points
             drawConnection(this.geometry.redBoxPoint, this.geometry.redClosedPoint, '#E63946');
             drawConnection(this.geometry.blueBoxPoint, this.geometry.blueClosedPoint, '#457B9D');
+            
+            pdf.lineWidth = 1;
             pdf.setTextColor(40);  // Reset text color
         };
         
