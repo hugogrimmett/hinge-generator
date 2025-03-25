@@ -513,8 +513,8 @@ class BoxRenderer {
             
             // Stop any existing animation
             this.stopAnimation();
-        } else if (!this.isDragging && !this.animationId) {
-            // Start animation if valid and not already animating
+        } else if (!this.isDragging && !this.animationId && this.geometry.isValidRangeReachable()) {
+            // Only start animation if valid and not already animating
             this.startAnimation();
         }
         
@@ -584,8 +584,43 @@ class BoxRenderer {
             ctx.textAlign = 'center';
             ctx.textBaseline = 'top';
             ctx.font = '20px -apple-system, BlinkMacSystemFont, system-ui, sans-serif';
+            
+            // Draw help text in parts to color specific words
+            const text1 = 'Try moving the ';
+            const text2 = 'blue';
+            const text3 = ' and ';
+            const text4 = 'red';
+            const text5 = ' pivot points';
+            
+            // Measure text widths for positioning
+            const width1 = ctx.measureText(text1).width;
+            const width2 = ctx.measureText(text2).width;
+            const width3 = ctx.measureText(text3).width;
+            const width4 = ctx.measureText(text4).width;
+            const totalWidth = width1 + width2 + width3 + width4 + ctx.measureText(text5).width;
+            
+            // Calculate start position to center everything
+            const startX = this.canvas.width / 2 - totalWidth / 2;
+            
+            // Draw each part with appropriate color
             ctx.fillStyle = `rgba(0, 0, 0, ${this.helpTextOpacity})`;
-            ctx.fillText('Try moving the blue and red pivot points', this.canvas.width / 2, 60);
+            ctx.fillText(text1, startX + width1/2, 60);
+            
+            ctx.fillStyle = '#80b3ff';
+            ctx.globalAlpha = this.helpTextOpacity;
+            ctx.fillText(text2, startX + width1 + width2/2, 60);
+            
+            ctx.fillStyle = `rgba(0, 0, 0, ${this.helpTextOpacity})`;
+            ctx.fillText(text3, startX + width1 + width2 + width3/2, 60);
+            
+            ctx.fillStyle = '#ff8080';
+            ctx.globalAlpha = this.helpTextOpacity;
+            ctx.fillText(text4, startX + width1 + width2 + width3 + width4/2, 60);
+            
+            ctx.fillStyle = `rgba(0, 0, 0, ${this.helpTextOpacity})`;
+            ctx.fillText(text5, startX + width1 + width2 + width3 + width4 + ctx.measureText(text5).width/2, 60);
+            
+            // Draw second line normally
             ctx.fillText('to see how it affects the motion of the lid', this.canvas.width / 2, 85);
             ctx.restore();
             
