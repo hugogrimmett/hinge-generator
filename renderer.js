@@ -440,7 +440,9 @@ class BoxRenderer {
     // Main draw function
     draw() {
         const ctx = this.ctx;
-        ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
+        // Clear with white background
+        ctx.fillStyle = '#ffffff';
+        ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
         
         // Draw box outline
         this.drawBox();
@@ -481,7 +483,8 @@ class BoxRenderer {
         const isValid = this.geometry.isValidRangeReachable();
         
         if (!isValid) {
-            ctx.fillStyle = 'rgba(255, 0, 0, 0.1)';
+            // Add a light pink overlay for error state
+            ctx.fillStyle = 'rgba(255, 235, 235, 1)';
             ctx.fillRect(0, 0, this.displayWidth, this.displayHeight);
             
             // Show error message with responsive font size and line wrapping
