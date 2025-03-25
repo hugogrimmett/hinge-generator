@@ -104,17 +104,19 @@ class BoxRenderer {
         // Initialize pivot points (which will use the new COR)
         this.geometry.initializePivotPoints();
 
-        // Then restore lid pivot positions
+        // Then restore lid pivot positions first
         if (lidPivotPositions) {
             this.geometry.setLidPivotPositions(lidPivotPositions);
         }
-        
+      
+        // Then update the constraint lines since they depend on the lid pivot positions
         this.geometry.updateConstraintLines();        
-        // Update closed points based on restored positions
+        
+        // Update closed points based on new lid pivot positions and constraint lines
         this.geometry.updateRedClosedPoint();
         this.geometry.updateBlueClosedPoint();
         
-        // Restore box pivot positions 
+        // Finally, restore box pivot positions which are dependent on all the rest
         if (boxPivotPositions) {
             this.geometry.setBoxPivotPositions(boxPivotPositions);
         }
