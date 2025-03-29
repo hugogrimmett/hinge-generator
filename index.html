@@ -268,7 +268,7 @@
             </div>
         </div>
         <div class="footer">
-            <p>Found a bug or have a feature request? <a href="https://github.com/hugogrimmett/hinge-generator/issues/new" target="_blank">Open an issue on GitHub</a></p>
+            <p>Found a bug or have a feature request? <a id="githubIssueLink" href="https://github.com/hugogrimmett/hinge-generator/issues/new" target="_blank">Open an issue on GitHub</a></p>
         </div>
         <script src="geometry.js"></script>
         <script src="renderer.js"></script>
@@ -350,6 +350,26 @@
             
             // Make updateUrl available globally
             window.updateUrl = updateUrl;
+
+            // Helper function to update GitHub issue link
+            function updateGithubIssueLink() {
+                const issueLink = document.getElementById('githubIssueLink');
+                if (issueLink) {
+                    const currentUrl = window.location.href;
+                    const issueBody = encodeURIComponent(`Configuration URL: ${currentUrl}\n\nDescribe the issue:`);
+                    issueLink.href = `https://github.com/hugogrimmett/hinge-generator/issues/new?body=${issueBody}`;
+                }
+            }
+
+            // Update GitHub issue link whenever URL changes
+            const originalUpdateUrl = window.updateUrl;
+            window.updateUrl = function() {
+                originalUpdateUrl();
+                updateGithubIssueLink();
+            };
+
+            // Also update on initial load
+            updateGithubIssueLink();
 
             // Helper function to update visualization
             function updateVisualization() {
