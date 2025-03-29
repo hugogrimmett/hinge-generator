@@ -732,6 +732,7 @@ class BoxRenderer {
         this.geometry.initializeFourBar();
         
         this.draw();
+        window.updateUrl();
     }
     
     handleMouseUp() {
@@ -844,6 +845,7 @@ class BoxRenderer {
             this.geometry.initializeFourBar();
             
             this.draw();
+            window.updateUrl();
         }
     }
 

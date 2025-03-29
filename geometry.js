@@ -813,17 +813,14 @@ class BoxGeometry {
     
     // Get all points for visualization
     getPoints() {
-        const points = [];
-        
-        if (this.redBoxPoint) points.push(this.redBoxPoint);
-        if (this.redOpenPoint) points.push(this.redOpenPoint);
-        if (this.redClosedPoint) points.push(this.redClosedPoint);
-        
-        if (this.blueBoxPoint) points.push(this.blueBoxPoint);
-        if (this.blueOpenPoint) points.push(this.blueOpenPoint);
-        if (this.blueClosedPoint) points.push(this.blueClosedPoint);
-        
-        return points;
+        return {
+            redBox: this.redBoxPoint,
+            redClosed: this.redClosedPoint,
+            redOpen: this.redOpenPoint,
+            blueBox: this.blueBoxPoint,
+            blueClosed: this.blueClosedPoint,
+            blueOpen: this.blueOpenPoint
+        };
     }
     
     isPointInPolygon(point, vertices) {
