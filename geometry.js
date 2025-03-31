@@ -478,9 +478,9 @@ class BoxGeometry {
     
     // Move points with constraints
     moveLidPoint(point, type) {
-        // Get the points we're working with based on type
+        // Get the points we're working with based on type: 'redClosed' or 'blueClosed'
         const points = {
-            redOpen: {
+            redClosed: {
                 self: this.redClosedPoint,
                 box: this.redBoxPoint,
                 other: this.blueClosedPoint,
@@ -489,7 +489,7 @@ class BoxGeometry {
                 constraintLine: this.redConstraintLine,
                 updateBox: (p) => { this.redBoxPoint = p; }
             },
-            blueOpen: {
+            blueClosed: {
                 self: this.blueClosedPoint,
                 box: this.blueBoxPoint,
                 other: this.redClosedPoint,
@@ -504,7 +504,7 @@ class BoxGeometry {
         if (!current) return;
         
         // Constrain to lid boundaries
-        const lidVertices = this.getOpenLidVertices();
+        const lidVertices = this.getClosedLidVertices();
         if (!this.isPointInPolygon(point, lidVertices)) {
             return;
         }
@@ -513,15 +513,26 @@ class BoxGeometry {
         const prevSelfLength = this.distance(current.box, current.self);
         const prevBoxPoint = { ...current.box };
         
-        // Update point position
+        // Update point position. The point provided is always the new location of the closed pivot point.
         if (type === 'redClosed') {
             this.redClosedPoint = point;
         } else {
             this.blueClosedPoint = point;
         }
+
+        // Update open point position
+        if (type === 'redClosed') {
+            this.updateRedOpenPoint();
+        } else {
+            this.updateBlueOpenPoint();
+        }
+
+        // update constraints
+        this.updateConstraintLines();
         
         // Project box point onto perpendicular line through COR
         const center = this.centerOfRotation;
+
         const line = current.constraintLine;
         const dist = this.distance(current.box, center);
         
