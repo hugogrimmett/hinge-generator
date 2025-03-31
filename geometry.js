@@ -503,21 +503,21 @@ class BoxGeometry {
         const current = points[type];
         if (!current) return;
         
-        // Constrain to lid boundaries
-        const lidVertices = this.getClosedLidVertices();
-        if (!this.isPointInPolygon(point, lidVertices)) {
-            return;
-        }
-        
-        // Store current positions and lengths
-        const prevSelfLength = this.distance(current.box, current.self);
+        // Store current positions
         const prevBoxPoint = { ...current.box };
+        
+        // Constrain to lid boundaries - if outside, snap to nearest point on lid
+        const lidVertices = this.getClosedLidVertices();
+        let targetPoint = point;
+        if (!this.isPointInPolygon(point, lidVertices)) {
+            targetPoint = this.findNearestPointInPolygon(point, lidVertices);
+        }
         
         // Update point position. The point provided is always the new location of the closed pivot point.
         if (type === 'redClosed') {
-            this.redClosedPoint = point;
+            this.redClosedPoint = targetPoint;
         } else {
-            this.blueClosedPoint = point;
+            this.blueClosedPoint = targetPoint;
         }
 
         // Update open point position
@@ -532,7 +532,6 @@ class BoxGeometry {
         
         // Project box point onto perpendicular line through COR
         const center = this.centerOfRotation;
-
         const line = current.constraintLine;
         const dist = this.distance(current.box, center);
         
@@ -561,7 +560,7 @@ class BoxGeometry {
         
         // If link lengths should be constrained, update other points to match
         if (this.constrainLinkLengths) {
-            const newLength = this.distance(bestPoint, type === 'redClosed' ? this.redClosedPoint : this.blueClosedPoint);
+            const newLength = this.distance(bestPoint, targetPoint);
         
             // Try to adjust other points to match new length while staying in bounds
             const result = this.adjustPointWithConstraints(
@@ -580,18 +579,6 @@ class BoxGeometry {
                     this.redClosedPoint = result.openPoint;
                     this.redBoxPoint = result.boxPoint;
                     this.updateRedOpenPoint();
-                }
-                this.updateConstraintLines();
-            } else {
-                // If no valid solution found, revert changes
-                if (type === 'redClosed') {
-                    this.redClosedPoint = point;
-                    this.redBoxPoint = prevBoxPoint;
-                    this.updateRedOpenPoint();
-                } else {
-                    this.blueClosedPoint = point;
-                    this.blueBoxPoint = prevBoxPoint;
-                    this.updateBlueOpenPoint();
                 }
                 this.updateConstraintLines();
             }
