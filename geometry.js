@@ -326,9 +326,9 @@ class BoxGeometry {
         };
         
         // Blue constraint line (similar calculation)
-        const blueDx = this.blueOpenPoint.x - center.x;
-        const blueDy = this.blueOpenPoint.y - center.y;
-        const blueLen = Math.sqrt(blueDx * blueDx + blueDy * blueDy);
+        const blueDx = center.x - this.blueClosedPoint.x;
+        const blueDy = center.y - this.blueClosedPoint.y;
+        const blueLen = Math.sqrt((blueDx ** 2) + (blueDy ** 2));
         const blueDirX = blueDx / blueLen;
         const blueDirY = blueDy / blueLen;
         
@@ -340,12 +340,12 @@ class BoxGeometry {
             perpX: bluePerpX,
             perpY: bluePerpY,
             perpStart: {
-                x: center.x - bluePerpX * this.height * 1.25,
-                y: center.y - bluePerpY * this.height * 1.25
+                x: center.x - bluePerpX * this.height,
+                y: center.y - bluePerpY * this.height
             },
             perpEnd: {
-                x: center.x + bluePerpX * this.height * 1.25,
-                y: center.y + bluePerpY * this.height * 1.25
+                x: center.x + bluePerpX * this.height,
+                y: center.y + bluePerpY * this.height
             },
             dirX: blueDirX,
             dirY: blueDirY
