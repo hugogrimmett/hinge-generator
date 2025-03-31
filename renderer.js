@@ -756,13 +756,15 @@ class BoxRenderer {
         this.geometry.initializeFourBar();
         
         this.draw();
-        window.updateUrl();
     }
     
     handleMouseUp() {
         if (this.isDragging) {
             this.isDragging = false;
             this.selectedPoint = null;
+            
+            // Update URL with final position
+            window.updateUrl();
             
             // Check if configuration is valid and start animation if it is
             if (this.geometry.isValidRangeReachable()) {
@@ -869,7 +871,6 @@ class BoxRenderer {
             this.geometry.initializeFourBar();
             
             this.draw();
-            window.updateUrl();
         }
     }
 

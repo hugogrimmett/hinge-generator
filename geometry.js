@@ -848,12 +848,12 @@ class BoxGeometry {
         const blue_point2 = this.blueConstraintLine.perpStart;
 
         const distance_red = this.getDistanceFromPointToLine(
-            center,
+            this.redBoxPoint,
             this.redConstraintLine.perpStart, 
             this.redConstraintLine.perpEnd);
         
         const distance_blue = this.getDistanceFromPointToLine(
-            center,
+            this.blueBoxPoint,
             this.blueConstraintLine.perpStart, 
             this.blueConstraintLine.perpEnd);
         
