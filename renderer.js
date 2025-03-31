@@ -168,8 +168,8 @@ class BoxRenderer {
         this.geometry.updateConstraintLines();        
         
         // Update closed points based on new lid pivot positions and constraint lines
-        this.geometry.updateRedClosedPoint();
-        this.geometry.updateBlueClosedPoint();
+        this.geometry.updateRedOpenPoint();
+        this.geometry.updateBlueOpenPoint();
         
         // Finally, restore box pivot positions which are dependent on all the rest
         if (boxPivotPositions) {
@@ -723,13 +723,13 @@ class BoxRenderer {
         const center = this.geometry.getCenterOfRotation();
         
         if (color === 'red') {
-            if (pointType === 'open') {
-                this.geometry.moveRedOpenPoint(point);
-            } else if (pointType === 'closed') {
-                // For closed point, move the open point to the opposite position
+            if (pointType === 'closed') {
+                this.geometry.moveRedClosedPoint(point);
+            } else if (pointType === 'open') {
+                // For open point, move the closed point to the opposite position
                 const dx = point.x - center.x;
                 const dy = point.y - center.y;
-                this.geometry.moveRedOpenPoint({
+                this.geometry.moveRedClosedPoint({
                     x: center.x - dx,
                     y: center.y - dy
                 });
@@ -737,13 +737,13 @@ class BoxRenderer {
                 this.geometry.moveRedBoxPoint(point);
             }
         } else { // blue
-            if (pointType === 'open') {
-                this.geometry.moveBlueOpenPoint(point);
-            } else if (pointType === 'closed') {
-                // For closed point, move the open point to the opposite position
+            if (pointType === 'closed') {
+                this.geometry.moveBlueClosedPoint(point);
+            } else if (pointType === 'open') {
+                // For open point, move the closed point to the opposite position
                 const dx = point.x - center.x;
                 const dy = point.y - center.y;
-                this.geometry.moveBlueOpenPoint({
+                this.geometry.moveBlueClosedPoint({
                     x: center.x - dx,
                     y: center.y - dy
                 });
@@ -836,13 +836,13 @@ class BoxRenderer {
             const center = this.geometry.getCenterOfRotation();
             
             if (color === 'red') {
-                if (pointType === 'open') {
-                    this.geometry.moveRedOpenPoint(point);
-                } else if (pointType === 'closed') {
-                    // For closed point, move the open point to the opposite position
+                if (pointType === 'closed') {
+                    this.geometry.moveRedClosedPoint(point);
+                } else if (pointType === 'open') {
+                    // For open point, move the closed point to the opposite position
                     const dx = point.x - center.x;
                     const dy = point.y - center.y;
-                    this.geometry.moveRedOpenPoint({
+                    this.geometry.moveRedClosedPoint({
                         x: center.x - dx,
                         y: center.y - dy
                     });
@@ -850,13 +850,13 @@ class BoxRenderer {
                     this.geometry.moveRedBoxPoint(point);
                 }
             } else { // blue
-                if (pointType === 'open') {
-                    this.geometry.moveBlueOpenPoint(point);
-                } else if (pointType === 'closed') {
-                    // For closed point, move the open point to the opposite position
+                if (pointType === 'closed') {
+                    this.geometry.moveBlueClosedPoint(point);
+                } else if (pointType === 'open') {
+                    // For open point, move the closed point to the opposite position
                     const dx = point.x - center.x;
                     const dy = point.y - center.y;
-                    this.geometry.moveBlueOpenPoint({
+                    this.geometry.moveBlueClosedPoint({
                         x: center.x - dx,
                         y: center.y - dy
                     });

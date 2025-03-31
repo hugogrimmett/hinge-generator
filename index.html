@@ -470,18 +470,13 @@
                                 boxRenderer.geometry.moveBlueBoxPoint(point);
                             }
                         } else {
-                            // For closed points, we need to calculate and set the open points
-                            const center = boxRenderer.geometry.getCenterOfRotation();
-                            const dx = point.x - center.x;
-                            const dy = point.y - center.y;
-                            const openPoint = {
-                                x: center.x - dx,
-                                y: center.y - dy
-                            };
+                            // For closed points, use them directly
                             if (pointName === 'redClosed') {
-                                boxRenderer.geometry.moveRedOpenPoint(openPoint);
+                                boxRenderer.geometry.redClosedPoint = point;
+                                boxRenderer.geometry.updateRedOpenPoint();
                             } else {
-                                boxRenderer.geometry.moveBlueOpenPoint(openPoint);
+                                boxRenderer.geometry.blueClosedPoint = point;
+                                boxRenderer.geometry.updateBlueOpenPoint();
                             }
                         }
                     }
