@@ -181,14 +181,6 @@ class BoxGeometry {
         const sin_theta = (x1*y2 - y1*x2) / (math.norm(C) * math.norm(F));
 
         // Compute translation vector
-        // const translation = [this.fourBarConfig.inputFollower.x - this.redClosedPoint.x,this.fourBarConfig.inputFollower.y - this.redClosedPoint.y];
-        // const translation = [x2-(x1*Math.cos(theta) - y1*Math.sin(theta)),
-        //     y2 - (x1*Math.sin(theta) + y1*Math.cos(theta))];        
-        // const translation = [x2 - (x1 * cos_theta - y1 * sin_theta), 
-        //                    y2 - (x1 * sin_theta + y1 * cos_theta)];
-
-        // the translation was always wrong because I was using x1, x2 etc which was defined by the difference between C and F which was obviously always zero
-
         const translation = [this.fourBarConfig.inputFollower.x - (this.redClosedPoint.x * cos_theta - this.redClosedPoint.y * sin_theta),
             this.fourBarConfig.inputFollower.y - (this.redClosedPoint.x * sin_theta +this.redClosedPoint.y * cos_theta)]
 
@@ -553,8 +545,6 @@ class BoxGeometry {
         
         // Update box point to closest valid position
         current.updateBox(bestPoint);
-        
-        // Update closed point and constraints
         current.updateOpen();
         this.updateConstraintLines();
         
@@ -574,11 +564,11 @@ class BoxGeometry {
                 if (type === 'redClosed') {
                     this.blueClosedPoint = result.openPoint;
                     this.blueBoxPoint = result.boxPoint;
-                    this.updateBlueClosedPoint();
+                    this.updateBlueOpenPoint();
                 } else {
                     this.redClosedPoint = result.openPoint;
                     this.redBoxPoint = result.boxPoint;
-                    this.updateRedClosedPoint();
+                    this.updateRedOpenPoint();
                 }
                 this.updateConstraintLines();
             } else {
@@ -586,11 +576,11 @@ class BoxGeometry {
                 if (type === 'redClosed') {
                     this.redClosedPoint = point;
                     this.redBoxPoint = prevBoxPoint;
-                    this.updateRedClosedPoint();
+                    this.updateRedOpenPoint();
                 } else {
                     this.blueClosedPoint = point;
                     this.blueBoxPoint = prevBoxPoint;
-                    this.updateBlueClosedPoint();
+                    this.updateBlueOpenPoint();
                 }
                 this.updateConstraintLines();
             }
@@ -657,11 +647,11 @@ class BoxGeometry {
             
             if (result) {
                 if (type === 'redBox') {
-                    this.blueClosedPoint = result.ClosedPoint;
+                    this.blueClosedPoint = result.openPoint;
                     this.blueBoxPoint = result.boxPoint;
                     this.updateBlueOpenPoint();
                 } else {
-                    this.redClosedPoint = result.closedPoint;
+                    this.redClosedPoint = result.openPoint;
                     this.redBoxPoint = result.boxPoint;
                     this.updateRedOpenPoint();
                 }
@@ -831,8 +821,8 @@ class BoxGeometry {
     }
 
     // Get shortest distance from point (x0,y0) to line passing through points (x1,y1) and (x2,y2)
-    getDistanceFromPointToLine(x0, y0, x1, y1, x2, y2) {
-        const distance = Math.abs((y2 - y1) * x0 - (x2 - x1) * y0 + (x2 * y1 - x1 * y2)) / Math.sqrt((y2 - y1) ** 2 + (x2 - x1) ** 2);
+    getDistanceFromPointToLine(point, line_a, line_b) {
+        const distance = Math.abs((line_b.y - line_a.y) * point.x - (line_b.x - line_a.x) * point.y + (line_b.x * line_a.y - line_a.x * line_b.y)) / Math.sqrt((line_b.y - line_a.y) ** 2 + (line_b.x - line_a.x) ** 2);
         return distance;
     }
     
@@ -847,14 +837,14 @@ class BoxGeometry {
         const blue_point2 = this.blueConstraintLine.perpStart;
 
         const distance_red = this.getDistanceFromPointToLine(
-            center.x, center.y,
-            this.redConstraintLine.perpStart.x, this.redConstraintLine.perpStart.y, 
-            this.redConstraintLine.perpEnd.x, this.redConstraintLine.perpEnd.y);
+            center,
+            this.redConstraintLine.perpStart, 
+            this.redConstraintLine.perpEnd);
         
         const distance_blue = this.getDistanceFromPointToLine(
-            center.x, center.y,
-            this.blueConstraintLine.perpStart.x, this.blueConstraintLine.perpStart.y, 
-            this.blueConstraintLine.perpEnd.x, this.blueConstraintLine.perpEnd.y);
+            center,
+            this.blueConstraintLine.perpStart, 
+            this.blueConstraintLine.perpEnd);
         
         return { distance_red, distance_blue, center, red_point, blue_point, red_point2, blue_point2};
     }
@@ -1036,10 +1026,10 @@ class BoxGeometry {
         // If point is still in lid polygon, keep it exactly where it is
         if (this.isPointInPolygon(prevPoint, lidVertices)) {
             if (color === 'red') {
-                this.redOpenPoint = prevPoint;
+                this.redClosedPoint = prevPoint;
                 this.updateRedOpenPoint();
             } else {
-                this.blueOpenPoint = prevPoint;
+                this.blueClosedPoint = prevPoint;
                 this.updateBlueOpenPoint();
             }
             return;
@@ -1122,21 +1112,21 @@ class BoxGeometry {
     
     // Get lid pivot positions
     getLidPivotPositions() {
-        if (!this.redOpenPoint || !this.blueOpenPoint) return null;
+        if (!this.redClosedPoint || !this.blueClosedPoint) return null;
         return {
-            redOpen: {...this.redOpenPoint},
-            blueOpen: {...this.blueOpenPoint}
+            redClosed: {...this.redClosedPoint},
+            blueClosed: {...this.blueClosedPoint}
         };
     }
     
     // Set lid pivot positions
     setLidPivotPositions(positions) {
         if (!positions) return;
-        if (positions.redOpen) {
-            this.tryPreserveLidPivot('red', positions.redOpen);
+        if (positions.redClosed) {
+            this.tryPreserveLidPivot('red', positions.redClosed);
         }
-        if (positions.blueOpen) {
-            this.tryPreserveLidPivot('blue', positions.blueOpen);
+        if (positions.blueClosed) {
+            this.tryPreserveLidPivot('blue', positions.blueClosed);
         }
     }
     
@@ -1261,17 +1251,17 @@ class BoxGeometry {
     }
     
     // Helper to adjust a point to maintain link length and stay within bounds
-    adjustPointWithConstraints(openPoint, boxPoint, targetLength, lidVertices) {
+    adjustPointWithConstraints(closedPoint, boxPoint, targetLength, lidVertices) {
         const center = this.centerOfRotation;
         const constraintLine = boxPoint === this.redBoxPoint ? this.redConstraintLine : this.blueConstraintLine;
         
         // First try to maintain current box point position
-        const angle = Math.atan2(openPoint.y - boxPoint.y, openPoint.x - boxPoint.x);
-        const validOpenPoint = this.findValidPointOnCircle(boxPoint, targetLength, lidVertices, angle);
+        const angle = Math.atan2(closedPoint.y - boxPoint.y, closedPoint.x - boxPoint.x);
+        const validClosedPoint = this.findValidPointOnCircle(boxPoint, targetLength, lidVertices, angle);
         
-        if (validOpenPoint) {
+        if (validClosedPoint) {
             return {
-                openPoint: validOpenPoint,
+                openPoint: validClosedPoint,
                 boxPoint: boxPoint
             };
         }
@@ -1301,12 +1291,12 @@ class BoxGeometry {
                         y: center.y - constraintLine.perpY * dist * side
                     };
                     
-                    // Try to find valid open point with this box point
-                    const validOpenPoint = this.findValidPointOnCircle(newBoxPoint, targetLength, lidVertices, angle);
+                    // Try to find valid closed point with this box point
+                    const validClosedPoint = this.findValidPointOnCircle(newBoxPoint, targetLength, lidVertices, angle);
                     
-                    if (validOpenPoint) {
+                    if (validClosedPoint) {
                         return {
-                            openPoint: validOpenPoint,
+                            openPoint: validClosedPoint,
                             boxPoint: newBoxPoint
                         };
                     }
