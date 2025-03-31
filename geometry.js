@@ -299,9 +299,9 @@ class BoxGeometry {
         const center = this.centerOfRotation;
         
         // Red constraint line
-        const redDx = this.redOpenPoint.x - center.x;
-        const redDy = this.redOpenPoint.y - center.y;
-        const redLen = Math.sqrt(redDx * redDx + redDy * redDy);
+        const redDx = center.x - this.redClosedPoint.x;
+        const redDy = center.y - this.redClosedPoint.y;
+        const redLen = Math.sqrt((redDx ** 2) + (redDy ** 2));
         const redDirX = redDx / redLen;
         const redDirY = redDy / redLen;
         
@@ -314,12 +314,12 @@ class BoxGeometry {
             perpX: redPerpX,
             perpY: redPerpY,
             perpStart: {
-                x: center.x - redPerpX * this.height * 1.25,
-                y: center.y - redPerpY * this.height * 1.25
+                x: center.x - redPerpX * this.height,
+                y: center.y - redPerpY * this.height
             },
             perpEnd: {
-                x: center.x + redPerpX * this.height * 1.25,
-                y: center.y + redPerpY * this.height * 1.25
+                x: center.x + redPerpX * this.height,
+                y: center.y + redPerpY * this.height
             },
             dirX: redDirX,
             dirY: redDirY
@@ -821,6 +821,35 @@ class BoxGeometry {
             blueClosed: this.blueClosedPoint,
             blueOpen: this.blueOpenPoint
         };
+    }
+
+    // Get shortest distance from point (x0,y0) to line passing through points (x1,y1) and (x2,y2)
+    getDistanceFromPointToLine(x0, y0, x1, y1, x2, y2) {
+        const distance = Math.abs((y2 - y1) * x0 - (x2 - x1) * y0 + (x2 * y1 - x1 * y2)) / Math.sqrt((y2 - y1) ** 2 + (x2 - x1) ** 2);
+        return distance;
+    }
+    
+    getConstraintDotProducts() {
+        const center = this.getCenterOfRotation();
+        if (!center || !this.redConstraintLine || !this.blueConstraintLine) return null;
+
+        const red_point = this.redConstraintLine.perpEnd;
+        const blue_point = this.blueConstraintLine.perpEnd;
+
+        const red_point2 = this.redConstraintLine.perpStart;
+        const blue_point2 = this.blueConstraintLine.perpStart;
+
+        const distance_red = this.getDistanceFromPointToLine(
+            center.x, center.y,
+            this.redConstraintLine.perpStart.x, this.redConstraintLine.perpStart.y, 
+            this.redConstraintLine.perpEnd.x, this.redConstraintLine.perpEnd.y);
+        
+        const distance_blue = this.getDistanceFromPointToLine(
+            center.x, center.y,
+            this.blueConstraintLine.perpStart.x, this.blueConstraintLine.perpStart.y, 
+            this.blueConstraintLine.perpEnd.x, this.blueConstraintLine.perpEnd.y);
+        
+        return { distance_red, distance_blue, center, red_point, blue_point, red_point2, blue_point2};
     }
     
     isPointInPolygon(point, vertices) {

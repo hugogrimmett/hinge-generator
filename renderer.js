@@ -634,21 +634,45 @@ class BoxRenderer {
             }
         }
         
-        // Draw debug info in top left
-        // ctx.save();
-        // ctx.font = '12px monospace';
-        // ctx.fillStyle = 'black';
-        // let y = 20;
-        // const points = this.geometry.getFourBarPoints();
-        // if (points && points.redClosed && points.blueClosed && points.follower) {
-        //     const C = [points.blueClosed.x - points.redClosed.x, points.blueClosed.y - points.redClosed.y];
-        //     const F = [points.follower.end.x - points.follower.start.x, points.follower.end.y - points.follower.start.y];
-        //     const theta = Math.acos((C[0]*F[0] + C[1]*F[1]) / (Math.sqrt(C[0]*C[0] + C[1]*C[1]) * Math.sqrt(F[0]*F[0] + F[1]*F[1])));
-        //     ctx.fillText(`C: [${C[0].toFixed(1)}, ${C[1].toFixed(1)}]`, 10, y); y += 15;
-        //     ctx.fillText(`F: [${F[0].toFixed(1)}, ${F[1].toFixed(1)}]`, 10, y); y += 15;
-        //     ctx.fillText(`θ: ${(theta * 180 / Math.PI).toFixed(1)}°`, 10, y); y += 15;
-        // }
-        // ctx.restore();
+        // Draw constraint distances (always on top)
+        const dots = this.geometry.getConstraintDotProducts();
+        if (dots && dots.distance_red !== undefined && dots.distance_blue !== undefined) {
+            ctx.save();
+            ctx.font = '12px monospace';
+            ctx.fillStyle = 'black';
+            ctx.textAlign = 'left';
+            ctx.textBaseline = 'top';
+            ctx.fillText(`Red dot: ${dots.distance_red.toFixed(3)}`, 10, 10);
+            ctx.fillText(`Blue dot: ${dots.distance_blue.toFixed(3)}`, 10, 30);
+            ctx.fillText(`Center: ${dots.center.x.toFixed(3)}, ${dots.center.y.toFixed(3)}`, 10, 50);
+            ctx.restore();
+            if (redLine) {
+                this.drawCircle(dots.red_point, 2, 'green');
+                this.drawCircle(dots.red_point2, 2, 'green');
+                const red_points_transformed = this.transform(dots.red_point);
+                const red_points2_transformed = this.transform(dots.red_point2);
+                ctx.beginPath();
+                ctx.strokeStyle = 'green';
+                ctx.lineWidth = 1;
+                ctx.moveTo(red_points_transformed.x, red_points_transformed.y);
+                ctx.lineTo(red_points2_transformed.x, red_points2_transformed.y);
+                ctx.stroke();
+            }
+            this.drawCircle(dots.center, 2, 'green');
+            
+            if (blueLine) {
+                this.drawCircle(dots.blue_point, 2, 'green');
+                this.drawCircle(dots.blue_point2, 2, 'green');
+                const blue_points_transformed = this.transform(dots.blue_point);
+                const blue_points2_transformed = this.transform(dots.blue_point2);
+                ctx.beginPath();
+                ctx.strokeStyle = 'green';
+                ctx.lineWidth = 1;
+                ctx.moveTo(blue_points_transformed.x, blue_points_transformed.y);
+                ctx.lineTo(blue_points2_transformed.x, blue_points2_transformed.y);
+                ctx.stroke();       
+            }
+        }
     }
     
     // Mouse event handlers

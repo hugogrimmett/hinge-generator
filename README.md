@@ -20,3 +20,5 @@ Project plan:
 - [ ] Clearance between moving lid and box pivot points
 - [ ] Animation restarts when scrolling - looks ungraceful
 - [ ] Lock the pivot points in proportionally to the lid when changing the box parameters
+
+Interesting case where box rotates the wrong way: http://localhost:8000/?height=30&width=40&depth=15&alpha=75&gap=6&redBoxX=28.04&redBoxY=20.64&redClosedX=8.09&redClosedY=19.49&blueBoxX=15.90&blueBoxY=39.63&blueClosedX=10.03&blueClosedY=29.20
