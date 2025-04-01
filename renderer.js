@@ -697,9 +697,49 @@ class BoxRenderer {
                 this.helpTextOpacity = Math.max(0, this.helpTextOpacity - 0.01); // Slower fade
             }
         }
-        
+
         // Draw collision area
         this.drawCollisionArea();
+        
+        // Draw constraint distances (always on top)
+        const dots = this.geometry.getConstraintDotProducts();
+        if (dots && dots.distance_red !== undefined && dots.distance_blue !== undefined) {
+            ctx.save();
+            ctx.font = '12px monospace';
+            ctx.fillStyle = 'black';
+            ctx.textAlign = 'left';
+            ctx.textBaseline = 'top';
+            ctx.fillText(`hasCollided: ${this.geometry.hasCollided}`, 10, 10);
+            // ctx.fillText(`Blue dot: ${dots.distance_blue.toFixed(3)}`, 10, 30);
+            // ctx.fillText(`Center: ${dots.center.x.toFixed(3)}, ${dots.center.y.toFixed(3)}`, 10, 50);
+            ctx.restore();
+        //     if (redLine) {
+        //         this.drawCircle(dots.red_point, 2, 'green');
+        //         this.drawCircle(dots.red_point2, 2, 'green');
+        //         const red_points_transformed = this.transform(dots.red_point);
+        //         const red_points2_transformed = this.transform(dots.red_point2);
+        //         ctx.beginPath();
+        //         ctx.strokeStyle = 'green';
+        //         ctx.lineWidth = 1;
+        //         ctx.moveTo(red_points_transformed.x, red_points_transformed.y);
+        //         ctx.lineTo(red_points2_transformed.x, red_points2_transformed.y);
+        //         ctx.stroke();
+        //     }
+        //     this.drawCircle(dots.center, 2, 'green');
+            
+        //     if (blueLine) {
+        //         this.drawCircle(dots.blue_point, 2, 'green');
+        //         this.drawCircle(dots.blue_point2, 2, 'green');
+        //         const blue_points_transformed = this.transform(dots.blue_point);
+        //         const blue_points2_transformed = this.transform(dots.blue_point2);
+        //         ctx.beginPath();
+        //         ctx.strokeStyle = 'green';
+        //         ctx.lineWidth = 1;
+        //         ctx.moveTo(blue_points_transformed.x, blue_points_transformed.y);
+        //         ctx.lineTo(blue_points2_transformed.x, blue_points2_transformed.y);
+        //         ctx.stroke();       
+        //     }
+        }
     }
     
     // Mouse event handlers
