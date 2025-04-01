@@ -45,8 +45,8 @@ class BoxGeometry {
         // Collision tracking
         this.hasCollided = false;
         this.collisionPixels = new Set();  // Store hit pixels
-        this.detectionGridSize = this.width / 50;  // 100 pixels across box width
-        this.edgeThreshold = 0.1;  // How close to consider a point "on edge"
+        this.detectionGridSize = this.width / 100;  // 100 pixels across box width
+        this.edgeThreshold = 0.05;  // How close to consider a point "on edge"
         this.totalCollisionPoints = new Set();  // Use Set to avoid duplicates
         
         // Initialize pivot points

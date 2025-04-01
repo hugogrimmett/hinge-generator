@@ -22,3 +22,6 @@ Project plan:
 - [ ] Lock the pivot points in proportionally to the lid when changing the box parameters
 
 Interesting case where box rotates the wrong way: http://localhost:8000/?height=30&width=40&depth=15&alpha=75&gap=6&redBoxX=28.04&redBoxY=20.64&redClosedX=8.09&redClosedY=19.49&blueBoxX=15.90&blueBoxY=39.63&blueClosedX=10.03&blueClosedY=29.20
+
+
+Collision test case: http://localhost:8000/?height=30&width=40&depth=10&alpha=75&gap=1&redBoxX=21.86&redBoxY=27.51&redClosedX=6.76&redClosedY=17.91&blueBoxX=24.29&blueBoxY=23.07&blueClosedX=2.41&blueClosedY=18.17

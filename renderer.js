@@ -484,7 +484,7 @@ class BoxRenderer {
         // Calculate display pixel size to match world units
         const boxWidth = this.geometry.width;
         const boxDisplayWidth = this.transform({x: boxWidth, y: 0}).x - this.transform({x: 0, y: 0}).x;
-        const displayPixelSize = boxDisplayWidth / 50;  // Match detection grid
+        const displayPixelSize = boxDisplayWidth / 20;  // Match detection grid
 
         for (const pixelStr of this.geometry.collisionPixels) {
             const [x, y] = pixelStr.split(',').map(Number);
