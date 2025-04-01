@@ -74,26 +74,52 @@
         .content {
             display: flex;
             gap: 2rem;
-            align-items: flex-start;
+            flex: 1;
         }
 
         .controls {
             width: 300px;
+            padding: 1rem;
             flex-shrink: 0;
         }
 
         .visualization {
             flex: 1;
-            min-width: 0;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 400px;
         }
 
         canvas {
             width: 100%;
             height: auto;
+            max-width: 800px;
             touch-action: none;
             -webkit-tap-highlight-color: transparent;
             background: var(--bg);
             border-radius: 8px;
+        }
+
+        .control-group {
+            margin-bottom: 1rem;
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+        }
+
+        .control-group label {
+            width: 100px;
+            flex-shrink: 0;
+        }
+
+        .control-group input[type="range"] {
+            flex: 1;
+        }
+
+        .control-group input[type="number"] {
+            width: 60px;
+            flex-shrink: 0;
         }
 
         h2 {
@@ -102,8 +128,10 @@
             margin-bottom: 1.5rem;
         }
 
-        .control-group {
+        .full-width-button {
+            width: 100%;
             margin-bottom: 1rem;
+            padding: 0.5rem;
         }
 
         label {
@@ -215,6 +243,7 @@
         <div class="content">
             <div class="controls">
                 <h2>Toolbox size and shape</h2>
+                <button onclick="window.location.href=window.location.pathname" class="full-width-button">Reset to defaults</button>
                 
                 <div class="control-group">
                     <label for="heightSlider">Height:</label>
@@ -235,7 +264,7 @@
                 </div>
                 
                 <div class="control-group">
-                    <label for="alphaSlider">Alpha (degrees):</label>
+                    <label for="alphaSlider">Alpha (°):</label>
                     <input type="range" id="alphaSlider" min="0" max="90" value="75">
                     <input type="number" id="alphaInput" value="75">
                 </div>
@@ -260,7 +289,7 @@
                         <label><input type="radio" name="units" value="cm" checked> cm</label>
                         <label><input type="radio" name="units" value="in"> in</label>
                     </div>
-                    <button id="generateTemplateButton">Generate Template</button>
+                    <button id="generateTemplateButton" class="full-width-button">Generate Template</button>
                 </div>
             </div>
             
