@@ -42,6 +42,10 @@ class BoxGeometry {
         // Link length constraint
         this.constrainLinkLengths = false;
         
+        // Collision tracking
+        this.hasCollided = false;
+        this.totalCollisionPoints = new Set();  // Use Set to avoid duplicates
+        
         // Initialize pivot points
         this.initializePivotPoints();
         this.updateConstraintLines();
@@ -1169,6 +1173,82 @@ class BoxGeometry {
         };
     }
 
+    // Check for current collision (for moving lid color)
+    findCurrentCollision() {
+        if (!this.movingLidVertices) return false;
+        return this.findOverlapPoints(false) !== null;
+    }
+
+    // Find all points defining the overlap region
+    findOverlapPoints(getAccumulated = false) {
+        if (!this.movingLidVertices) return null;
+        
+        const boxVertices = this.getBoxVertices();
+        const lidVertices = this.movingLidVertices;
+        const points = new Set();  // Use Set to avoid duplicates
+        
+        // Find all edge intersections
+        for (let i = 0; i < boxVertices.length; i++) {
+            const i2 = (i + 1) % boxVertices.length;
+            for (let j = 0; j < lidVertices.length; j++) {
+                const j2 = (j + 1) % lidVertices.length;
+                const intersection = this.lineIntersection(
+                    boxVertices[i], boxVertices[i2],
+                    lidVertices[j], lidVertices[j2]
+                );
+                if (intersection) {
+                    points.add(JSON.stringify(intersection));
+                }
+            }
+        }
+        
+        // Add vertices that lie inside the other polygon
+        for (const vertex of boxVertices) {
+            if (this.isPointInPolygon(vertex, lidVertices) &&
+                !lidVertices.some(v => this.isPointOnLineSegment(vertex, v, lidVertices[(lidVertices.indexOf(v) + 1) % lidVertices.length]))) {
+                points.add(JSON.stringify(vertex));
+            }
+        }
+        
+        for (const vertex of lidVertices) {
+            if (this.isPointInPolygon(vertex, boxVertices) &&
+                !boxVertices.some(v => this.isPointOnLineSegment(vertex, v, boxVertices[(boxVertices.indexOf(v) + 1) % boxVertices.length]))) {
+                points.add(JSON.stringify(vertex));
+            }
+        }
+        
+        // Convert back from strings
+        const overlapPoints = Array.from(points).map(p => JSON.parse(p));
+        if (overlapPoints.length < 3) return null;  // No valid overlap polygon
+        
+        // If we found a collision, update the total state
+        this.hasCollided = true;
+        overlapPoints.forEach(p => this.totalCollisionPoints.add(JSON.stringify(p)));
+        
+        // Return either current points or accumulated points
+        const pointsToUse = getAccumulated ? 
+            Array.from(this.totalCollisionPoints).map(p => JSON.parse(p)) : 
+            overlapPoints;
+        
+        // Compute centroid
+        const centroid = pointsToUse.reduce((acc, p) => ({
+            x: acc.x + p.x / pointsToUse.length,
+            y: acc.y + p.y / pointsToUse.length
+        }), {x: 0, y: 0});
+        
+        // Sort points by angle from centroid
+        return pointsToUse.sort((a, b) => 
+            Math.atan2(a.y - centroid.y, a.x - centroid.x) -
+            Math.atan2(b.y - centroid.y, b.x - centroid.x)
+        );
+    }
+
+    // Clear collision state
+    clearCollisionState() {
+        this.hasCollided = false;
+        this.totalCollisionPoints.clear();
+    }
+
     // Line intersection helper
     lineIntersection(p1, p2, p3, p4) {
         const x1 = p1.x, y1 = p1.y;
@@ -1213,61 +1293,6 @@ class BoxGeometry {
         return Math.abs(d1 + d2 - lineLen) < 1e-10;
     }
 
-    // Find all points defining the overlap region
-    findOverlapPoints() {
-        if (!this.movingLidVertices) return null;
-        
-        const boxVertices = this.getBoxVertices();
-        const lidVertices = this.movingLidVertices;
-        const points = new Set();  // Use Set to avoid duplicates
-        
-        // Find all edge intersections
-        for (let i = 0; i < boxVertices.length; i++) {
-            const i2 = (i + 1) % boxVertices.length;
-            for (let j = 0; j < lidVertices.length; j++) {
-                const j2 = (j + 1) % lidVertices.length;
-                const intersection = this.lineIntersection(
-                    boxVertices[i], boxVertices[i2],
-                    lidVertices[j], lidVertices[j2]
-                );
-                if (intersection) {
-                    points.add(JSON.stringify(intersection));
-                }
-            }
-        }
-        
-        // Add vertices that lie inside the other polygon
-        for (const vertex of boxVertices) {
-            if (this.isPointInPolygon(vertex, lidVertices) &&
-                !lidVertices.some(v => this.isPointOnLineSegment(vertex, v, lidVertices[(lidVertices.indexOf(v) + 1) % lidVertices.length]))) {
-                points.add(JSON.stringify(vertex));
-            }
-        }
-        
-        for (const vertex of lidVertices) {
-            if (this.isPointInPolygon(vertex, boxVertices) &&
-                !boxVertices.some(v => this.isPointOnLineSegment(vertex, v, boxVertices[(boxVertices.indexOf(v) + 1) % boxVertices.length]))) {
-                points.add(JSON.stringify(vertex));
-            }
-        }
-        
-        // Convert back from strings and compute centroid
-        const overlapPoints = Array.from(points).map(p => JSON.parse(p));
-        if (overlapPoints.length < 3) return null;  // No valid overlap polygon
-        
-        // Compute centroid
-        const centroid = overlapPoints.reduce((acc, p) => ({
-            x: acc.x + p.x / overlapPoints.length,
-            y: acc.y + p.y / overlapPoints.length
-        }), {x: 0, y: 0});
-        
-        // Sort points by angle from centroid
-        return overlapPoints.sort((a, b) => 
-            Math.atan2(a.y - centroid.y, a.x - centroid.x) -
-            Math.atan2(b.y - centroid.y, b.x - centroid.x)
-        );
-    }
-    
     // Helper functions for homogeneous coordinates
     toHomogeneous(point) {
         return math.matrix([[point.x], [point.y], [1]]);

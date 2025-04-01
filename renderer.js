@@ -176,6 +176,9 @@ class BoxRenderer {
             this.geometry.setBoxPivotPositions(boxPivotPositions);
         }
         
+        // Clear collision state when parameters change
+        this.geometry.clearCollisionState();
+        
         // Recalculate viewport bounds and scale
         const margin = Math.max(h, w) * 0.1;
         this.viewportBounds = {
@@ -304,25 +307,30 @@ class BoxRenderer {
         ctx.stroke();
     }
     
-    // Draw lid
-    drawLid(vertices, color) {
-        const ctx = this.ctx;
+    // Draw lid with optional collision highlighting
+    drawLid(vertices, color, isMovingLid = false) {
+        if (!vertices || vertices.length === 0) return;
         
-        ctx.beginPath();
-        const start = this.transform(vertices[0]);
-        ctx.moveTo(start.x, start.y);
+        const isColliding = isMovingLid && this.geometry.findCurrentCollision();
+        
+        this.ctx.save();
+        this.ctx.beginPath();
+        
+        const first = this.transform(vertices[0]);
+        this.ctx.moveTo(first.x, first.y);
         
         for (let i = 1; i < vertices.length; i++) {
             const point = this.transform(vertices[i]);
-            ctx.lineTo(point.x, point.y);
+            this.ctx.lineTo(point.x, point.y);
         }
         
-        ctx.closePath();
-        ctx.fillStyle = 'rgba(200, 200, 200, 0.1)';
-        ctx.fill();
-        ctx.strokeStyle = color;
-        ctx.lineWidth = 2;
-        ctx.stroke();
+        this.ctx.closePath();
+        this.ctx.fillStyle = isColliding ? 'rgba(255, 0, 0, 0.3)' : 'rgba(200, 200, 200, 0.1)';
+        this.ctx.strokeStyle = color;
+        this.ctx.lineWidth = 2;
+        this.ctx.fill();
+        this.ctx.stroke();
+        this.ctx.restore();
     }
     
     // Draw connection line
@@ -437,10 +445,41 @@ class BoxRenderer {
         }
     }
     
-    // Draw collision area if it exists
+    // Draw warning text
+    drawWarningText() {
+        // Only check configuration if all points are initialized
+        const points = this.geometry.getPoints();
+        const allPointsInitialized = points && 
+            points.redBoxPoint && points.blueBoxPoint && 
+            points.redClosedPoint && points.blueClosedPoint;
+        const invalidConfig = allPointsInitialized && !this.geometry.isValidConfiguration();
+        const hasCollision = this.geometry.hasCollided;
+        
+        if (invalidConfig || hasCollision) {
+            this.ctx.save();
+            this.ctx.font = '14px Arial';
+            this.ctx.fillStyle = '#600';
+            this.ctx.textAlign = 'center';
+            this.ctx.textBaseline = 'top';
+            
+            if (invalidConfig) {
+                this.ctx.fillText('Warning: Invalid configuration!', this.displayWidth / 2, 20);
+                this.ctx.fillText('Try moving the red and blue pivot points.', this.displayWidth / 2, 40);
+            } else if (hasCollision) {
+                this.ctx.fillText('Warning: collision between box and lid!', this.displayWidth / 2, 20);
+                this.ctx.fillText('Try moving the red and blue pivot points.', this.displayWidth / 2, 40);
+            }
+            
+            this.ctx.restore();
+        }
+    }
+    
+    // Draw accumulated collision area if there has been a collision
     drawCollisionArea() {
-        const overlapPoints = this.geometry.findOverlapPoints();
-        if (!overlapPoints) return;
+        if (!this.geometry.hasCollided) return;
+        
+        const overlapPoints = this.geometry.findOverlapPoints(true);  // Get accumulated points
+        if (!overlapPoints || overlapPoints.length < 3) return;
 
         this.ctx.save();
         this.ctx.fillStyle = 'rgba(255, 0, 0, 0.3)';  // Semi-transparent red
@@ -484,7 +523,7 @@ class BoxRenderer {
         // Draw moving lid if available and animating
         const movingLidVertices = this.geometry.getMovingLidVertices();
         if (movingLidVertices && this.geometry.isAnimating) {
-            this.drawLid(movingLidVertices, '#66c2a588');  // Semi-transparent teal
+            this.drawLid(movingLidVertices, '#66c2a588', true);  // Semi-transparent teal
         }
         
         // Draw labels
@@ -604,6 +643,9 @@ class BoxRenderer {
             this.drawCircle(blueLine.boxPoint, 5, 'blue');
         }
         
+        // Draw warning text
+        this.drawWarningText();
+        
         // Draw help text if needed and no error
         if (this.helpTextOpacity > 0 && isValid) {
             ctx.save();
@@ -674,6 +716,9 @@ class BoxRenderer {
         // Stop animation when starting to drag
         this.stopAnimation();
         
+        // Clear collision state when moving points
+        this.geometry.clearCollisionState();
+        
         // Check red points
         if (this.geometry.isPointNearRedOpenPoint(point, hitArea)) {
             this.isDragging = true;
@@ -702,6 +747,9 @@ class BoxRenderer {
         const point = this.getMousePoint(e);
         
         if (!this.isDragging) return;
+        
+        // Clear collision state when moving points
+        this.geometry.clearCollisionState();
         
         // Handle existing point dragging
         const [color, pointType] = this.selectedPoint.split('-');
@@ -788,6 +836,9 @@ class BoxRenderer {
             // Stop animation when starting to drag
             this.stopAnimation();
             
+            // Clear collision state when moving points
+            this.geometry.clearCollisionState();
+            
             // Check red points
             if (this.geometry.isPointNearRedOpenPoint(point, hitArea)) {
                 this.isDragging = true;
@@ -817,6 +868,9 @@ class BoxRenderer {
         e.preventDefault(); // Prevent scrolling while dragging
         if (e.touches.length === 1 && this.isDragging) {
             const point = this.getTouchPoint(e.touches[0]);
+            
+            // Clear collision state when moving points
+            this.geometry.clearCollisionState();
             
             // Handle existing point dragging
             const [color, pointType] = this.selectedPoint.split('-');
@@ -877,7 +931,7 @@ class BoxRenderer {
         
         // Draw moving lid
         if (this.geometry.movingLidVertices) {
-            this.drawLid(this.geometry.movingLidVertices, '#666');
+            this.drawLid(this.geometry.movingLidVertices, '#666', true);
         }
         
         // Draw collision area
