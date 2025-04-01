@@ -1182,18 +1182,10 @@ class BoxGeometry {
         
         const boxVertices = this.getBoxVertices();
         const lidVertices = this.movingLidVertices;
-        
-        // Get box bounds
-        const bounds = {
-            minX: Math.min(...boxVertices.map(v => v.x)),
-            minY: Math.min(...boxVertices.map(v => v.y)),
-            maxX: Math.max(...boxVertices.map(v => v.x)),
-            maxY: Math.max(...boxVertices.map(v => v.y))
-        };
 
-        // Check grid of points
-        for (let x = bounds.minX; x <= bounds.maxX; x += this.detectionGridSize) {
-            for (let y = bounds.minY; y <= bounds.maxY; y += this.detectionGridSize) {
+        // Check grid of points over the entire box area
+        for (let x = 0; x <= this.width; x += this.detectionGridSize) {
+            for (let y = 0; y <= this.height; y += this.detectionGridSize) {
                 const point = {x, y};
                 
                 // Only consider points inside both polygons
