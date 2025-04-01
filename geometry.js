@@ -849,9 +849,9 @@ class BoxGeometry {
     
     isPointInPolygon(point, vertices) {
         let inside = false;
-        for (let i = 0, j = vertices.length - 1; i < vertices.length; j = i++) {
+        for (let i = 0; i < vertices.length; i++) {
             const xi = vertices[i].x, yi = vertices[i].y;
-            const xj = vertices[j].x, yj = vertices[j].y;
+            const xj = vertices[(i + 1) % vertices.length].x, yj = vertices[(i + 1) % vertices.length].y;
             
             const intersect = ((yi > point.y) !== (yj > point.y))
                 && (point.x < (xj - xi) * (point.y - yi) / (yj - yi) + xi);
@@ -1169,6 +1169,104 @@ class BoxGeometry {
         };
     }
 
+    // Line intersection helper
+    lineIntersection(p1, p2, p3, p4) {
+        const x1 = p1.x, y1 = p1.y;
+        const x2 = p2.x, y2 = p2.y;
+        const x3 = p3.x, y3 = p3.y;
+        const x4 = p4.x, y4 = p4.y;
+
+        const denominator = (x1 - x2) * (y3 - y4) - (y1 - y2) * (x3 - x4);
+        if (Math.abs(denominator) < 1e-10) return null;  // Lines are parallel
+
+        const t = ((x1 - x3) * (y3 - y4) - (y1 - y3) * (x3 - x4)) / denominator;
+        const u = -((x1 - x2) * (y1 - y3) - (y1 - y2) * (x1 - x3)) / denominator;
+
+        if (t >= 0 && t <= 1 && u >= 0 && u <= 1) {
+            return {
+                x: x1 + t * (x2 - x1),
+                y: y1 + t * (y2 - y1)
+            };
+        }
+        return null;  // Segments don't intersect
+    }
+
+    // Point in polygon test (ray casting algorithm)
+    isPointInPolygon(point, vertices) {
+        let inside = false;
+        for (let i = 0; i < vertices.length; i++) {
+            const xi = vertices[i].x, yi = vertices[i].y;
+            const xj = vertices[(i + 1) % vertices.length].x, yj = vertices[(i + 1) % vertices.length].y;
+            
+            const intersect = ((yi > point.y) !== (yj > point.y))
+                && (point.x < (xj - xi) * (point.y - yi) / (yj - yi) + xi);
+            if (intersect) inside = !inside;
+        }
+        return inside;
+    }
+
+    // Check if point lies on line segment
+    isPointOnLineSegment(point, start, end) {
+        const d1 = Math.hypot(point.x - start.x, point.y - start.y);
+        const d2 = Math.hypot(point.x - end.x, point.y - end.y);
+        const lineLen = Math.hypot(end.x - start.x, end.y - start.y);
+        return Math.abs(d1 + d2 - lineLen) < 1e-10;
+    }
+
+    // Find all points defining the overlap region
+    findOverlapPoints() {
+        if (!this.movingLidVertices) return null;
+        
+        const boxVertices = this.getBoxVertices();
+        const lidVertices = this.movingLidVertices;
+        const points = new Set();  // Use Set to avoid duplicates
+        
+        // Find all edge intersections
+        for (let i = 0; i < boxVertices.length; i++) {
+            const i2 = (i + 1) % boxVertices.length;
+            for (let j = 0; j < lidVertices.length; j++) {
+                const j2 = (j + 1) % lidVertices.length;
+                const intersection = this.lineIntersection(
+                    boxVertices[i], boxVertices[i2],
+                    lidVertices[j], lidVertices[j2]
+                );
+                if (intersection) {
+                    points.add(JSON.stringify(intersection));
+                }
+            }
+        }
+        
+        // Add vertices that lie inside the other polygon
+        for (const vertex of boxVertices) {
+            if (this.isPointInPolygon(vertex, lidVertices) &&
+                !lidVertices.some(v => this.isPointOnLineSegment(vertex, v, lidVertices[(lidVertices.indexOf(v) + 1) % lidVertices.length]))) {
+                points.add(JSON.stringify(vertex));
+            }
+        }
+        
+        for (const vertex of lidVertices) {
+            if (this.isPointInPolygon(vertex, boxVertices) &&
+                !boxVertices.some(v => this.isPointOnLineSegment(vertex, v, boxVertices[(boxVertices.indexOf(v) + 1) % boxVertices.length]))) {
+                points.add(JSON.stringify(vertex));
+            }
+        }
+        
+        // Convert back from strings and compute centroid
+        const overlapPoints = Array.from(points).map(p => JSON.parse(p));
+        if (overlapPoints.length < 3) return null;  // No valid overlap polygon
+        
+        // Compute centroid
+        const centroid = overlapPoints.reduce((acc, p) => ({
+            x: acc.x + p.x / overlapPoints.length,
+            y: acc.y + p.y / overlapPoints.length
+        }), {x: 0, y: 0});
+        
+        // Sort points by angle from centroid
+        return overlapPoints.sort((a, b) => 
+            Math.atan2(a.y - centroid.y, a.x - centroid.x) -
+            Math.atan2(b.y - centroid.y, b.x - centroid.x)
+        );
+    }
     
     // Helper functions for homogeneous coordinates
     toHomogeneous(point) {

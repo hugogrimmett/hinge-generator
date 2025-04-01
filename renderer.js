@@ -437,6 +437,28 @@ class BoxRenderer {
         }
     }
     
+    // Draw collision area if it exists
+    drawCollisionArea() {
+        const overlapPoints = this.geometry.findOverlapPoints();
+        if (!overlapPoints) return;
+
+        this.ctx.save();
+        this.ctx.fillStyle = 'rgba(255, 0, 0, 0.3)';  // Semi-transparent red
+        this.ctx.beginPath();
+        
+        const first = this.transform(overlapPoints[0]);
+        this.ctx.moveTo(first.x, first.y);
+        
+        for (let i = 1; i < overlapPoints.length; i++) {
+            const point = this.transform(overlapPoints[i]);
+            this.ctx.lineTo(point.x, point.y);
+        }
+        
+        this.ctx.closePath();
+        this.ctx.fill();
+        this.ctx.restore();
+    }
+    
     // Main draw function
     draw() {
         const ctx = this.ctx;
@@ -634,45 +656,8 @@ class BoxRenderer {
             }
         }
         
-        // Draw constraint distances (always on top)
-        // const dots = this.geometry.getConstraintDotProducts();
-        // if (dots && dots.distance_red !== undefined && dots.distance_blue !== undefined) {
-        //     ctx.save();
-        //     ctx.font = '12px monospace';
-        //     ctx.fillStyle = 'black';
-        //     ctx.textAlign = 'left';
-        //     ctx.textBaseline = 'top';
-        //     ctx.fillText(`Red dot: ${dots.distance_red.toFixed(3)}`, 10, 10);
-        //     ctx.fillText(`Blue dot: ${dots.distance_blue.toFixed(3)}`, 10, 30);
-        //     ctx.fillText(`Center: ${dots.center.x.toFixed(3)}, ${dots.center.y.toFixed(3)}`, 10, 50);
-        //     ctx.restore();
-        //     if (redLine) {
-        //         this.drawCircle(dots.red_point, 2, 'green');
-        //         this.drawCircle(dots.red_point2, 2, 'green');
-        //         const red_points_transformed = this.transform(dots.red_point);
-        //         const red_points2_transformed = this.transform(dots.red_point2);
-        //         ctx.beginPath();
-        //         ctx.strokeStyle = 'green';
-        //         ctx.lineWidth = 1;
-        //         ctx.moveTo(red_points_transformed.x, red_points_transformed.y);
-        //         ctx.lineTo(red_points2_transformed.x, red_points2_transformed.y);
-        //         ctx.stroke();
-        //     }
-        //     this.drawCircle(dots.center, 2, 'green');
-            
-        //     if (blueLine) {
-        //         this.drawCircle(dots.blue_point, 2, 'green');
-        //         this.drawCircle(dots.blue_point2, 2, 'green');
-        //         const blue_points_transformed = this.transform(dots.blue_point);
-        //         const blue_points2_transformed = this.transform(dots.blue_point2);
-        //         ctx.beginPath();
-        //         ctx.strokeStyle = 'green';
-        //         ctx.lineWidth = 1;
-        //         ctx.moveTo(blue_points_transformed.x, blue_points_transformed.y);
-        //         ctx.lineTo(blue_points2_transformed.x, blue_points2_transformed.y);
-        //         ctx.stroke();       
-        //     }
-        // }
+        // Draw collision area
+        this.drawCollisionArea();
     }
     
     // Mouse event handlers
@@ -880,7 +865,30 @@ class BoxRenderer {
     
     // Animation loop
     animate() {
-        this.draw();
+        this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
+        
+        // Draw help text if needed
+        if (this.showHelpText) {
+            this.drawHelpText();
+        }
+        
+        // Draw box
+        this.drawBox();
+        
+        // Draw moving lid
+        if (this.geometry.movingLidVertices) {
+            this.drawLid(this.geometry.movingLidVertices, '#666');
+        }
+        
+        // Draw collision area
+        this.drawCollisionArea();
+        
+        // Draw four-bar linkage
+        this.drawFourBarLinkage();
+        
+        // Draw points
+        this.drawPoints();
+        
         requestAnimationFrame(this.animate.bind(this));
     }
     
