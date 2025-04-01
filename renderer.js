@@ -457,7 +457,7 @@ class BoxRenderer {
         
         if (invalidConfig || hasCollision) {
             this.ctx.save();
-            this.ctx.font = '18px Arial';  // Larger and bold
+            this.ctx.font = '18px -apple-system, BlinkMacSystemFont, system-ui, sans-serif';  // Larger and bold
             this.ctx.fillStyle = '#ff0000';  // Bright red
             this.ctx.textAlign = 'center';
             this.ctx.textBaseline = 'top';
@@ -559,31 +559,13 @@ class BoxRenderer {
         
         if (!isValid) {
             // Show error message with responsive font size and line wrapping
-            const fontSize = Math.min(18, this.displayWidth / 25);
-            ctx.font = `400 ${fontSize}px -apple-system, BlinkMacSystemFont, system-ui, sans-serif`;
-            ctx.fillStyle = 'red';
-            ctx.textAlign = 'center';
-            ctx.textBaseline = 'middle';
+            this.ctx.font = '18px -apple-system, BlinkMacSystemFont, system-ui, sans-serif';  // Larger and bold
+            this.ctx.fillStyle = '#ff0000';  // Bright red
+            this.ctx.textAlign = 'center';
+            this.ctx.textBaseline = 'top';
             
-            // Calculate available width for text (80% of canvas width)
-            const maxWidth = this.displayWidth * 0.8;
-            
-            // Warning messages
-            const message = [
-                "This hinge will not allow the lid to open and close.",
-                "Try moving the red and blue pivot points."
-            ];
-            
-            // Position text vertically based on canvas size
-            const lineHeight = fontSize * 1.5;  // Slightly increased for better readability
-            const startY = Math.max(lineHeight, this.displayHeight * 0.1);
-            
-            // Draw each line with consistent spacing
-            message.forEach((line, i) => {
-                // Reset font for each line to ensure consistency
-                ctx.font = `400 ${fontSize}px -apple-system, BlinkMacSystemFont, system-ui, sans-serif`;
-                ctx.fillText(line, this.displayWidth / 2, startY + i * lineHeight, maxWidth);
-            });
+            this.ctx.fillText('Warning: can\'t reach the open position.', this.displayWidth / 2, 10);
+            this.ctx.fillText('Try moving the red and blue pivot points.', this.displayWidth / 2, 35);
             
             // Stop any existing animation
             this.stopAnimation();
@@ -660,7 +642,7 @@ class BoxRenderer {
             ctx.save();
             ctx.textAlign = 'center';
             ctx.textBaseline = 'top';
-            ctx.font = '20px -apple-system, BlinkMacSystemFont, system-ui, sans-serif';
+            ctx.font = '18px -apple-system, BlinkMacSystemFont, system-ui, sans-serif';
             
             // Draw help text in parts to color specific words
             const text1 = 'Try moving the ';
