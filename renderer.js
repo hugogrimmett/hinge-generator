@@ -457,17 +457,14 @@ class BoxRenderer {
         
         if (invalidConfig || hasCollision) {
             this.ctx.save();
-            this.ctx.font = '14px Arial';
-            this.ctx.fillStyle = '#600';
+            this.ctx.font = '18px Arial';  // Larger and bold
+            this.ctx.fillStyle = '#ff0000';  // Bright red
             this.ctx.textAlign = 'center';
             this.ctx.textBaseline = 'top';
             
-            if (invalidConfig) {
-                this.ctx.fillText('Warning: Invalid configuration!', this.displayWidth / 2, 20);
-                this.ctx.fillText('Try moving the red and blue pivot points.', this.displayWidth / 2, 40);
-            } else if (hasCollision) {
-                this.ctx.fillText('Warning: collision detected in motion!', this.displayWidth / 2, 20);
-                this.ctx.fillText('Try moving the red and blue pivot points.', this.displayWidth / 2, 40);
+            if (hasCollision) {
+                this.ctx.fillText('Warning: collision detected in motion!', this.displayWidth / 2, 10);
+                this.ctx.fillText('Try moving the red and blue pivot points.', this.displayWidth / 2, 35);
             }
             
             this.ctx.restore();
