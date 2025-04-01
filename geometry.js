@@ -45,6 +45,7 @@ class BoxGeometry {
         // Collision tracking
         this.hasCollided = false;
         this.collisionPixels = new Set();  // Store hit pixels
+        this.checkedPixels = new Set();    // Store all checked pixels
         this.detectionGridSize = this.width / 100;  // 100 pixels across box width
         this.edgeThreshold = 0.05;  // How close to consider a point "on edge"
         this.totalCollisionPoints = new Set();  // Use Set to avoid duplicates
@@ -856,14 +857,29 @@ class BoxGeometry {
     
     isPointInPolygon(point, vertices) {
         let inside = false;
+        let minDistance = Infinity;
+
         for (let i = 0; i < vertices.length; i++) {
-            const xi = vertices[i].x, yi = vertices[i].y;
-            const xj = vertices[(i + 1) % vertices.length].x, yj = vertices[(i + 1) % vertices.length].y;
-            
-            const intersect = ((yi > point.y) !== (yj > point.y))
-                && (point.x < (xj - xi) * (point.y - yi) / (yj - yi) + xi);
-            if (intersect) inside = !inside;
+            const j = (i + 1) % vertices.length;
+            const vi = vertices[i];
+            const vj = vertices[j];
+
+            // Check if point is on this edge
+            const distance = this.getDistanceFromPointToLine(point, vi, vj);
+            minDistance = Math.min(minDistance, distance);
+
+            // Ray casting algorithm (more robust version)
+            if (((vi.y > point.y) !== (vj.y > point.y)) &&
+                (point.x < (vj.x - vi.x) * (point.y - vi.y) / (vj.y - vi.y) + vi.x)) {
+                inside = !inside;
+            }
         }
+
+        // Consider points very close to edges as outside
+        if (minDistance < this.edgeThreshold) {
+            return false;
+        }
+
         return inside;
     }
     
@@ -1183,47 +1199,34 @@ class BoxGeometry {
         const boxVertices = this.getBoxVertices();
         const lidVertices = this.movingLidVertices;
 
+        // Clear only checked pixels for visualization
+        this.checkedPixels.clear();
+        this.hasCollided = false;  // Reset current frame collision state
+
         // Check grid of points over the entire box area
         for (let x = 0; x <= this.width; x += this.detectionGridSize) {
             for (let y = 0; y <= this.height; y += this.detectionGridSize) {
                 const point = {x, y};
+                this.checkedPixels.add(`${x},${y}`);  // Add to checked pixels
                 
-                // Only consider points inside both polygons
-                if (this.isPointInPolygon(point, boxVertices) && 
-                    this.isPointInPolygon(point, lidVertices)) {
-                    
-                    // Skip if point is on edge of either polygon
-                    let isOnEdge = false;
-                    for (let i = 0; i < boxVertices.length && !isOnEdge; i++) {
-                        const next = (i + 1) % boxVertices.length;
-                        if (this.isPointOnLineSegment(point, boxVertices[i], boxVertices[next])) {
-                            isOnEdge = true;
-                        }
-                    }
-                    for (let i = 0; i < lidVertices.length && !isOnEdge; i++) {
-                        const next = (i + 1) % lidVertices.length;
-                        if (this.isPointOnLineSegment(point, lidVertices[i], lidVertices[next])) {
-                            isOnEdge = true;
-                        }
-                    }
-                    
-                    if (!isOnEdge) {
-                        // Add to collision pixels and mark collision
-                        this.collisionPixels.add(`${x},${y}`);
-                        this.hasCollided = true;
-                        return true;
-                    }
+                // Check if point is inside both polygons
+                const inBox = this.isPointInPolygon(point, boxVertices);
+                const inLid = this.isPointInPolygon(point, lidVertices);
+                
+                if (inBox && inLid) {
+                    // Add to total collision points and mark collision
+                    this.totalCollisionPoints.add(`${x},${y}`);
+                    this.hasCollided = true;
                 }
             }
         }
         
-        return false;
+        return this.hasCollided;
     }
 
     // Clear collision state
     clearCollisionState() {
         this.hasCollided = false;
-        this.collisionPixels.clear();
         this.totalCollisionPoints.clear();
     }
 
@@ -1252,14 +1255,29 @@ class BoxGeometry {
     // Point in polygon test (ray casting algorithm)
     isPointInPolygon(point, vertices) {
         let inside = false;
+        let minDistance = Infinity;
+
         for (let i = 0; i < vertices.length; i++) {
-            const xi = vertices[i].x, yi = vertices[i].y;
-            const xj = vertices[(i + 1) % vertices.length].x, yj = vertices[(i + 1) % vertices.length].y;
-            
-            const intersect = ((yi > point.y) !== (yj > point.y))
-                && (point.x < (xj - xi) * (point.y - yi) / (yj - yi) + xi);
-            if (intersect) inside = !inside;
+            const j = (i + 1) % vertices.length;
+            const vi = vertices[i];
+            const vj = vertices[j];
+
+            // Check if point is on this edge
+            const distance = this.getDistanceFromPointToLine(point, vi, vj);
+            minDistance = Math.min(minDistance, distance);
+
+            // Ray casting algorithm (more robust version)
+            if (((vi.y > point.y) !== (vj.y > point.y)) &&
+                (point.x < (vj.x - vi.x) * (point.y - vi.y) / (vj.y - vi.y) + vi.x)) {
+                inside = !inside;
+            }
         }
+
+        // Consider points very close to edges as outside
+        if (minDistance < this.edgeThreshold) {
+            return false;
+        }
+
         return inside;
     }
 

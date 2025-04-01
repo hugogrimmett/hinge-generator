@@ -476,25 +476,35 @@ class BoxRenderer {
     
     // Draw accumulated collision area if there has been a collision
     drawCollisionArea() {
-        if (this.geometry.collisionPixels.size === 0) return;
-
         this.ctx.save();
-        this.ctx.fillStyle = 'rgba(255, 0, 0, 0.3)';  // Semi-transparent red
 
-        // Calculate display pixel size to match world units
-        const boxWidth = this.geometry.width;
-        const boxDisplayWidth = this.transform({x: boxWidth, y: 0}).x - this.transform({x: 0, y: 0}).x;
-        const displayPixelSize = boxDisplayWidth / 20;  // Match detection grid
+        // // Draw checked pixels in green
+        // this.ctx.fillStyle = 'rgba(0, 255, 0, 0.3)';  // Semi-transparent green
+        // for (const pixelStr of this.geometry.checkedPixels) {
+        //     const [x, y] = pixelStr.split(',').map(Number);
+        //     const point = this.transform({x, y});
+        //     this.ctx.fillRect(
+        //         point.x - 1,  // Make checked pixels small (2x2)
+        //         point.y - 1,
+        //         2,
+        //         2
+        //     );
+        // }
 
-        for (const pixelStr of this.geometry.collisionPixels) {
-            const [x, y] = pixelStr.split(',').map(Number);
-            const point = this.transform({x, y});
-            this.ctx.fillRect(
-                point.x - displayPixelSize/2,
-                point.y - displayPixelSize/2,
-                displayPixelSize,
-                displayPixelSize
-            );
+        // Draw total collision pixels in red
+        if (this.geometry.totalCollisionPoints.size > 0) {
+            this.ctx.fillStyle = 'rgba(255, 0, 0, 0.3)';  // Semi-transparent red
+            for (const pixelStr of this.geometry.totalCollisionPoints) {
+                const [x, y] = pixelStr.split(',').map(Number);
+                const point = this.transform({x, y});
+                const displayPixelSize = this.transform({x: this.geometry.detectionGridSize, y: 0}).x - this.transform({x: 0, y: 0}).x;
+                this.ctx.fillRect(
+                    point.x - displayPixelSize/2,
+                    point.y - displayPixelSize/2,
+                    displayPixelSize,
+                    displayPixelSize
+                );
+            }
         }
 
         this.ctx.restore();
