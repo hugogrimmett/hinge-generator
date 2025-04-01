@@ -29,7 +29,6 @@
             line-height: 1.5;
             margin: 0;
             padding: 2rem;
-            min-height: 100vh;
             display: flex;
             flex-direction: column;
             overscroll-behavior: none;
@@ -74,7 +73,6 @@
         .content {
             display: flex;
             gap: 2rem;
-            flex: 1;
         }
 
         .controls {
@@ -88,13 +86,12 @@
             display: flex;
             justify-content: center;
             align-items: center;
-            min-height: 400px;
         }
 
         canvas {
-            width: 100%;
+            width: auto;
             height: auto;
-            max-width: 800px;
+            max-width: 100%;
             touch-action: none;
             -webkit-tap-highlight-color: transparent;
             background: var(--bg);
