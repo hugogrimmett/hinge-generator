@@ -209,6 +209,7 @@
         <div class="header">
             <h1>Toolbox Hinge Generator</h1>
             <p>Inspired by <a href="https://www.youtube.com/watch?v=7m2cpPN0cE0" target="_blank">Laura Kampf</a>, this app allows you to design a hinge that allows the lid of a box to swing open and land on top, proudly displaying its contents. The mechanism is based on a <a href="https://dynref.engr.illinois.edu/aml.html" target="_blank">four bar linkage</a>.</p>
+            <p>Once you have a hinge that you like, generate a 1:1 template PDF to help manufacture it!</p>
             <p>Created by Hugo Grimmett and Geoffrey Grimmett, March 2025</p>
         </div>
         <div class="content">
@@ -318,106 +319,26 @@
             
             // Helper function to update URL with current state
             function updateUrl() {
-                const params = {
-                    height: parseFloat(document.getElementById('heightInput').value),
-                    width: parseFloat(document.getElementById('widthInput').value),
-                    depth: parseFloat(document.getElementById('depthInput').value),
-                    alpha: parseFloat(document.getElementById('alphaInput').value),
-                    gap: parseFloat(document.getElementById('gapInput').value)
-                };
+                const params = new URLSearchParams();
                 
-                const points = boxRenderer.geometry.getPoints();
-                const urlParams = new URLSearchParams();
+                // Save box dimensions and angle
+                params.set('height', boxRenderer.geometry.height.toFixed(3));
+                params.set('width', boxRenderer.geometry.width.toFixed(3));
+                params.set('depth', boxRenderer.geometry.depth.toFixed(3));
+                params.set('alpha', boxRenderer.geometry.closedAngle.toFixed(3));
+                params.set('gap', boxRenderer.geometry.gap.toFixed(3));
                 
-                // Add box parameters
-                Object.entries(params).forEach(([key, value]) => {
-                    urlParams.set(key, value.toString());
-                });
+                // Save closed points coordinates
+                params.set('rcx', boxRenderer.geometry.redClosedPoint.x.toFixed(3));
+                params.set('rcy', boxRenderer.geometry.redClosedPoint.y.toFixed(3));
+                params.set('bcx', boxRenderer.geometry.blueClosedPoint.x.toFixed(3));
+                params.set('bcy', boxRenderer.geometry.blueClosedPoint.y.toFixed(3));
                 
-                // Add point coordinates (only box and closed points)
-                ['redBox', 'redClosed', 'blueBox', 'blueClosed'].forEach(pointName => {
-                    const point = points[pointName];
-                    if (point) {
-                        urlParams.set(`${pointName}X`, point.x.toFixed(2));
-                        urlParams.set(`${pointName}Y`, point.y.toFixed(2));
-                    }
-                });
+                // Save box points as distances along constraint lines
+                params.set('rbd', boxRenderer.geometry.getBoxPointDistance('red').toFixed(3));
+                params.set('bbd', boxRenderer.geometry.getBoxPointDistance('blue').toFixed(3));
                 
-                // Update URL without reloading page
-                const newUrl = `${window.location.pathname}?${urlParams.toString()}`;
-                window.history.replaceState({}, '', newUrl);
-            }
-            
-            // Make updateUrl available globally
-            window.updateUrl = updateUrl;
-
-            // Helper function to update GitHub issue link
-            function updateGithubIssueLink() {
-                const issueLink = document.getElementById('githubIssueLink');
-                if (issueLink) {
-                    const currentUrl = window.location.href;
-                    const issueBody = encodeURIComponent(`Configuration URL: ${currentUrl}\n\nDescribe the issue:`);
-                    issueLink.href = `https://github.com/hugogrimmett/hinge-generator/issues/new?body=${issueBody}`;
-                }
-            }
-
-            // Update GitHub issue link whenever URL changes
-            const originalUpdateUrl = window.updateUrl;
-            window.updateUrl = function() {
-                originalUpdateUrl();
-                updateGithubIssueLink();
-            };
-
-            // Also update on initial load
-            updateGithubIssueLink();
-
-            // Helper function to update visualization
-            function updateVisualization() {
-                const canvas = document.getElementById('canvas');
-                const container = canvas.parentElement;
-                const controls = document.querySelector('.controls');
-                
-                // Set canvas size based on device and layout
-                const isMobile = window.innerWidth <= 768;
-                const controlsHeight = controls.offsetHeight;
-                
-                // Always use the controls height as reference, even in mobile layout
-                canvas.height = controlsHeight;
-                canvas.width = Math.floor(controlsHeight * 0.7);  // Portrait aspect ratio
-                
-                // Scale canvas to fit container while maintaining aspect ratio
-                const containerWidth = container.clientWidth;
-                const containerHeight = container.clientHeight;
-                const containerRatio = containerWidth / containerHeight;
-                const canvasRatio = canvas.width / canvas.height;
-                
-                if (containerRatio > canvasRatio) {
-                    canvas.style.height = containerHeight + 'px';
-                    canvas.style.width = (containerHeight * canvasRatio) + 'px';
-                } else {
-                    canvas.style.width = containerWidth + 'px';
-                    canvas.style.height = (containerWidth / canvasRatio) + 'px';
-                }
-                
-                // Update renderer with new parameters
-                const params = {
-                    height: parseFloat(document.getElementById('heightInput').value),
-                    width: parseFloat(document.getElementById('widthInput').value),
-                    depth: parseFloat(document.getElementById('depthInput').value),
-                    alpha: parseFloat(document.getElementById('alphaInput').value),
-                    gap: parseFloat(document.getElementById('gapInput').value)
-                };
-                
-                boxRenderer.updateParameters(
-                    params.height,
-                    params.width,
-                    params.depth,
-                    params.alpha,
-                    params.gap
-                );
-                
-                // Update URL with current state
-                updateUrl();
+                window.history.replaceState({}, '', `?${params.toString()}`);
             }
             
             // Helper function to load parameters from URL
@@ -425,20 +346,11 @@
                 const urlParams = new URLSearchParams(window.location.search);
                 const params = {};
                 
-                // Load box parameters
+                // Load box dimensions and angle
                 ['height', 'width', 'depth', 'alpha', 'gap'].forEach(param => {
                     const value = urlParams.get(param);
                     if (value !== null) {
-                        const numValue = parseFloat(value);
-                        params[param] = numValue;
-                        
-                        // Update input and slider
-                        const input = document.getElementById(param + 'Input');
-                        const slider = document.getElementById(param + 'Slider');
-                        if (input && slider) {
-                            input.value = numValue;
-                            slider.value = numValue;
-                        }
+                        params[param] = parseFloat(value);
                     }
                 });
                 
@@ -453,36 +365,44 @@
                     params.gap || parseFloat(document.getElementById('gapInput').value)
                 );
                 
-                // Load point positions if present (only box and closed points)
-                ['redBox', 'redClosed', 'blueBox', 'blueClosed'].forEach(pointName => {
-                    const x = urlParams.get(`${pointName}X`);
-                    const y = urlParams.get(`${pointName}Y`);
-                    if (x !== null && y !== null) {
-                        const point = {
-                            x: parseFloat(x),
-                            y: parseFloat(y)
-                        };
-                        if (pointName.endsWith('Box')) {
-                            // For box points, use the move function to ensure constraints
-                            if (pointName === 'redBox') {
-                                boxRenderer.geometry.moveRedBoxPoint(point);
-                            } else {
-                                boxRenderer.geometry.moveBlueBoxPoint(point);
-                            }
-                        } else {
-                            // For closed points, use them directly
-                            if (pointName === 'redClosed') {
-                                boxRenderer.geometry.redClosedPoint = point;
-                                boxRenderer.geometry.updateRedOpenPoint();
-                            } else {
-                                boxRenderer.geometry.blueClosedPoint = point;
-                                boxRenderer.geometry.updateBlueOpenPoint();
-                            }
-                        }
-                    }
-                });
+                // First set the closed points
+                const rcx = urlParams.get('rcx');
+                const rcy = urlParams.get('rcy');
+                const bcx = urlParams.get('bcx');
+                const bcy = urlParams.get('bcy');
                 
-                // Initialize geometry and draw (this will calculate any remaining points)
+                if (rcx !== null && rcy !== null) {
+                    boxRenderer.geometry.redClosedPoint = {
+                        x: parseFloat(rcx),
+                        y: parseFloat(rcy)
+                    };
+                    boxRenderer.geometry.updateRedOpenPoint();
+                }
+                
+                if (bcx !== null && bcy !== null) {
+                    boxRenderer.geometry.blueClosedPoint = {
+                        x: parseFloat(bcx),
+                        y: parseFloat(bcy)
+                    };
+                    boxRenderer.geometry.updateBlueOpenPoint();
+                }
+                
+                // Update constraint lines before setting box points
+                boxRenderer.geometry.updateConstraintLines();
+                
+                // Now set box points using distances
+                const rbd = urlParams.get('rbd');
+                const bbd = urlParams.get('bbd');
+                
+                if (rbd !== null) {
+                    boxRenderer.geometry.setBoxPointFromDistance('red', parseFloat(rbd));
+                }
+                
+                if (bbd !== null) {
+                    boxRenderer.geometry.setBoxPointFromDistance('blue', parseFloat(bbd));
+                }
+                
+                // Initialize geometry and draw
                 boxRenderer.geometry.initializeFourBar();
                 boxRenderer.draw();
             }
@@ -540,6 +460,55 @@
                 updateVisualization();
             }
             
+            // Helper function to update visualization
+            function updateVisualization() {
+                const canvas = document.getElementById('canvas');
+                const container = canvas.parentElement;
+                const controls = document.querySelector('.controls');
+                
+                // Set canvas size based on device and layout
+                const isMobile = window.innerWidth <= 768;
+                const controlsHeight = controls.offsetHeight;
+                
+                // Always use the controls height as reference, even in mobile layout
+                canvas.height = controlsHeight;
+                canvas.width = Math.floor(controlsHeight * 0.7);  // Portrait aspect ratio
+                
+                // Scale canvas to fit container while maintaining aspect ratio
+                const containerWidth = container.clientWidth;
+                const containerHeight = container.clientHeight;
+                const containerRatio = containerWidth / containerHeight;
+                const canvasRatio = canvas.width / canvas.height;
+                
+                if (containerRatio > canvasRatio) {
+                    canvas.style.height = containerHeight + 'px';
+                    canvas.style.width = (containerHeight * canvasRatio) + 'px';
+                } else {
+                    canvas.style.width = containerWidth + 'px';
+                    canvas.style.height = (containerWidth / canvasRatio) + 'px';
+                }
+                
+                // Update renderer with new parameters
+                const params = {
+                    height: parseFloat(document.getElementById('heightInput').value),
+                    width: parseFloat(document.getElementById('widthInput').value),
+                    depth: parseFloat(document.getElementById('depthInput').value),
+                    alpha: parseFloat(document.getElementById('alphaInput').value),
+                    gap: parseFloat(document.getElementById('gapInput').value)
+                };
+                
+                boxRenderer.updateParameters(
+                    params.height,
+                    params.width,
+                    params.depth,
+                    params.alpha,
+                    params.gap
+                );
+                
+                // Update URL with current state
+                updateUrl();
+            }
+            
             // Add resize handler
             let resizeTimeout;
             let lastInnerHeight = window.innerHeight;
@@ -575,6 +544,26 @@
                     boxRenderer.startAnimation();
                 }
             });
+            
+            // Helper function to update GitHub issue link
+            function updateGithubIssueLink() {
+                const issueLink = document.getElementById('githubIssueLink');
+                if (issueLink) {
+                    const currentUrl = window.location.href;
+                    const issueBody = encodeURIComponent(`Configuration URL: ${currentUrl}\n\nDescribe the issue:`);
+                    issueLink.href = `https://github.com/hugogrimmett/hinge-generator/issues/new?body=${issueBody}`;
+                }
+            }
+
+            // Update GitHub issue link whenever URL changes
+            const originalUpdateUrl = window.updateUrl;
+            window.updateUrl = function() {
+                originalUpdateUrl();
+                updateGithubIssueLink();
+            };
+
+            // Also update on initial load
+            updateGithubIssueLink();
         </script>
     </body>
 </html>

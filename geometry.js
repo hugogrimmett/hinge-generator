@@ -1424,4 +1424,42 @@ class BoxGeometry {
         // If all else fails, return null to indicate no valid solution
         return null;
     }
+    
+    // Get the signed distance of a box point along its constraint line
+    getBoxPointDistance(type) {
+        const center = this.centerOfRotation;
+        const line = type === 'red' ? this.redConstraintLine : this.blueConstraintLine;
+        const point = type === 'red' ? this.redBoxPoint : this.blueBoxPoint;
+        
+        if (!center || !line || !point) return 0;
+        
+        // Vector from center to point
+        const dx = point.x - center.x;
+        const dy = point.y - center.y;
+        
+        // Project onto perpendicular direction to get signed distance
+        return dx * line.perpX + dy * line.perpY;
+    }
+    
+    // Set a box point position given a signed distance along its constraint line
+    setBoxPointFromDistance(type, distance) {
+        const center = this.centerOfRotation;
+        const line = type === 'red' ? this.redConstraintLine : this.blueConstraintLine;
+        
+        if (!center || !line) return;
+        
+        // Set point position using perpendicular vector
+        const point = {
+            x: center.x + line.perpX * distance,
+            y: center.y + line.perpY * distance
+        };
+        
+        if (type === 'red') {
+            this.redBoxPoint = point;
+            this.updateRedOpenPoint();
+        } else {
+            this.blueBoxPoint = point;
+            this.updateBlueOpenPoint();
+        }
+    }
 }
