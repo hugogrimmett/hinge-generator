@@ -701,9 +701,9 @@ class BoxRenderer {
             ctx.fillText('to see how it affects the motion of the lid', this.canvas.width / 2, 85);
             ctx.restore();
             
-            // Fade out if we're no longer showing
-            if (!this.showHelpText && Date.now() - this.lastInteractionTime > 300) {
-                this.helpTextOpacity = Math.max(0, this.helpTextOpacity - 0.01); // Slower fade
+            // Fade out if we're no longer showing or there are collision points
+            if (!this.showHelpText && Date.now() - this.lastInteractionTime > 300 || this.geometry.totalCollisionPoints.size > 0) {
+                this.helpTextOpacity = Math.max(0, this.helpTextOpacity - 0.05); // Slower fade
             }
         }
 
