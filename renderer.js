@@ -453,7 +453,7 @@ class BoxRenderer {
             points.redBoxPoint && points.blueBoxPoint && 
             points.redClosedPoint && points.blueClosedPoint;
         const invalidConfig = allPointsInitialized && !this.geometry.isValidConfiguration();
-        const hasCollision = this.geometry.hasCollided;
+        const hasCollision = this.geometry.totalCollisionPoints.size > 0;  // Check total collisions instead of current frame
         
         if (invalidConfig || hasCollision) {
             this.ctx.save();
@@ -466,7 +466,7 @@ class BoxRenderer {
                 this.ctx.fillText('Warning: Invalid configuration!', this.displayWidth / 2, 20);
                 this.ctx.fillText('Try moving the red and blue pivot points.', this.displayWidth / 2, 40);
             } else if (hasCollision) {
-                this.ctx.fillText('Warning: collision between box and lid!', this.displayWidth / 2, 20);
+                this.ctx.fillText('Warning: collision detected in motion!', this.displayWidth / 2, 20);
                 this.ctx.fillText('Try moving the red and blue pivot points.', this.displayWidth / 2, 40);
             }
             
