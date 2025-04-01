@@ -1183,9 +1183,27 @@ class BoxGeometry {
     findOverlapPoints(getAccumulated = false) {
         if (!this.movingLidVertices) return null;
         
+        // If we want accumulated points and have collided before, return those
+        if (getAccumulated && this.hasCollided) {
+            const allPoints = Array.from(this.totalCollisionPoints).map(p => JSON.parse(p));
+            
+            // Compute centroid
+            const centroid = allPoints.reduce((acc, p) => ({
+                x: acc.x + p.x / allPoints.length,
+                y: acc.y + p.y / allPoints.length
+            }), {x: 0, y: 0});
+            
+            // Sort points by angle from centroid
+            return allPoints.sort((a, b) => 
+                Math.atan2(a.y - centroid.y, a.x - centroid.x) -
+                Math.atan2(b.y - centroid.y, b.x - centroid.x)
+            );
+        }
+        
+        // Otherwise check current frame collision
         const boxVertices = this.getBoxVertices();
         const lidVertices = this.movingLidVertices;
-        const points = new Set();  // Use Set to avoid duplicates
+        const points = new Set();
         
         // Find all edge intersections
         for (let i = 0; i < boxVertices.length; i++) {
@@ -1225,24 +1243,18 @@ class BoxGeometry {
         this.hasCollided = true;
         overlapPoints.forEach(p => this.totalCollisionPoints.add(JSON.stringify(p)));
         
-        // Return either current points or accumulated points
-        const pointsToUse = getAccumulated ? 
-            Array.from(this.totalCollisionPoints).map(p => JSON.parse(p)) : 
-            overlapPoints;
-        
-        // Compute centroid
-        const centroid = pointsToUse.reduce((acc, p) => ({
-            x: acc.x + p.x / pointsToUse.length,
-            y: acc.y + p.y / pointsToUse.length
+        // Return current frame points
+        const centroid = overlapPoints.reduce((acc, p) => ({
+            x: acc.x + p.x / overlapPoints.length,
+            y: acc.y + p.y / overlapPoints.length
         }), {x: 0, y: 0});
         
-        // Sort points by angle from centroid
-        return pointsToUse.sort((a, b) => 
+        return overlapPoints.sort((a, b) => 
             Math.atan2(a.y - centroid.y, a.x - centroid.x) -
             Math.atan2(b.y - centroid.y, b.x - centroid.x)
         );
     }
-
+    
     // Clear collision state
     clearCollisionState() {
         this.hasCollided = false;

@@ -701,18 +701,18 @@ class BoxRenderer {
         // Draw collision area
         this.drawCollisionArea();
         
-        // Draw constraint distances (always on top)
-        const dots = this.geometry.getConstraintDotProducts();
-        if (dots && dots.distance_red !== undefined && dots.distance_blue !== undefined) {
-            ctx.save();
-            ctx.font = '12px monospace';
-            ctx.fillStyle = 'black';
-            ctx.textAlign = 'left';
-            ctx.textBaseline = 'top';
-            ctx.fillText(`hasCollided: ${this.geometry.hasCollided}`, 10, 10);
+        // // Draw constraint distances (always on top)
+        // const dots = this.geometry.getConstraintDotProducts();
+        // if (dots && dots.distance_red !== undefined && dots.distance_blue !== undefined) {
+        //     ctx.save();
+        //     ctx.font = '12px monospace';
+        //     ctx.fillStyle = 'black';
+        //     ctx.textAlign = 'left';
+        //     ctx.textBaseline = 'top';
+        //     ctx.fillText(`hasCollided: ${this.geometry.hasCollided}`, 10, 10);
             // ctx.fillText(`Blue dot: ${dots.distance_blue.toFixed(3)}`, 10, 30);
             // ctx.fillText(`Center: ${dots.center.x.toFixed(3)}, ${dots.center.y.toFixed(3)}`, 10, 50);
-            ctx.restore();
+            // ctx.restore();
         //     if (redLine) {
         //         this.drawCircle(dots.red_point, 2, 'green');
         //         this.drawCircle(dots.red_point2, 2, 'green');
@@ -739,7 +739,7 @@ class BoxRenderer {
         //         ctx.lineTo(blue_points2_transformed.x, blue_points2_transformed.y);
         //         ctx.stroke();       
         //     }
-        }
+        // }
     }
     
     // Mouse event handlers
