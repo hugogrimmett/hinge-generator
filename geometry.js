@@ -44,6 +44,9 @@ class BoxGeometry {
         
         // Collision tracking
         this.hasCollided = false;
+        this.collisionPixels = new Set();  // Store hit pixels
+        this.detectionGridSize = this.width / 50;  // 100 pixels across box width
+        this.edgeThreshold = 0.1;  // How close to consider a point "on edge"
         this.totalCollisionPoints = new Set();  // Use Set to avoid duplicates
         
         // Initialize pivot points
@@ -1176,88 +1179,59 @@ class BoxGeometry {
     // Check for current collision (for moving lid color)
     findCurrentCollision() {
         if (!this.movingLidVertices) return false;
-        return this.findOverlapPoints(false) !== null;
-    }
-
-    // Find all points defining the overlap region
-    findOverlapPoints(getAccumulated = false) {
-        if (!this.movingLidVertices) return null;
         
-        // If we want accumulated points and have collided before, return those
-        if (getAccumulated && this.hasCollided) {
-            const allPoints = Array.from(this.totalCollisionPoints).map(p => JSON.parse(p));
-            
-            // Compute centroid
-            const centroid = allPoints.reduce((acc, p) => ({
-                x: acc.x + p.x / allPoints.length,
-                y: acc.y + p.y / allPoints.length
-            }), {x: 0, y: 0});
-            
-            // Sort points by angle from centroid
-            return allPoints.sort((a, b) => 
-                Math.atan2(a.y - centroid.y, a.x - centroid.x) -
-                Math.atan2(b.y - centroid.y, b.x - centroid.x)
-            );
-        }
-        
-        // Otherwise check current frame collision
         const boxVertices = this.getBoxVertices();
         const lidVertices = this.movingLidVertices;
-        const points = new Set();
         
-        // Find all edge intersections
-        for (let i = 0; i < boxVertices.length; i++) {
-            const i2 = (i + 1) % boxVertices.length;
-            for (let j = 0; j < lidVertices.length; j++) {
-                const j2 = (j + 1) % lidVertices.length;
-                const intersection = this.lineIntersection(
-                    boxVertices[i], boxVertices[i2],
-                    lidVertices[j], lidVertices[j2]
-                );
-                if (intersection) {
-                    points.add(JSON.stringify(intersection));
+        // Get box bounds
+        const bounds = {
+            minX: Math.min(...boxVertices.map(v => v.x)),
+            minY: Math.min(...boxVertices.map(v => v.y)),
+            maxX: Math.max(...boxVertices.map(v => v.x)),
+            maxY: Math.max(...boxVertices.map(v => v.y))
+        };
+
+        // Check grid of points
+        for (let x = bounds.minX; x <= bounds.maxX; x += this.detectionGridSize) {
+            for (let y = bounds.minY; y <= bounds.maxY; y += this.detectionGridSize) {
+                const point = {x, y};
+                
+                // Only consider points inside both polygons
+                if (this.isPointInPolygon(point, boxVertices) && 
+                    this.isPointInPolygon(point, lidVertices)) {
+                    
+                    // Skip if point is on edge of either polygon
+                    let isOnEdge = false;
+                    for (let i = 0; i < boxVertices.length && !isOnEdge; i++) {
+                        const next = (i + 1) % boxVertices.length;
+                        if (this.isPointOnLineSegment(point, boxVertices[i], boxVertices[next])) {
+                            isOnEdge = true;
+                        }
+                    }
+                    for (let i = 0; i < lidVertices.length && !isOnEdge; i++) {
+                        const next = (i + 1) % lidVertices.length;
+                        if (this.isPointOnLineSegment(point, lidVertices[i], lidVertices[next])) {
+                            isOnEdge = true;
+                        }
+                    }
+                    
+                    if (!isOnEdge) {
+                        // Add to collision pixels and mark collision
+                        this.collisionPixels.add(`${x},${y}`);
+                        this.hasCollided = true;
+                        return true;
+                    }
                 }
             }
         }
         
-        // Add vertices that lie inside the other polygon
-        for (const vertex of boxVertices) {
-            if (this.isPointInPolygon(vertex, lidVertices) &&
-                !lidVertices.some(v => this.isPointOnLineSegment(vertex, v, lidVertices[(lidVertices.indexOf(v) + 1) % lidVertices.length]))) {
-                points.add(JSON.stringify(vertex));
-            }
-        }
-        
-        for (const vertex of lidVertices) {
-            if (this.isPointInPolygon(vertex, boxVertices) &&
-                !boxVertices.some(v => this.isPointOnLineSegment(vertex, v, boxVertices[(boxVertices.indexOf(v) + 1) % boxVertices.length]))) {
-                points.add(JSON.stringify(vertex));
-            }
-        }
-        
-        // Convert back from strings
-        const overlapPoints = Array.from(points).map(p => JSON.parse(p));
-        if (overlapPoints.length < 3) return null;  // No valid overlap polygon
-        
-        // If we found a collision, update the total state
-        this.hasCollided = true;
-        overlapPoints.forEach(p => this.totalCollisionPoints.add(JSON.stringify(p)));
-        
-        // Return current frame points
-        const centroid = overlapPoints.reduce((acc, p) => ({
-            x: acc.x + p.x / overlapPoints.length,
-            y: acc.y + p.y / overlapPoints.length
-        }), {x: 0, y: 0});
-        
-        return overlapPoints.sort((a, b) => 
-            Math.atan2(a.y - centroid.y, a.x - centroid.x) -
-            Math.atan2(b.y - centroid.y, b.x - centroid.x)
-        );
+        return false;
     }
-    
+
     // Clear collision state
     clearCollisionState() {
         this.hasCollided = false;
+        this.collisionPixels.clear();
         this.totalCollisionPoints.clear();
     }
 

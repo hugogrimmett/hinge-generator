@@ -476,25 +476,27 @@ class BoxRenderer {
     
     // Draw accumulated collision area if there has been a collision
     drawCollisionArea() {
-        if (!this.geometry.hasCollided) return;
-        
-        const overlapPoints = this.geometry.findOverlapPoints(true);  // Get accumulated points
-        if (!overlapPoints || overlapPoints.length < 3) return;
+        if (this.geometry.collisionPixels.size === 0) return;
 
         this.ctx.save();
         this.ctx.fillStyle = 'rgba(255, 0, 0, 0.3)';  // Semi-transparent red
-        this.ctx.beginPath();
-        
-        const first = this.transform(overlapPoints[0]);
-        this.ctx.moveTo(first.x, first.y);
-        
-        for (let i = 1; i < overlapPoints.length; i++) {
-            const point = this.transform(overlapPoints[i]);
-            this.ctx.lineTo(point.x, point.y);
+
+        // Calculate display pixel size to match world units
+        const boxWidth = this.geometry.width;
+        const boxDisplayWidth = this.transform({x: boxWidth, y: 0}).x - this.transform({x: 0, y: 0}).x;
+        const displayPixelSize = boxDisplayWidth / 50;  // Match detection grid
+
+        for (const pixelStr of this.geometry.collisionPixels) {
+            const [x, y] = pixelStr.split(',').map(Number);
+            const point = this.transform({x, y});
+            this.ctx.fillRect(
+                point.x - displayPixelSize/2,
+                point.y - displayPixelSize/2,
+                displayPixelSize,
+                displayPixelSize
+            );
         }
-        
-        this.ctx.closePath();
-        this.ctx.fill();
+
         this.ctx.restore();
     }
     
