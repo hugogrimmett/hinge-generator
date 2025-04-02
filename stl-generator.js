@@ -7,11 +7,29 @@ class STLGenerator {
         // Store geometry
         this.geometry = boxGeometry;
         
-        // Constants
-        this.thickness = 3; // 3mm thickness
-        this.pinDiameter = 4; // 4mm pin diameter
-        this.holeDiameter = 4.5; // 4.5mm hole diameter
-        this.armWidth = 4; // 4mm wide connecting arms
+        // All dimensions in mm
+        // Part thicknesses
+        this.boxThickness = 4;     // Box thickness
+        this.lidThickness = 4;     // Lid thickness
+        this.linkThickness = 2.5;    // Link thickness
+        
+        // Pin dimensions
+        this.shortPinDiameter = 4;   // Short pin diameter
+        this.shortPinHeight = 3;     // Short pin height
+        
+        this.tallPinBaseDiameter = 5;  // Tall pin base diameter
+        this.tallPinBaseHeight = 3.5;      // Tall pin base height
+        this.tallPinTopDiameter = 4;     // Tall pin top diameter
+        this.tallPinTopHeight = 3;       // Tall pin top height
+        
+        // Link dimensions
+        this.linkWidth = 4;        // Width of link arms
+        this.holeDiameter = 4.4;   // Diameter of holes in links
+        this.rimDiameter = 9;     // Diameter of rims around holes
+        
+        // Connecting arm dimensions
+        this.armWidth = 4;         // Width of connecting arms
+        this.armExtension = 5;     // Extra length to ensure arms reach into box
     }
 
     async generateZip() {
@@ -21,14 +39,14 @@ class STLGenerator {
             // Generate all STLs
             const boxStl = await this.generateBoxSTL();
             const lidStl = await this.generateLidSTL();
-            const linkRedStl = await this.generateLinkRedSTL();
-            const linkBlueStl = await this.generateLinkBlueSTL();
+            const linkTopStl = await this.generateLinkTopSTL();
+            const linkBottomStl = await this.generateLinkBottomSTL();
             
             // Add to zip
             zip.file("box.stl", boxStl);
             zip.file("lid.stl", lidStl);
-            zip.file("linkRed.stl", linkRedStl);
-            zip.file("linkBlue.stl", linkBlueStl);
+            zip.file("linkTop.stl", linkTopStl);
+            zip.file("linkBottom.stl", linkBottomStl);
             
             // Generate and save zip
             const content = await zip.generateAsync({type: "blob"});
@@ -48,43 +66,63 @@ class STLGenerator {
         const polygon = geometries.geom2.fromPoints(points);
         
         // Extrude to thickness
-        let box = extrusions.extrudeLinear({height: this.thickness}, polygon);
+        let box = extrusions.extrudeLinear({height: this.boxThickness}, polygon);
         
         // Add pins and connecting arms where needed
         const center = this.geometry.getCenterOfRotation();
         
-        // Add red box point pin
+        // Get red and blue box points
         const redBoxPoint = this.geometry.redBoxPoint;
-        const redPin = primitives.cylinder({
-            height: this.thickness,
-            radius: this.pinDiameter / 2,
-            center: [redBoxPoint.x, redBoxPoint.y, this.thickness / 2]
+        const blueBoxPoint = this.geometry.blueBoxPoint;
+        
+        // Determine which point is on top (higher Y value)
+        const isRedOnTop = redBoxPoint.y > blueBoxPoint.y;
+        const topBoxPoint = isRedOnTop ? redBoxPoint : blueBoxPoint;
+        const bottomBoxPoint = isRedOnTop ? blueBoxPoint : redBoxPoint;
+        
+        // Create top pin (short single cylinder)
+        const topPin = primitives.cylinder({
+            height: this.shortPinHeight,
+            radius: this.shortPinDiameter / 2,
+            center: [topBoxPoint.x, topBoxPoint.y, this.boxThickness + this.shortPinHeight / 2]
         });
         
-        // Check if red point is outside box
+        // Create bottom pin (tall two-part cylinder)
+        // Base cylinder for bottom pin
+        const bottomBasePin = primitives.cylinder({
+            height: this.tallPinBaseHeight,
+            radius: this.tallPinBaseDiameter / 2,
+            center: [bottomBoxPoint.x, bottomBoxPoint.y, this.boxThickness + this.tallPinBaseHeight / 2]
+        });
+        
+        // Top cylinder for bottom pin
+        const bottomTopPin = primitives.cylinder({
+            height: this.tallPinTopHeight,
+            radius: this.tallPinTopDiameter / 2,
+            center: [
+                bottomBoxPoint.x, 
+                bottomBoxPoint.y, 
+                this.boxThickness + this.tallPinBaseHeight + this.tallPinTopHeight / 2
+            ]
+        });
+        
+        // Combine the bottom pin parts
+        const bottomPin = booleans.union(bottomBasePin, bottomTopPin);
+        
+        // Check if red point is outside box and add connecting arm if needed
         if (!this.isPointInPolygon(redBoxPoint, vertices)) {
-            // Create connecting arm from center to red point
             const redArm = this.createConnectingArm(center, redBoxPoint);
             box = booleans.union(box, redArm);
         }
         
-        // Add blue box point pin
-        const blueBoxPoint = this.geometry.blueBoxPoint;
-        const bluePin = primitives.cylinder({
-            height: this.thickness,
-            radius: this.pinDiameter / 2,
-            center: [blueBoxPoint.x, blueBoxPoint.y, this.thickness / 2]
-        });
-        
-        // Check if blue point is outside box
+        // Check if blue point is outside box and add connecting arm if needed
         if (!this.isPointInPolygon(blueBoxPoint, vertices)) {
-            // Create connecting arm from center to blue point
             const blueArm = this.createConnectingArm(center, blueBoxPoint);
             box = booleans.union(box, blueArm);
         }
         
         // Add pins to box
-        box = booleans.union(box, redPin, bluePin);
+        box = booleans.union(box, topPin, bottomPin);
         
         // Convert to STL binary data
         const stlData = this.serializeToStl(box);
@@ -100,14 +138,14 @@ class STLGenerator {
         const length = Math.sqrt(dx * dx + dy * dy);
         const angle = Math.atan2(dy, dx);
         
-        // Create rectangle for arm - extend by 5mm to ensure it reaches into the box
+        // Create rectangle for arm - extend by armExtension to ensure it reaches into the box
         const rect = primitives.rectangle({
-            size: [length + 5, this.armWidth],
+            size: [length + this.armExtension, this.armWidth],
             center: [length / 2, 0]
         });
         
         // Extrude and rotate to correct position
-        let arm = extrusions.extrudeLinear({height: this.thickness}, rect);
+        let arm = extrusions.extrudeLinear({height: this.boxThickness}, rect);
         arm = transforms.rotateZ(angle, arm);
         arm = transforms.translate([from.x, from.y, 0], arm);
         
@@ -137,38 +175,71 @@ class STLGenerator {
         const polygon = geometries.geom2.fromPoints(points);
         
         // Extrude to thickness
-        let lid = extrusions.extrudeLinear({height: this.thickness}, polygon);
+        let lid = extrusions.extrudeLinear({height: this.lidThickness}, polygon);
         
-        // Add red lid point pin - use closed lid points
+        // Get red and blue lid points
         const redLidPoint = this.geometry.redClosedPoint;
-        const redPin = primitives.cylinder({
-            height: this.thickness,
-            radius: this.pinDiameter / 2,
-            center: [redLidPoint.x, redLidPoint.y, this.thickness / 2]
+        const blueLidPoint = this.geometry.blueClosedPoint;
+        
+        // Get red and blue box points to determine which is on top
+        const redBoxPoint = this.geometry.redBoxPoint;
+        const blueBoxPoint = this.geometry.blueBoxPoint;
+        
+        // Determine which point is on top (higher Y value) - use the same logic as for the box
+        const isRedOnTop = redBoxPoint.y > blueBoxPoint.y;
+        const topLidPoint = isRedOnTop ? redLidPoint : blueLidPoint;
+        const bottomLidPoint = isRedOnTop ? blueLidPoint : redLidPoint;
+        
+        // Create top pin (short single cylinder)
+        const topPin = primitives.cylinder({
+            height: this.shortPinHeight,
+            radius: this.shortPinDiameter / 2,
+            center: [topLidPoint.x, topLidPoint.y, this.lidThickness + this.shortPinHeight / 2]
         });
         
-        // Add blue lid point pin - use closed lid points
-        const blueLidPoint = this.geometry.blueClosedPoint;
-        const bluePin = primitives.cylinder({
-            height: this.thickness,
-            radius: this.pinDiameter / 2,
-            center: [blueLidPoint.x, blueLidPoint.y, this.thickness / 2]
+        // Create bottom pin (tall two-part cylinder)
+        // Base cylinder for bottom pin
+        const bottomBasePin = primitives.cylinder({
+            height: this.tallPinBaseHeight,
+            radius: this.tallPinBaseDiameter / 2,
+            center: [bottomLidPoint.x, bottomLidPoint.y, this.lidThickness + this.tallPinBaseHeight / 2]
         });
+        
+        // Top cylinder for bottom pin
+        const bottomTopPin = primitives.cylinder({
+            height: this.tallPinTopHeight,
+            radius: this.tallPinTopDiameter / 2,
+            center: [
+                bottomLidPoint.x, 
+                bottomLidPoint.y, 
+                this.lidThickness + this.tallPinBaseHeight + this.tallPinTopHeight / 2
+            ]
+        });
+        
+        // Combine the bottom pin parts
+        const bottomPin = booleans.union(bottomBasePin, bottomTopPin);
         
         // Add pins to lid
-        lid = booleans.union(lid, redPin, bluePin);
+        lid = booleans.union(lid, topPin, bottomPin);
         
         // Convert to STL binary data
         const stlData = this.serializeToStl(lid);
         return new Blob([stlData], {type: 'model/stl'});
     }
 
-    async generateLinkRedSTL() {
+    async generateLinkTopSTL() {
         const { primitives, transforms, booleans, extrusions, geometries } = this.modeling;
         
-        // Get points for the red link
-        const boxPoint = this.geometry.redBoxPoint;
-        const lidPoint = this.geometry.redOpenPoint;
+        // Get red and blue box points to determine which is on top
+        const redBoxPoint = this.geometry.redBoxPoint;
+        const blueBoxPoint = this.geometry.blueBoxPoint;
+        
+        // Determine which point is on top (higher Y value)
+        const isRedOnTop = redBoxPoint.y > blueBoxPoint.y;
+        
+        // Get points for the top link
+        const boxPoint = isRedOnTop ? redBoxPoint : blueBoxPoint;
+        const lidPoint = isRedOnTop ? this.geometry.redOpenPoint : this.geometry.blueOpenPoint;
         
         // Calculate link dimensions
         const dx = lidPoint.x - boxPoint.x;
@@ -177,20 +248,19 @@ class STLGenerator {
         const angle = Math.atan2(dy, dx);
         
         // Create link body
-        const linkWidth = this.armWidth;
         const rect = primitives.rectangle({
-            size: [length, linkWidth],
+            size: [length, this.linkWidth],
             center: [length / 2, 0]
         });
         
-        // Create solid rims for holes (10mm diameter)
+        // Create solid rims for holes
         const boxRim = primitives.circle({
-            radius: 5, // 10mm diameter
+            radius: this.rimDiameter / 2,
             center: [0, 0]
         });
         
         const lidRim = primitives.circle({
-            radius: 5, // 10mm diameter
+            radius: this.rimDiameter / 2,
             center: [length, 0]
         });
         
@@ -212,7 +282,7 @@ class STLGenerator {
         const linkWithHoles = booleans.subtract(linkWithRims, boxHole, lidHole);
         
         // Extrude to thickness
-        let link = extrusions.extrudeLinear({height: this.thickness}, linkWithHoles);
+        let link = extrusions.extrudeLinear({height: this.linkThickness}, linkWithHoles);
         
         // Rotate and position link
         link = transforms.rotateZ(angle, link);
@@ -223,12 +293,19 @@ class STLGenerator {
         return new Blob([stlData], {type: 'model/stl'});
     }
 
-    async generateLinkBlueSTL() {
+    async generateLinkBottomSTL() {
         const { primitives, transforms, booleans, extrusions, geometries } = this.modeling;
         
-        // Get points for the blue link
-        const boxPoint = this.geometry.blueBoxPoint;
-        const lidPoint = this.geometry.blueOpenPoint;
+        // Get red and blue box points to determine which is on top
+        const redBoxPoint = this.geometry.redBoxPoint;
+        const blueBoxPoint = this.geometry.blueBoxPoint;
+        
+        // Determine which point is on top (higher Y value)
+        const isRedOnTop = redBoxPoint.y > blueBoxPoint.y;
+        
+        // Get points for the bottom link
+        const boxPoint = isRedOnTop ? blueBoxPoint : redBoxPoint;
+        const lidPoint = isRedOnTop ? this.geometry.blueOpenPoint : this.geometry.redOpenPoint;
         
         // Calculate link dimensions
         const dx = lidPoint.x - boxPoint.x;
@@ -237,20 +314,19 @@ class STLGenerator {
         const angle = Math.atan2(dy, dx);
         
         // Create link body
-        const linkWidth = this.armWidth;
         const rect = primitives.rectangle({
-            size: [length, linkWidth],
+            size: [length, this.linkWidth],
             center: [length / 2, 0]
         });
         
-        // Create solid rims for holes (10mm diameter)
+        // Create solid rims for holes
         const boxRim = primitives.circle({
-            radius: 5, // 10mm diameter
+            radius: this.rimDiameter / 2,
             center: [0, 0]
         });
         
         const lidRim = primitives.circle({
-            radius: 5, // 10mm diameter
+            radius: this.rimDiameter / 2,
             center: [length, 0]
         });
         
@@ -272,7 +348,7 @@ class STLGenerator {
         const linkWithHoles = booleans.subtract(linkWithRims, boxHole, lidHole);
         
         // Extrude to thickness
-        let link = extrusions.extrudeLinear({height: this.thickness}, linkWithHoles);
+        let link = extrusions.extrudeLinear({height: this.linkThickness}, linkWithHoles);
         
         // Rotate and position link
         link = transforms.rotateZ(angle, link);
