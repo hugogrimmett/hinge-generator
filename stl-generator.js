@@ -100,9 +100,9 @@ class STLGenerator {
         const length = Math.sqrt(dx * dx + dy * dy);
         const angle = Math.atan2(dy, dx);
         
-        // Create rectangle for arm
+        // Create rectangle for arm - extend by 5mm to ensure it reaches into the box
         const rect = primitives.rectangle({
-            size: [length, this.armWidth],
+            size: [length + 5, this.armWidth],
             center: [length / 2, 0]
         });
         
@@ -131,7 +131,7 @@ class STLGenerator {
     async generateLidSTL() {
         const { primitives, transforms, booleans, extrusions, geometries } = this.modeling;
         
-        // Get lid vertices and create 2D shape
+        // Get lid vertices and create 2D shape - use closed lid vertices
         const vertices = this.geometry.getClosedLidVertices();
         const points = vertices.map(v => [v.x, v.y]);
         const polygon = geometries.geom2.fromPoints(points);
@@ -139,16 +139,16 @@ class STLGenerator {
         // Extrude to thickness
         let lid = extrusions.extrudeLinear({height: this.thickness}, polygon);
         
-        // Add red lid point pin
-        const redLidPoint = this.geometry.redOpenPoint;
+        // Add red lid point pin - use closed lid points
+        const redLidPoint = this.geometry.redClosedPoint;
         const redPin = primitives.cylinder({
             height: this.thickness,
             radius: this.pinDiameter / 2,
             center: [redLidPoint.x, redLidPoint.y, this.thickness / 2]
         });
         
-        // Add blue lid point pin
-        const blueLidPoint = this.geometry.blueOpenPoint;
+        // Add blue lid point pin - use closed lid points
+        const blueLidPoint = this.geometry.blueClosedPoint;
         const bluePin = primitives.cylinder({
             height: this.thickness,
             radius: this.pinDiameter / 2,
@@ -183,6 +183,20 @@ class STLGenerator {
             center: [length / 2, 0]
         });
         
+        // Create solid rims for holes (10mm diameter)
+        const boxRim = primitives.circle({
+            radius: 5, // 10mm diameter
+            center: [0, 0]
+        });
+        
+        const lidRim = primitives.circle({
+            radius: 5, // 10mm diameter
+            center: [length, 0]
+        });
+        
+        // Union the rims with the link body
+        const linkWithRims = booleans.union(rect, boxRim, lidRim);
+        
         // Create holes for pins
         const boxHole = primitives.circle({
             radius: this.holeDiameter / 2,
@@ -195,7 +209,7 @@ class STLGenerator {
         });
         
         // Subtract holes from link
-        const linkWithHoles = booleans.subtract(rect, boxHole, lidHole);
+        const linkWithHoles = booleans.subtract(linkWithRims, boxHole, lidHole);
         
         // Extrude to thickness
         let link = extrusions.extrudeLinear({height: this.thickness}, linkWithHoles);
@@ -229,6 +243,20 @@ class STLGenerator {
             center: [length / 2, 0]
         });
         
+        // Create solid rims for holes (10mm diameter)
+        const boxRim = primitives.circle({
+            radius: 5, // 10mm diameter
+            center: [0, 0]
+        });
+        
+        const lidRim = primitives.circle({
+            radius: 5, // 10mm diameter
+            center: [length, 0]
+        });
+        
+        // Union the rims with the link body
+        const linkWithRims = booleans.union(rect, boxRim, lidRim);
+        
         // Create holes for pins
         const boxHole = primitives.circle({
             radius: this.holeDiameter / 2,
@@ -241,7 +269,7 @@ class STLGenerator {
         });
         
         // Subtract holes from link
-        const linkWithHoles = booleans.subtract(rect, boxHole, lidHole);
+        const linkWithHoles = booleans.subtract(linkWithRims, boxHole, lidHole);
         
         // Extrude to thickness
         let link = extrusions.extrudeLinear({height: this.thickness}, linkWithHoles);
