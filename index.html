@@ -106,8 +106,22 @@
         }
 
         .control-group label {
-            width: 70px;
+            font-size: 0.9rem;
+            font-weight: 400;
+            margin-right: 0.5rem;
             flex-shrink: 0;
+            min-width: 65px;
+        }
+
+        .units-selector span {
+            font-size: 0.9rem;
+            font-weight: 400;
+            margin-right: 0.5rem;
+        }
+
+        label {
+            display: block;
+            margin-bottom: 0.5rem;
         }
 
         .control-group input[type="number"] {
@@ -143,20 +157,12 @@
             background-color: #e0e0e0;
         }
 
-        label {
-            display: block;
-            margin-bottom: 0.5rem;
-            font-weight: 500;
-            font-size: 0.875rem;
-        }
-
         input[type="range"] {
             width: calc(100% - 70px);
             margin-right: 0.5rem;
         }
 
         input[type="number"] {
-            width: 60px;
             padding: 0.25rem;
             border: 1px solid var(--border);
             border-radius: 4px;
@@ -179,10 +185,6 @@
 
         .units-selector input[type="radio"] {
             margin: 0;
-        }
-
-        .units-selector span {
-            margin-right: 0.5rem;
         }
 
         button {
