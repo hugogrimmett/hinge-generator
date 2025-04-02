@@ -463,7 +463,7 @@ class BoxRenderer {
             this.ctx.textBaseline = 'top';
             
             if (hasCollision) {
-                this.ctx.fillText('Warning: collision detected in motion!', this.displayWidth / 2, 10);
+                this.ctx.fillText('Collision detected!', this.displayWidth / 2, 10);
                 this.ctx.fillText('Try moving the red and blue pivot points.', this.displayWidth / 2, 35);
             }
             
@@ -564,7 +564,7 @@ class BoxRenderer {
             this.ctx.textAlign = 'center';
             this.ctx.textBaseline = 'top';
             
-            this.ctx.fillText('Warning: can\'t reach the open position.', this.displayWidth / 2, 10);
+            this.ctx.fillText('Lid cannot reach open position!', this.displayWidth / 2, 10);
             this.ctx.fillText('Try moving the red and blue pivot points.', this.displayWidth / 2, 35);
             
             // Stop any existing animation
