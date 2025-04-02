@@ -110,6 +110,10 @@ class STLGenerator {
         zip.file("linkTop.stl", linkTopStl);
         zip.file("linkBottom.stl", linkBottomStl);
         
+        // Generate info text file
+        const infoText = this.generateInfoText();
+        zip.file("hinge-info.txt", infoText);
+        
         // Generate and save zip
         const content = await zip.generateAsync({type: "blob"});
         saveAs(content, "hinge-box.zip");
@@ -196,7 +200,7 @@ class STLGenerator {
         const length = Math.sqrt(dx * dx + dy * dy);
         const angle = Math.atan2(dy, dx);
         
-        // Create rectangle for arm - extend by armExtension to ensure it reaches into the box
+        // Create rectangle for arm - extend by armExtension to ensure it reaches into box
         const rect = primitives.rectangle({
             size: [length + this.armExtension, this.armWidth],
             center: [length / 2, 0]
@@ -390,6 +394,110 @@ class STLGenerator {
         // Convert to STL binary data
         const stlData = this.serializeToStl(link);
         return new Blob([stlData], {type: 'model/stl'});
+    }
+    
+    // Generate information text file
+    generateInfoText() {
+        // Get current URL
+        const url = window.location.href;
+        
+        // Get current date and time with timezone
+        const now = new Date();
+        const dateStr = now.toISOString().replace('T', ' ').substring(0, 19) + " UTC";
+        
+        // Get geometry
+        const geometry = this.geometry;
+        
+        // Calculate rod lengths
+        const redRodLength = this.calculateDistance(
+            geometry.redBoxPoint,
+            geometry.redClosedPoint
+        );
+        
+        const blueRodLength = this.calculateDistance(
+            geometry.blueBoxPoint,
+            geometry.blueClosedPoint
+        );
+        
+        // Format text
+        let text = "HINGE GENERATOR INFORMATION\n";
+        text += "==========================\n\n";
+        
+        text += `Generated: ${dateStr}\n`;
+        text += `URL: ${url}\n\n`;
+        
+        // Get units (default to mm if not available)
+        const units = this.units || "mm";
+        
+        text += "BOX PARAMETERS\n";
+        text += "--------------\n";
+        text += `Height: ${geometry.height} ${units}\n`;
+        text += `Width: ${geometry.width} ${units}\n`;
+        text += `Depth: ${geometry.depth} ${units}\n`;
+        
+        // Ensure alpha angle is a number before formatting
+        const alphaAngle = geometry.closedAngle ? (geometry.closedAngle * 180 / Math.PI) : 0;
+        text += `Alpha: ${this.formatNumber(alphaAngle)}°\n`;
+        
+        text += `Gap: ${geometry.gap} ${units}\n\n`;
+        
+        text += "PIVOT POINTS\n";
+        text += "------------\n";
+        text += "Simulator Coordinates (internal units):\n";
+        text += `Red Box Pivot: (${this.formatNumber(geometry.redBoxPoint.x)}, ${this.formatNumber(geometry.redBoxPoint.y)})\n`;
+        text += `Blue Box Pivot: (${this.formatNumber(geometry.blueBoxPoint.x)}, ${this.formatNumber(geometry.blueBoxPoint.y)})\n`;
+        text += `Red Closed Pivot: (${this.formatNumber(geometry.redClosedPoint.x)}, ${this.formatNumber(geometry.redClosedPoint.y)})\n`;
+        text += `Blue Closed Pivot: (${this.formatNumber(geometry.blueClosedPoint.x)}, ${this.formatNumber(geometry.blueClosedPoint.y)})\n\n`;
+        
+        // If we have a scale factor, also show the real-world coordinates
+        if (this.scaleFactor && this.scaleFactor !== 1) {
+            // Create unscaled points
+            const unscaledRedBoxPoint = this.unscalePoint(geometry.redBoxPoint);
+            const unscaledBlueBoxPoint = this.unscalePoint(geometry.blueBoxPoint);
+            const unscaledRedClosedPoint = this.unscalePoint(geometry.redClosedPoint);
+            const unscaledBlueClosedPoint = this.unscalePoint(geometry.blueClosedPoint);
+            
+            text += `Real-world Coordinates (${units}):\n`;
+            text += `Red Box Pivot: (${this.formatNumber(unscaledRedBoxPoint.x)}, ${this.formatNumber(unscaledRedBoxPoint.y)}) ${units}\n`;
+            text += `Blue Box Pivot: (${this.formatNumber(unscaledBlueBoxPoint.x)}, ${this.formatNumber(unscaledBlueBoxPoint.y)}) ${units}\n`;
+            text += `Red Closed Pivot: (${this.formatNumber(unscaledRedClosedPoint.x)}, ${this.formatNumber(unscaledRedClosedPoint.y)}) ${units}\n`;
+            text += `Blue Closed Pivot: (${this.formatNumber(unscaledBlueClosedPoint.x)}, ${this.formatNumber(unscaledBlueClosedPoint.y)}) ${units}\n\n`;
+        }
+        
+        text += "ROD LENGTHS\n";
+        text += "-----------\n";
+        text += `Red Rod: ${this.formatNumber(redRodLength / this.scaleFactor)} ${units}\n`;
+        text += `Blue Rod: ${this.formatNumber(blueRodLength / this.scaleFactor)} ${units}\n\n`;
+        
+        text += "MANUFACTURING NOTES\n";
+        text += "------------------\n";
+        text += "- Pin diameters are fixed at 4mm\n";
+        text += "- Link thickness is 3mm\n";
+        text += "- Box and lid thickness is 3mm\n";
+        
+        return text;
+    }
+    
+    // Helper to calculate distance between two points
+    calculateDistance(point1, point2) {
+        if (!point1 || !point2) return 0;
+        const dx = point2.x - point1.x;
+        const dy = point2.y - point1.y;
+        return Math.sqrt(dx * dx + dy * dy);
+    }
+    
+    // Helper to format a number to 3 decimal places
+    formatNumber(num) {
+        return Number(num).toFixed(3);
+    }
+    
+    // Helper to unscale a point (if not already defined)
+    unscalePoint(point) {
+        if (!point) return null;
+        return {
+            x: point.x / (this.scaleFactor || 1),
+            y: point.y / (this.scaleFactor || 1)
+        };
     }
     
     // Custom STL serializer based on JSCAD's STL serializer
