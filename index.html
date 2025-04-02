@@ -626,7 +626,11 @@
             // Add STL generation handler
             document.getElementById('generateStlButton').addEventListener('click', async () => {
                 try {
-                    const generator = new STLGenerator(boxRenderer.geometry);
+                    // Get the selected units
+                    const selectedUnits = document.querySelector('input[name="units"]:checked').value;
+                    
+                    // Create the STL generator with the selected units
+                    const generator = new STLGenerator(boxRenderer.geometry, selectedUnits);
                     await generator.generateZip();
                 } catch (error) {
                     console.error('Error generating STL:', error);

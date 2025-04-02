@@ -1,13 +1,17 @@
 // STL Generator for Hinge Box using JSCAD
 class STLGenerator {
-    constructor(boxGeometry) {
+    constructor(boxGeometry, units = 'cm') {
         // Get JSCAD modules from the global jscadModeling object
         this.modeling = jscadModeling;
         
-        // Store geometry
-        this.geometry = boxGeometry;
+        // Store geometry and apply scaling to the geometry dimensions
+        this.units = units;
+        this.scaleFactor = this.getScaleFactor(units);
         
-        // All dimensions in mm
+        // Create a scaled copy of the geometry
+        this.geometry = this.createScaledGeometry(boxGeometry);
+        
+        // All dimensions in mm - these are fixed regardless of units
         // Part thicknesses
         this.boxThickness = 4;     // Box thickness
         this.lidThickness = this.boxThickness;     // Lid thickness
@@ -32,6 +36,63 @@ class STLGenerator {
         // Connecting arm dimensions
         this.armWidth = 4;         // Width of connecting arms
         this.armExtension = 5;     // Extra length to ensure arms reach into box
+    }
+    
+    // Helper to get scale factor based on units
+    getScaleFactor(units) {
+        switch(units) {
+            case 'mm':
+                return 1;     // 1 unit = 1mm (no scaling needed)
+            case 'cm':
+                return 10;    // 1 unit = 1cm = 10mm
+            case 'in':
+                return 25.4;  // 1 unit = 1in = 25.4mm
+            default:
+                return 10;    // Default to cm
+        }
+    }
+    
+    // Create a scaled copy of the geometry
+    createScaledGeometry(originalGeometry) {
+        // Create a deep copy of the geometry with scaled dimensions
+        const scaledGeometry = {
+            // Scale the box dimensions
+            height: originalGeometry.height * this.scaleFactor,
+            width: originalGeometry.width * this.scaleFactor,
+            depth: originalGeometry.depth * this.scaleFactor,
+            gap: originalGeometry.gap * this.scaleFactor,
+            
+            // Scale the pivot points
+            redBoxPoint: this.scalePoint(originalGeometry.redBoxPoint),
+            blueBoxPoint: this.scalePoint(originalGeometry.blueBoxPoint),
+            redClosedPoint: this.scalePoint(originalGeometry.redClosedPoint),
+            blueClosedPoint: this.scalePoint(originalGeometry.blueClosedPoint),
+            redOpenPoint: this.scalePoint(originalGeometry.redOpenPoint),
+            blueOpenPoint: this.scalePoint(originalGeometry.blueOpenPoint),
+            
+            // Copy methods that we need
+            getBoxVertices: () => this.scaleVertices(originalGeometry.getBoxVertices()),
+            getClosedLidVertices: () => this.scaleVertices(originalGeometry.getClosedLidVertices()),
+            getOpenLidVertices: () => this.scaleVertices(originalGeometry.getOpenLidVertices()),
+            getCenterOfRotation: () => this.scalePoint(originalGeometry.getCenterOfRotation())
+        };
+        
+        return scaledGeometry;
+    }
+    
+    // Helper to scale a point
+    scalePoint(point) {
+        if (!point) return null;
+        return {
+            x: point.x * this.scaleFactor,
+            y: point.y * this.scaleFactor
+        };
+    }
+    
+    // Helper to scale an array of vertices
+    scaleVertices(vertices) {
+        if (!vertices) return [];
+        return vertices.map(vertex => this.scalePoint(vertex));
     }
 
     async generateZip() {
