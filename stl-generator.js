@@ -11,21 +11,23 @@ class STLGenerator {
         // Part thicknesses
         this.boxThickness = 4;     // Box thickness
         this.lidThickness = 4;     // Lid thickness
-        this.linkThickness = 2.5;    // Link thickness
+        this.linkThickness = 2.5;  // Link thickness
         
         // Pin dimensions
         this.shortPinDiameter = 4;   // Short pin diameter
         this.shortPinHeight = 3;     // Short pin height
         
         this.tallPinBaseDiameter = 5;  // Tall pin base diameter
-        this.tallPinBaseHeight = 3.5;      // Tall pin base height
-        this.tallPinTopDiameter = 4;     // Tall pin top diameter
-        this.tallPinTopHeight = 3;       // Tall pin top height
+        this.tallPinBaseHeight = 3.5;  // Tall pin base height
+        this.tallPinTopDiameter = 4;   // Tall pin top diameter
+        this.tallPinTopHeight = 3;     // Tall pin top height
         
         // Link dimensions
         this.linkWidth = 4;        // Width of link arms
         this.holeDiameter = 4.4;   // Diameter of holes in links
-        this.rimDiameter = 9;     // Diameter of rims around holes
+        this.rimDiameter = 9;      // Diameter of rims around holes
+        this.textDepth = 1;        // Depth of text engraving
+        this.textHeight = this.linkWidth * 0.8; // Height of text (80% of link width)
         
         // Connecting arm dimensions
         this.armWidth = 4;         // Width of connecting arms
@@ -186,41 +188,64 @@ class STLGenerator {
         const blueBoxPoint = this.geometry.blueBoxPoint;
         
         // Determine which point is on top (higher Y value) - use the same logic as for the box
+        // If red box point is on top, then red lid point gets short pin
+        // If blue box point is on top, then blue lid point gets short pin
         const isRedOnTop = redBoxPoint.y > blueBoxPoint.y;
-        const topLidPoint = isRedOnTop ? redLidPoint : blueLidPoint;
-        const bottomLidPoint = isRedOnTop ? blueLidPoint : redLidPoint;
         
-        // Create top pin (short single cylinder)
-        const topPin = primitives.cylinder({
-            height: this.shortPinHeight,
-            radius: this.shortPinDiameter / 2,
-            center: [topLidPoint.x, topLidPoint.y, this.lidThickness + this.shortPinHeight / 2]
-        });
+        // Create red pin based on whether it's top or bottom
+        const redPin = isRedOnTop ? 
+            // Red is on top - make short pin
+            primitives.cylinder({
+                height: this.shortPinHeight,
+                radius: this.shortPinDiameter / 2,
+                center: [redLidPoint.x, redLidPoint.y, this.lidThickness + this.shortPinHeight / 2]
+            }) : 
+            // Red is on bottom - make tall pin (base + top)
+            booleans.union(
+                primitives.cylinder({
+                    height: this.tallPinBaseHeight,
+                    radius: this.tallPinBaseDiameter / 2,
+                    center: [redLidPoint.x, redLidPoint.y, this.lidThickness + this.tallPinBaseHeight / 2]
+                }),
+                primitives.cylinder({
+                    height: this.tallPinTopHeight,
+                    radius: this.tallPinTopDiameter / 2,
+                    center: [
+                        redLidPoint.x, 
+                        redLidPoint.y, 
+                        this.lidThickness + this.tallPinBaseHeight + this.tallPinTopHeight / 2
+                    ]
+                })
+            );
         
-        // Create bottom pin (tall two-part cylinder)
-        // Base cylinder for bottom pin
-        const bottomBasePin = primitives.cylinder({
-            height: this.tallPinBaseHeight,
-            radius: this.tallPinBaseDiameter / 2,
-            center: [bottomLidPoint.x, bottomLidPoint.y, this.lidThickness + this.tallPinBaseHeight / 2]
-        });
-        
-        // Top cylinder for bottom pin
-        const bottomTopPin = primitives.cylinder({
-            height: this.tallPinTopHeight,
-            radius: this.tallPinTopDiameter / 2,
-            center: [
-                bottomLidPoint.x, 
-                bottomLidPoint.y, 
-                this.lidThickness + this.tallPinBaseHeight + this.tallPinTopHeight / 2
-            ]
-        });
-        
-        // Combine the bottom pin parts
-        const bottomPin = booleans.union(bottomBasePin, bottomTopPin);
+        // Create blue pin based on whether it's top or bottom
+        const bluePin = isRedOnTop ? 
+            // Red is on top, so blue is on bottom - make tall pin (base + top)
+            booleans.union(
+                primitives.cylinder({
+                    height: this.tallPinBaseHeight,
+                    radius: this.tallPinBaseDiameter / 2,
+                    center: [blueLidPoint.x, blueLidPoint.y, this.lidThickness + this.tallPinBaseHeight / 2]
+                }),
+                primitives.cylinder({
+                    height: this.tallPinTopHeight,
+                    radius: this.tallPinTopDiameter / 2,
+                    center: [
+                        blueLidPoint.x, 
+                        blueLidPoint.y, 
+                        this.lidThickness + this.tallPinBaseHeight + this.tallPinTopHeight / 2
+                    ]
+                })
+            ) : 
+            // Red is on bottom, so blue is on top - make short pin
+            primitives.cylinder({
+                height: this.shortPinHeight,
+                radius: this.shortPinDiameter / 2,
+                center: [blueLidPoint.x, blueLidPoint.y, this.lidThickness + this.shortPinHeight / 2]
+            });
         
         // Add pins to lid
-        lid = booleans.union(lid, topPin, bottomPin);
+        lid = booleans.union(lid, redPin, bluePin);
         
         // Convert to STL binary data
         const stlData = this.serializeToStl(lid);
@@ -228,7 +253,7 @@ class STLGenerator {
     }
 
     async generateLinkTopSTL() {
-        const { primitives, transforms, booleans, extrusions, geometries } = this.modeling;
+        const { primitives, transforms, booleans, extrusions, geometries, text } = this.modeling;
         
         // Get red and blue box points to determine which is on top
         const redBoxPoint = this.geometry.redBoxPoint;
@@ -284,6 +309,28 @@ class STLGenerator {
         // Extrude to thickness
         let link = extrusions.extrudeLinear({height: this.linkThickness}, linkWithHoles);
         
+        try {
+            // Create text "UPPER"
+            const upperText = text.vectorText({
+                height: this.textHeight,
+                text: "UPPER",
+                font: "helvetica",
+                align: "center"
+            });
+            
+            // Position text in the middle of the link
+            const textGeom = transforms.translate([length / 2, 0, 0], upperText);
+            
+            // Extrude text
+            const extrudedText = extrusions.extrudeLinear({height: this.textDepth}, textGeom);
+            
+            // Subtract text from link (engrave)
+            link = booleans.subtract(link, extrudedText);
+        } catch (error) {
+            console.warn("Could not add text to link:", error);
+            // Continue without text if there's an error
+        }
+        
         // Rotate and position link
         link = transforms.rotateZ(angle, link);
         link = transforms.translate([boxPoint.x, boxPoint.y, 0], link);
@@ -294,7 +341,7 @@ class STLGenerator {
     }
 
     async generateLinkBottomSTL() {
-        const { primitives, transforms, booleans, extrusions, geometries } = this.modeling;
+        const { primitives, transforms, booleans, extrusions, geometries, text } = this.modeling;
         
         // Get red and blue box points to determine which is on top
         const redBoxPoint = this.geometry.redBoxPoint;
@@ -349,6 +396,28 @@ class STLGenerator {
         
         // Extrude to thickness
         let link = extrusions.extrudeLinear({height: this.linkThickness}, linkWithHoles);
+        
+        try {
+            // Create text "LOWER"
+            const lowerText = text.vectorText({
+                height: this.textHeight,
+                text: "LOWER",
+                font: "helvetica",
+                align: "center"
+            });
+            
+            // Position text in the middle of the link
+            const textGeom = transforms.translate([length / 2, 0, 0], lowerText);
+            
+            // Extrude text
+            const extrudedText = extrusions.extrudeLinear({height: this.textDepth}, textGeom);
+            
+            // Subtract text from link (engrave)
+            link = booleans.subtract(link, extrudedText);
+        } catch (error) {
+            console.warn("Could not add text to link:", error);
+            // Continue without text if there's an error
+        }
         
         // Rotate and position link
         link = transforms.rotateZ(angle, link);
