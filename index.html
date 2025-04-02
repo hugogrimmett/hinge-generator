@@ -108,25 +108,36 @@
         .control-group label {
             font-size: 0.9rem;
             font-weight: 400;
-            margin-right: 0.5rem;
+            margin: 0 0.5rem 0 0;
             flex-shrink: 0;
             min-width: 65px;
         }
 
-        .units-selector span {
-            font-size: 0.9rem;
-            font-weight: 400;
-            margin-right: 0.5rem;
-        }
-
-        label {
-            display: block;
-            margin-bottom: 0.5rem;
+        .control-group input[type="range"],
+        .control-group input[type="number"] {
+            margin: 0;
         }
 
         .control-group input[type="number"] {
             width: 45px;
             flex-shrink: 0;
+        }
+
+        .units-selector span,
+        .units-selector label {
+            font-size: 0.9rem;
+            font-weight: 400;
+            margin-right: 0.5rem;
+        }
+
+        .units-selector input[type="radio"] {
+            margin: 0;
+            vertical-align: middle;
+        }
+
+        label {
+            display: block;
+            margin-bottom: 0.5rem;
         }
 
         .output-controls {
