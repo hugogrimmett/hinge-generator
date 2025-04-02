@@ -28,7 +28,8 @@ class STLGenerator {
         
         // Link dimensions
         this.linkWidth = 4;        // Width of link arms
-        this.holeDiameter = 4.4;   // Diameter of holes in links
+        this.axleTolerance = 0.2;  // Tolerance for rotational joint (diameter)
+        this.holeDiameter = 4 + this.axleTolerance;   // Diameter of holes in links
         this.rimDiameter = 9;      // Diameter of rims around holes
         this.textDepth = 1;        // Depth of text engraving
         this.textHeight = this.linkWidth * 0.8; // Height of text (80% of link width)
@@ -370,21 +371,35 @@ class STLGenerator {
         // Extrude to thickness
         let link = extrusions.extrudeLinear({height: this.linkThickness}, linkWithHoles);
         
-        // Add text if available
+        // Add text if available - use a simple engraved rectangle with the label
         if (labelText) {
             // Create a simple rectangle for the text
             const textWidth = length * 0.6;
             const textHeight = this.linkWidth * 0.6;
+            
+            // Create a smaller rectangle for the text area
             const textRect = primitives.rectangle({
                 size: [textWidth, textHeight],
                 center: [length / 2, 0]
             });
             
-            // Extrude the rectangle to create a raised area
-            const textBlock = extrusions.extrudeLinear({height: this.textDepth}, textRect);
+            // Create a smaller rectangle for the actual text (engraved)
+            const textEngraving = primitives.rectangle({
+                size: [textWidth * 0.8, textHeight * 0.6],
+                center: [length / 2, 0]
+            });
             
-            // Subtract the text block from the link
-            link = booleans.subtract(link, textBlock);
+            // Extrude the text area to create a raised platform
+            const textPlatform = extrusions.extrudeLinear({height: this.textDepth * 0.5}, textRect);
+            
+            // Extrude the text engraving deeper
+            const textCutout = extrusions.extrudeLinear({height: this.textDepth}, textEngraving);
+            
+            // Add the platform to the link
+            link = booleans.union(link, textPlatform);
+            
+            // Subtract the text cutout to create the engraved effect
+            link = booleans.subtract(link, textCutout);
         }
         
         // Rotate and position link
@@ -429,40 +444,46 @@ class STLGenerator {
         // Get units (default to mm if not available)
         const units = this.units || "mm";
         
+        // Extract alpha angle from URL
+        let alphaAngle = 0;
+        try {
+            // Get alpha from URL parameters
+            const urlParams = new URLSearchParams(window.location.search);
+            alphaAngle = parseFloat(urlParams.get('alpha') || 0);
+            // Convert to degrees if it's in radians (typically less than 6.28)
+            if (alphaAngle < 6.28) {
+                alphaAngle = alphaAngle * 180 / Math.PI;
+            }
+        } catch (error) {
+            console.warn("Could not parse alpha angle from URL", error);
+            // Fallback to geometry object
+            alphaAngle = geometry.closedAngle ? (geometry.closedAngle * 180 / Math.PI) : 0;
+        }
+        
         text += "BOX PARAMETERS\n";
         text += "--------------\n";
         text += `Height: ${geometry.height} ${units}\n`;
         text += `Width: ${geometry.width} ${units}\n`;
         text += `Depth: ${geometry.depth} ${units}\n`;
-        
-        // Ensure alpha angle is a number before formatting
-        const alphaAngle = geometry.closedAngle ? (geometry.closedAngle * 180 / Math.PI) : 0;
-        text += `Alpha: ${this.formatNumber(alphaAngle)}°\n`;
-        
+        const degreeSymbol = "\u00B0";
+        text += `Alpha: ${this.formatNumber(alphaAngle)}${degreeSymbol}\n`;
         text += `Gap: ${geometry.gap} ${units}\n\n`;
         
         text += "PIVOT POINTS\n";
         text += "------------\n";
-        text += "Simulator Coordinates (internal units):\n";
-        text += `Red Box Pivot: (${this.formatNumber(geometry.redBoxPoint.x)}, ${this.formatNumber(geometry.redBoxPoint.y)})\n`;
-        text += `Blue Box Pivot: (${this.formatNumber(geometry.blueBoxPoint.x)}, ${this.formatNumber(geometry.blueBoxPoint.y)})\n`;
-        text += `Red Closed Pivot: (${this.formatNumber(geometry.redClosedPoint.x)}, ${this.formatNumber(geometry.redClosedPoint.y)})\n`;
-        text += `Blue Closed Pivot: (${this.formatNumber(geometry.blueClosedPoint.x)}, ${this.formatNumber(geometry.blueClosedPoint.y)})\n\n`;
+    
+        // Create unscaled points
+        const unscaledRedBoxPoint = this.unscalePoint(geometry.redBoxPoint);
+        const unscaledBlueBoxPoint = this.unscalePoint(geometry.blueBoxPoint);
+        const unscaledRedClosedPoint = this.unscalePoint(geometry.redClosedPoint);
+        const unscaledBlueClosedPoint = this.unscalePoint(geometry.blueClosedPoint);
         
-        // If we have a scale factor, also show the real-world coordinates
-        if (this.scaleFactor && this.scaleFactor !== 1) {
-            // Create unscaled points
-            const unscaledRedBoxPoint = this.unscalePoint(geometry.redBoxPoint);
-            const unscaledBlueBoxPoint = this.unscalePoint(geometry.blueBoxPoint);
-            const unscaledRedClosedPoint = this.unscalePoint(geometry.redClosedPoint);
-            const unscaledBlueClosedPoint = this.unscalePoint(geometry.blueClosedPoint);
-            
-            text += `Real-world Coordinates (${units}):\n`;
-            text += `Red Box Pivot: (${this.formatNumber(unscaledRedBoxPoint.x)}, ${this.formatNumber(unscaledRedBoxPoint.y)}) ${units}\n`;
-            text += `Blue Box Pivot: (${this.formatNumber(unscaledBlueBoxPoint.x)}, ${this.formatNumber(unscaledBlueBoxPoint.y)}) ${units}\n`;
-            text += `Red Closed Pivot: (${this.formatNumber(unscaledRedClosedPoint.x)}, ${this.formatNumber(unscaledRedClosedPoint.y)}) ${units}\n`;
-            text += `Blue Closed Pivot: (${this.formatNumber(unscaledBlueClosedPoint.x)}, ${this.formatNumber(unscaledBlueClosedPoint.y)}) ${units}\n\n`;
-        }
+        text += `Real-world Coordinates (${units}):\n`;
+        text += `Red Box Pivot: (${this.formatNumber(unscaledRedBoxPoint.x)}, ${this.formatNumber(unscaledRedBoxPoint.y)}) ${units}\n`;
+        text += `Blue Box Pivot: (${this.formatNumber(unscaledBlueBoxPoint.x)}, ${this.formatNumber(unscaledBlueBoxPoint.y)}) ${units}\n`;
+        text += `Red Closed Pivot: (${this.formatNumber(unscaledRedClosedPoint.x)}, ${this.formatNumber(unscaledRedClosedPoint.y)}) ${units}\n`;
+        text += `Blue Closed Pivot: (${this.formatNumber(unscaledBlueClosedPoint.x)}, ${this.formatNumber(unscaledBlueClosedPoint.y)}) ${units}\n\n`;
+    
         
         text += "ROD LENGTHS\n";
         text += "-----------\n";
@@ -471,9 +492,11 @@ class STLGenerator {
         
         text += "MANUFACTURING NOTES\n";
         text += "------------------\n";
-        text += "- Pin diameters are fixed at 4mm\n";
-        text += "- Link thickness is 3mm\n";
-        text += "- Box and lid thickness is 3mm\n";
+        text += `- STL files are scaled to ${units} units\n`;
+        text += `- Pin diameters are fixed at ${this.shortPinDiameter}mm (short) and ${this.tallPinBaseDiameter}mm (tall base)\n`;
+        text += `- Link thickness is ${this.linkThickness}mm\n`;
+        text += `- Box and lid thickness is ${this.boxThickness}mm\n`;
+        text += `- Hole diameter includes ${this.axleTolerance}mm tolerance for fit\n`;
         
         return text;
     }
