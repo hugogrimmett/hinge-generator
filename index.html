@@ -314,6 +314,7 @@
                     </div>
                     
                     <button id="generateTemplateButton" class="full-width-button">Generate Template PDF</button>
+                    <button id="generateStlButton" class="full-width-button">Generate 3D-printable STL</button>
                 </div>
             </div>
             
@@ -326,6 +327,10 @@
         </div>
         <script src="geometry.js"></script>
         <script src="renderer.js"></script>
+        <script src="thirdparty/jscad/modeling/dist/jscad-modeling.min.js"></script>
+        <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+        <script src="https://cdnjs.cloudflare.com/ajax/libs/FileSaver.js/2.0.5/FileSaver.min.js"></script>
+        <script src="stl-generator.js"></script>
         <script>
             // Wait for DOM to be ready
             let boxRenderer;
@@ -617,6 +622,17 @@
 
             // Also update on initial load
             updateGithubIssueLink();
+            
+            // Add STL generation handler
+            document.getElementById('generateStlButton').addEventListener('click', async () => {
+                try {
+                    const generator = new STLGenerator(boxRenderer.geometry);
+                    await generator.generateZip();
+                } catch (error) {
+                    console.error('Error generating STL:', error);
+                    alert('Error generating 3D model: ' + error.message);
+                }
+            });
         </script>
     </body>
 </html>
