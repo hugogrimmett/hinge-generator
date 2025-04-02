@@ -641,12 +641,56 @@
                     
                     // Create the STL generator with the selected units
                     const generator = new STLGenerator(boxRenderer.geometry, selectedUnits);
+                    
+                    // Get scale factor based on selected units
+                    let scaleFactor;
+                    switch(selectedUnits) {
+                        case 'mm':
+                            scaleFactor = 1;
+                            break;
+                        case 'cm':
+                            scaleFactor = 10; // 1cm = 10mm
+                            break;
+                        case 'in':
+                            scaleFactor = 25.4; // 1in = 25.4mm
+                            break;
+                        default:
+                            scaleFactor = 10; // Default to cm
+                    }
+                    
+                    // Check if pivot points are too close together
+                    // Convert simulation units to mm for comparison
+                    const boxPivotDistance = calculateDistance(
+                        boxRenderer.geometry.redBoxPoint, 
+                        boxRenderer.geometry.blueBoxPoint
+                    ) * scaleFactor;
+                    
+                    const lidPivotDistance = calculateDistance(
+                        boxRenderer.geometry.redClosedPoint, 
+                        boxRenderer.geometry.blueClosedPoint
+                    ) * scaleFactor;
+                    
+                    // The minimum distance is in mm (fixed physical size)
+                    const minDistance = (generator.rimDiameter/2 + generator.tallPinBaseDiameter/2 + 1);
+                    
+                    if (boxPivotDistance < minDistance || lidPivotDistance < minDistance) {
+                        alert("Warning: pivot positions are too close together to allow this 3D printed mechanism to work.");
+                    }
+                    
                     await generator.generateZip();
                 } catch (error) {
                     console.error('Error generating STL:', error);
                     alert('Error generating 3D model: ' + error.message);
                 }
             });
+            
+            // Helper function to calculate distance between two points
+            function calculateDistance(point1, point2) {
+                if (!point1 || !point2) return 0;
+                const dx = point2.x - point1.x;
+                const dy = point2.y - point1.y;
+                return Math.sqrt(dx * dx + dy * dy);
+            }
         </script>
     </body>
 </html>
