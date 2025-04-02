@@ -44,12 +44,14 @@ class STLGenerator {
             // Generate all STLs
             const boxStl = await this.generateBoxSTL();
             const lidStl = await this.generateLidSTL();
+            const openLidStl = await this.generateOpenLidSTL();
             const linkTopStl = await this.generateLinkSTL("UPPER", true);
             const linkBottomStl = await this.generateLinkSTL("LOWER", false);
             
             // Add to zip
             zip.file("box.stl", boxStl);
             zip.file("lid.stl", lidStl);
+            zip.file("openLid.stl", openLidStl);
             zip.file("linkTop.stl", linkTopStl);
             zip.file("linkBottom.stl", linkBottomStl);
             
@@ -84,7 +86,10 @@ class STLGenerator {
             console.log("Box points:", {
                 redBoxPoint,
                 blueBoxPoint,
-                center
+                center,
+                vertices,
+                points,
+                polygon
             });
         }
         
@@ -182,110 +187,138 @@ class STLGenerator {
     async generateLidSTL() {
         const { primitives, transforms, booleans, extrusions, geometries } = this.modeling;
         
-        // Get lid vertices and create 2D shape - use closed lid vertices
+        // Get lid vertices and create 2D shape
         const vertices = this.geometry.getClosedLidVertices();
-        const points = vertices.map(v => [v.x, v.y]);
+        
+        // IMPORTANT: Reverse the vertex order to fix inverted normals
+        // In JSCAD, counter-clockwise order gives outward-facing normals
+        const reversedVertices = [...vertices].reverse();
+        
+        if (this.debug) {
+            console.log("Lid vertices before:", vertices);
+            console.log("Lid vertices after reversing:", reversedVertices);
+        }
+        
+        // Use the reversed vertices for the points
+        const points = reversedVertices.map(v => [v.x, v.y]);
+        
+        // Create the 2D polygon
         const polygon = geometries.geom2.fromPoints(points);
         
-        // Extrude to thickness
+        // Extrude to thickness - use lidThickness and name the variable 'lid'
         let lid = extrusions.extrudeLinear({height: this.lidThickness}, polygon);
+        
+        // Add pins and connecting arms where needed
+        const center = this.geometry.getCenterOfRotation();
         
         // Get red and blue lid points
         const redLidPoint = this.geometry.redClosedPoint;
         const blueLidPoint = this.geometry.blueClosedPoint;
         
-        // Get red and blue box points to determine which is on top
-        const redBoxPoint = this.geometry.redBoxPoint;
-        const blueBoxPoint = this.geometry.blueBoxPoint;
-        
         if (this.debug) {
             console.log("Lid points:", {
                 redLidPoint,
                 blueLidPoint,
-                redBoxPoint,
-                blueBoxPoint
+                center,
+                vertices,
+                points,
+                polygon
             });
         }
         
-        // Determine which point is on top (higher Y value) - use the same logic as for the box
-        // If red box point is on top, then red lid point gets short pin
-        // If blue box point is on top, then blue lid point gets short pin
-        const isRedOnTop = redBoxPoint.y > blueBoxPoint.y;
+        // Determine which point is on top (higher Y value)
+        const isRedOnTop = redLidPoint.y > blueLidPoint.y;
+        const topLidPoint = isRedOnTop ? redLidPoint : blueLidPoint;
+        const bottomLidPoint = isRedOnTop ? blueLidPoint : redLidPoint;
         
-        if (this.debug) {
-            console.log("Pin assignment:", {
-                isRedOnTop,
-                redGetsShortPin: isRedOnTop,
-                blueGetsShortPin: !isRedOnTop
-            });
+        // Create top pin (short single cylinder)
+        const topPin = primitives.cylinder({
+            height: this.shortPinHeight,
+            radius: this.shortPinDiameter / 2,
+            segments: 32, // More segments for smoother cylinder
+            center: [topLidPoint.x, topLidPoint.y, this.lidThickness + this.shortPinHeight / 2]
+        });
+        
+        // Create bottom pin (tall two-part cylinder)
+        // Base cylinder for bottom pin
+        const bottomBasePin = primitives.cylinder({
+            height: this.tallPinBaseHeight,
+            radius: this.tallPinBaseDiameter / 2,
+            segments: 32, // More segments for smoother cylinder
+            center: [bottomLidPoint.x, bottomLidPoint.y, this.lidThickness + this.tallPinBaseHeight / 2]
+        });
+        
+        // Top cylinder for bottom pin
+        const bottomTopPin = primitives.cylinder({
+            height: this.tallPinTopHeight,
+            radius: this.tallPinTopDiameter / 2,
+            segments: 32, // More segments for smoother cylinder
+            center: [
+                bottomLidPoint.x, 
+                bottomLidPoint.y, 
+                this.lidThickness + this.tallPinBaseHeight + this.tallPinTopHeight / 2
+            ]
+        });
+        
+        // Combine the bottom pin parts
+        const bottomPin = booleans.union(bottomBasePin, bottomTopPin);
+        
+        // Check if red point is outside lid and add connecting arm if needed
+        if (!this.isPointInPolygon(redLidPoint, vertices)) {
+            const redArm = this.createConnectingArm(center, redLidPoint);
+            lid = booleans.union(lid, redArm);
         }
         
-        // Create red pin based on whether it's top or bottom
-        let redPin;
-        if (isRedOnTop) {
-            // Red is on top - make short pin
-            redPin = primitives.cylinder({
-                height: this.shortPinHeight,
-                radius: this.shortPinDiameter / 2,
-                center: [redLidPoint.x, redLidPoint.y, this.lidThickness + this.shortPinHeight / 2]
-            });
-            if (this.debug) console.log("Created short red pin");
-        } else {
-            // Red is on bottom - make tall pin (base + top)
-            const redBasePin = primitives.cylinder({
-                height: this.tallPinBaseHeight,
-                radius: this.tallPinBaseDiameter / 2,
-                center: [redLidPoint.x, redLidPoint.y, this.lidThickness + this.tallPinBaseHeight / 2]
-            });
-            const redTopPin = primitives.cylinder({
-                height: this.tallPinTopHeight,
-                radius: this.tallPinTopDiameter / 2,
-                center: [
-                    redLidPoint.x, 
-                    redLidPoint.y, 
-                    this.lidThickness + this.tallPinBaseHeight + this.tallPinTopHeight / 2
-                ]
-            });
-            redPin = booleans.union(redBasePin, redTopPin);
-            if (this.debug) console.log("Created tall red pin");
-        }
-        
-        // Create blue pin based on whether it's top or bottom
-        let bluePin;
-        if (isRedOnTop) {
-            // Red is on top, so blue is on bottom - make tall pin (base + top)
-            const blueBasePin = primitives.cylinder({
-                height: this.tallPinBaseHeight,
-                radius: this.tallPinBaseDiameter / 2,
-                center: [blueLidPoint.x, blueLidPoint.y, this.lidThickness + this.tallPinBaseHeight / 2]
-            });
-            const blueTopPin = primitives.cylinder({
-                height: this.tallPinTopHeight,
-                radius: this.tallPinTopDiameter / 2,
-                center: [
-                    blueLidPoint.x, 
-                    blueLidPoint.y, 
-                    this.lidThickness + this.tallPinBaseHeight + this.tallPinTopHeight / 2
-                ]
-            });
-            bluePin = booleans.union(blueBasePin, blueTopPin);
-            if (this.debug) console.log("Created tall blue pin");
-        } else {
-            // Red is on bottom, so blue is on top - make short pin
-            bluePin = primitives.cylinder({
-                height: this.shortPinHeight,
-                radius: this.shortPinDiameter / 2,
-                center: [blueLidPoint.x, blueLidPoint.y, this.lidThickness + this.shortPinHeight / 2]
-            });
-            if (this.debug) console.log("Created short blue pin");
+        // Check if blue point is outside lid and add connecting arm if needed
+        if (!this.isPointInPolygon(blueLidPoint, vertices)) {
+            const blueArm = this.createConnectingArm(center, blueLidPoint);
+            lid = booleans.union(lid, blueArm);
         }
         
         // Add pins to lid
-        lid = booleans.union(lid, redPin);
-        if (this.debug) console.log("Added red pin to lid");
+        try {
+            // First add the top pin
+            const lidWithTopPin = booleans.union(lid, topPin);
+            
+            // Then add the bottom pin
+            const lidWithBothPins = booleans.union(lidWithTopPin, bottomPin);
+            
+            // Use the final result
+            lid = lidWithBothPins;
+            
+            if (this.debug) console.log("Added pins to lid successfully");
+        } catch (error) {
+            console.error("Error adding pins to lid:", error);
+            // Continue with just the lid if there's an error
+        }
         
-        lid = booleans.union(lid, bluePin);
-        if (this.debug) console.log("Added blue pin to lid");
+        // Convert to STL binary data
+        const stlData = this.serializeToStl(lid);
+        return new Blob([stlData], {type: 'model/stl'});
+    }
+
+    async generateOpenLidSTL() {
+        const { primitives, transforms, booleans, extrusions, geometries } = this.modeling;
+        
+        // Get lid vertices and create 2D shape
+        const vertices = this.geometry.getOpenLidVertices();
+        
+        // IMPORTANT: Reverse the vertex order to fix inverted normals
+        // In JSCAD, counter-clockwise order gives outward-facing normals
+        const reversedVertices = [...vertices].reverse();
+        
+        if (this.debug) {
+            console.log("Open lid vertices before:", vertices);
+            console.log("Open lid vertices after reversing:", reversedVertices);
+        }
+        
+        // Use the reversed vertices for the points
+        const points = reversedVertices.map(v => [v.x, v.y]);
+        
+        const polygon = geometries.geom2.fromPoints(points);
+        
+        // Extrude to thickness
+        let lid = extrusions.extrudeLinear({height: this.lidThickness}, polygon);
         
         // Convert to STL binary data
         const stlData = this.serializeToStl(lid);
