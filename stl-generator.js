@@ -32,36 +32,26 @@ class STLGenerator {
         // Connecting arm dimensions
         this.armWidth = 4;         // Width of connecting arms
         this.armExtension = 5;     // Extra length to ensure arms reach into box
-        
-        // Debug flag
-        this.debug = true;
     }
 
     async generateZip() {
         const zip = new JSZip();
         
-        try {
-            // Generate all STLs
-            const boxStl = await this.generateBoxSTL();
-            const lidStl = await this.generateLidSTL();
-            const openLidStl = await this.generateOpenLidSTL();
-            const linkTopStl = await this.generateLinkSTL("UPPER", true);
-            const linkBottomStl = await this.generateLinkSTL("LOWER", false);
-            
-            // Add to zip
-            zip.file("box.stl", boxStl);
-            zip.file("lid.stl", lidStl);
-            zip.file("openLid.stl", openLidStl);
-            zip.file("linkTop.stl", linkTopStl);
-            zip.file("linkBottom.stl", linkBottomStl);
-            
-            // Generate and save zip
-            const content = await zip.generateAsync({type: "blob"});
-            saveAs(content, "hinge-box.zip");
-        } catch (error) {
-            console.error("Error generating STL files:", error);
-            throw error;
-        }
+        // Generate all STLs
+        const boxStl = await this.generateBoxSTL();
+        const lidStl = await this.generateLidSTL();
+        const linkTopStl = await this.generateLinkSTL("UPPER", true);
+        const linkBottomStl = await this.generateLinkSTL("LOWER", false);
+        
+        // Add to zip
+        zip.file("box.stl", boxStl);
+        zip.file("lid.stl", lidStl);
+        zip.file("linkTop.stl", linkTopStl);
+        zip.file("linkBottom.stl", linkBottomStl);
+        
+        // Generate and save zip
+        const content = await zip.generateAsync({type: "blob"});
+        saveAs(content, "hinge-box.zip");
     }
 
     async generateBoxSTL() {
@@ -81,17 +71,6 @@ class STLGenerator {
         // Get red and blue box points
         const redBoxPoint = this.geometry.redBoxPoint;
         const blueBoxPoint = this.geometry.blueBoxPoint;
-        
-        if (this.debug) {
-            console.log("Box points:", {
-                redBoxPoint,
-                blueBoxPoint,
-                center,
-                vertices,
-                points,
-                polygon
-            });
-        }
         
         // Determine which point is on top (higher Y value)
         const isRedOnTop = redBoxPoint.y > blueBoxPoint.y;
@@ -190,22 +169,12 @@ class STLGenerator {
         // Get lid vertices and create 2D shape
         const vertices = this.geometry.getClosedLidVertices();
         
-        // IMPORTANT: Reverse the vertex order to fix inverted normals
-        // In JSCAD, counter-clockwise order gives outward-facing normals
+        // Reverse the vertex order to fix inverted normals
         const reversedVertices = [...vertices].reverse();
-        
-        if (this.debug) {
-            console.log("Lid vertices before:", vertices);
-            console.log("Lid vertices after reversing:", reversedVertices);
-        }
-        
-        // Use the reversed vertices for the points
         const points = reversedVertices.map(v => [v.x, v.y]);
         
-        // Create the 2D polygon
+        // Create the 2D polygon and extrude
         const polygon = geometries.geom2.fromPoints(points);
-        
-        // Extrude to thickness - use lidThickness and name the variable 'lid'
         let lid = extrusions.extrudeLinear({height: this.lidThickness}, polygon);
         
         // Add pins and connecting arms where needed
@@ -214,17 +183,6 @@ class STLGenerator {
         // Get red and blue lid points
         const redLidPoint = this.geometry.redClosedPoint;
         const blueLidPoint = this.geometry.blueClosedPoint;
-        
-        if (this.debug) {
-            console.log("Lid points:", {
-                redLidPoint,
-                blueLidPoint,
-                center,
-                vertices,
-                points,
-                polygon
-            });
-        }
         
         // Determine which point is on top (higher Y value)
         const isRedOnTop = redLidPoint.y > blueLidPoint.y;
@@ -235,7 +193,7 @@ class STLGenerator {
         const topPin = primitives.cylinder({
             height: this.shortPinHeight,
             radius: this.shortPinDiameter / 2,
-            segments: 32, // More segments for smoother cylinder
+            segments: 32,
             center: [topLidPoint.x, topLidPoint.y, this.lidThickness + this.shortPinHeight / 2]
         });
         
@@ -244,7 +202,7 @@ class STLGenerator {
         const bottomBasePin = primitives.cylinder({
             height: this.tallPinBaseHeight,
             radius: this.tallPinBaseDiameter / 2,
-            segments: 32, // More segments for smoother cylinder
+            segments: 32,
             center: [bottomLidPoint.x, bottomLidPoint.y, this.lidThickness + this.tallPinBaseHeight / 2]
         });
         
@@ -252,7 +210,7 @@ class STLGenerator {
         const bottomTopPin = primitives.cylinder({
             height: this.tallPinTopHeight,
             radius: this.tallPinTopDiameter / 2,
-            segments: 32, // More segments for smoother cylinder
+            segments: 32,
             center: [
                 bottomLidPoint.x, 
                 bottomLidPoint.y, 
@@ -276,49 +234,8 @@ class STLGenerator {
         }
         
         // Add pins to lid
-        try {
-            // First add the top pin
-            const lidWithTopPin = booleans.union(lid, topPin);
-            
-            // Then add the bottom pin
-            const lidWithBothPins = booleans.union(lidWithTopPin, bottomPin);
-            
-            // Use the final result
-            lid = lidWithBothPins;
-            
-            if (this.debug) console.log("Added pins to lid successfully");
-        } catch (error) {
-            console.error("Error adding pins to lid:", error);
-            // Continue with just the lid if there's an error
-        }
-        
-        // Convert to STL binary data
-        const stlData = this.serializeToStl(lid);
-        return new Blob([stlData], {type: 'model/stl'});
-    }
-
-    async generateOpenLidSTL() {
-        const { primitives, transforms, booleans, extrusions, geometries } = this.modeling;
-        
-        // Get lid vertices and create 2D shape
-        const vertices = this.geometry.getOpenLidVertices();
-        
-        // IMPORTANT: Reverse the vertex order to fix inverted normals
-        // In JSCAD, counter-clockwise order gives outward-facing normals
-        const reversedVertices = [...vertices].reverse();
-        
-        if (this.debug) {
-            console.log("Open lid vertices before:", vertices);
-            console.log("Open lid vertices after reversing:", reversedVertices);
-        }
-        
-        // Use the reversed vertices for the points
-        const points = reversedVertices.map(v => [v.x, v.y]);
-        
-        const polygon = geometries.geom2.fromPoints(points);
-        
-        // Extrude to thickness
-        let lid = extrusions.extrudeLinear({height: this.lidThickness}, polygon);
+        lid = booleans.union(lid, topPin);
+        lid = booleans.union(lid, bottomPin);
         
         // Convert to STL binary data
         const stlData = this.serializeToStl(lid);
@@ -388,30 +305,21 @@ class STLGenerator {
         // Extrude to thickness
         let link = extrusions.extrudeLinear({height: this.linkThickness}, linkWithHoles);
         
-        // Try to add text if available in JSCAD
-        if (this.modeling.text) {
-            try {
-                // Create a simple 2D rectangle for the text (as a fallback)
-                const textWidth = length * 0.6;
-                const textHeight = this.linkWidth * 0.6;
-                const textRect = primitives.rectangle({
-                    size: [textWidth, textHeight],
-                    center: [length / 2, 0]
-                });
-                
-                // Extrude the rectangle to create a raised area
-                const textBlock = extrusions.extrudeLinear({height: this.textDepth}, textRect);
-                
-                // Subtract the text block from the link
-                link = booleans.subtract(link, textBlock);
-                
-                if (this.debug) {
-                    console.log(`Added ${labelText} text placeholder to link`);
-                }
-            } catch (error) {
-                console.warn(`Could not add text to ${labelText} link:`, error);
-                // Continue without text if there's an error
-            }
+        // Add text if available
+        if (labelText) {
+            // Create a simple rectangle for the text
+            const textWidth = length * 0.6;
+            const textHeight = this.linkWidth * 0.6;
+            const textRect = primitives.rectangle({
+                size: [textWidth, textHeight],
+                center: [length / 2, 0]
+            });
+            
+            // Extrude the rectangle to create a raised area
+            const textBlock = extrusions.extrudeLinear({height: this.textDepth}, textRect);
+            
+            // Subtract the text block from the link
+            link = booleans.subtract(link, textBlock);
         }
         
         // Rotate and position link
