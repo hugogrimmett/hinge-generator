@@ -1,0 +1,237 @@
+:root {
+    --bg: #f8fafc;
+    --text: #1e293b;
+    --border: #e2e8f0;
+    --shadow: rgba(0, 0, 0, 0.1);
+}
+
+body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    line-height: 1.5;
+    margin: 0;
+    padding: 2rem;
+    display: flex;
+    flex-direction: column;
+    overscroll-behavior: none;
+}
+
+.container {
+    max-width: 1200px;
+    margin: 0 auto;
+    display: flex;
+    flex-direction: column;
+    gap: 2rem;
+    flex: 1;
+}
+
+.header, .content {
+    background: white;
+    border-radius: 12px;
+    box-shadow: 0 4px 6px var(--shadow);
+    padding: 2rem;
+}
+
+.header {
+    text-align: left;
+}
+
+.header h1 {
+    font-size: clamp(1.5rem, 4vw, 2rem);
+    margin-bottom: 1rem;
+}
+
+.header p {
+    color: #444;
+    font-size: clamp(0.9rem, 2vw, 1rem);
+    margin-bottom: 1rem;
+    max-width: 800px;  
+}
+
+.header p:last-child {
+    margin-bottom: 0;
+}
+
+.content {
+    display: flex;
+    gap: 2rem;
+}
+
+.controls {
+    width: 300px;
+    padding: 1rem;
+    flex-shrink: 0;
+}
+
+.visualization {
+    flex: 1;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+}
+
+canvas {
+    width: auto;
+    height: auto;
+    max-width: 100%;
+    touch-action: none;
+    -webkit-tap-highlight-color: transparent;
+    background: var(--bg);
+    border-radius: 8px;
+}
+
+.control-group {
+    margin-bottom: 1rem;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.control-group label {
+    font-size: 0.9rem;
+    font-weight: 400;
+    margin: 0 0.5rem 0 0;
+    flex-shrink: 0;
+    min-width: 65px;
+}
+
+.control-group input[type="range"],
+.control-group input[type="number"] {
+    margin: 0;
+}
+
+.control-group input[type="number"] {
+    width: 45px;
+    flex-shrink: 0;
+}
+
+.units-selector span,
+.units-selector label {
+    font-size: 0.9rem;
+    font-weight: 400;
+    margin-right: 0.5rem;
+}
+
+.units-selector input[type="radio"] {
+    margin: 0;
+    vertical-align: middle;
+}
+
+label {
+    display: block;
+    margin-bottom: 0.5rem;
+}
+
+.output-controls {
+    margin-top: 1.5rem;
+    padding-top: 1.5rem;
+    border-top: 1px solid var(--border);
+}
+
+h2 {
+    font-size: 1.25rem;
+    font-weight: 600;
+    margin-bottom: 1.5rem;
+}
+
+.full-width-button {
+    width: 100%;
+    margin-bottom: 1rem;
+    padding: 0.5rem;
+}
+
+.full-width-button.secondary {
+    background-color: #f0f0f0;
+    border: 1px solid #ccc;
+    color: #666;
+}
+
+.full-width-button.secondary:hover {
+    background-color: #e0e0e0;
+}
+
+input[type="range"] {
+    width: calc(100% - 70px);
+    margin-right: 0.5rem;
+}
+
+input[type="number"] {
+    padding: 0.25rem;
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    font-size: 0.875rem;
+}
+
+.units-selector {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    margin-bottom: 1rem;
+}
+
+.units-selector label {
+    display: inline-flex;
+    align-items: center;
+    margin: 0;
+    gap: 0.25rem;
+}
+
+.units-selector input[type="radio"] {
+    margin: 0;
+}
+
+button {
+    width: 100%;
+    padding: 0.75rem 1rem;
+    background: #2563eb;
+    color: white;
+    border: none;
+    border-radius: 6px;
+    font-size: 0.875rem;
+    font-weight: 500;
+    cursor: pointer;
+    transition: background-color 0.15s ease;
+}
+
+button:hover {
+    background: #1d4ed8;
+}
+
+.footer {
+    text-align: center;
+    margin-top: auto;
+    padding: 1rem !important;
+}
+
+a {
+    color: #2563eb;
+    text-decoration: none;
+}
+
+a:hover {
+    text-decoration: underline;
+}
+
+@media (max-width: 768px) {
+    body {
+        padding: 1rem;
+    }
+
+    .content {
+        flex-direction: column;
+    }
+
+    .controls {
+        width: 100%;
+        order: 2;
+    }
+
+    .visualization {
+        order: 1;
+    }
+
+    .header, .content {
+        padding: 1rem;
+    }
+}
