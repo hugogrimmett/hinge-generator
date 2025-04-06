@@ -15,24 +15,27 @@ class STLGenerator {
         // Part thicknesses
         this.boxThickness = 4;     // Box thickness
         this.lidThickness = this.boxThickness;     // Lid thickness
-        this.linkThickness = 2.5;  // Link thickness
-        
-        // Pin dimensions
-        this.shortPinDiameter = 4;   // Short pin diameter
-        this.shortPinHeight = 3;     // Short pin height
-        
-        this.tallPinBaseDiameter = 5;  // Tall pin base diameter
-        this.tallPinBaseHeight = 3.5;  // Tall pin base height
-        this.tallPinTopDiameter = 4;   // Tall pin top diameter
-        this.tallPinTopHeight = 3;     // Tall pin top height
-        
+        this.linkThickness = 2;  // Link thickness
+
         // Link dimensions
-        this.linkWidth = 4;        // Width of link arms
+        this.linkWidth = 3.5;        // Width of link arms
         this.axleTolerance = 0.2;  // Tolerance for rotational joint (diameter)
         this.holeDiameter = 4 + this.axleTolerance;   // Diameter of holes in links
         this.rimDiameter = 9;      // Diameter of rims around holes
         this.textDepth = 1;        // Depth of text engraving
         this.textHeight = this.linkWidth * 0.8; // Height of text (80% of link width)
+        
+        // Pin dimensions
+        this.shortPinDiameter = 4;   // Short pin diameter
+        this.shortPinHeight = 0.2 + this.linkThickness;     // Short pin height
+
+        this.pinRidgeDiameter = this.holeDiameter;
+        this.pinRidgeHeight = 0.5;
+        
+        this.tallPinBaseDiameter = 1 +  this.shortPinDiameter;  // Tall pin base diameter
+        this.tallPinBaseHeight = 0.5 + this.pinRidgeHeight + this.shortPinHeight;  // Tall pin base height
+        this.tallPinTopDiameter = this.shortPinDiameter;   // Tall pin top diameter
+        this.tallPinTopHeight = this.shortPinHeight;     // Tall pin top height
         
         // Connecting arm dimensions
         this.armWidth = 4;         // Width of connecting arms
@@ -144,11 +147,20 @@ class STLGenerator {
         const bottomBoxPoint = isRedOnTop ? blueBoxPoint : redBoxPoint;
         
         // Create top pin (short single cylinder)
-        const topPin = primitives.cylinder({
+        const topPinAxle = primitives.cylinder({
             height: this.shortPinHeight,
             radius: this.shortPinDiameter / 2,
             center: [topBoxPoint.x, topBoxPoint.y, this.boxThickness + this.shortPinHeight / 2]
         });
+
+        // Create pin ridge (short pin)
+        const topPinRidge = primitives.cylinder({
+            height: this.pinRidgeHeight,
+            radius: this.pinRidgeDiameter / 2,
+            center: [topBoxPoint.x, topBoxPoint.y, this.boxThickness + this.shortPinHeight + this.pinRidgeHeight / 2]
+        });
+
+        const topPin = booleans.union(topPinAxle, topPinRidge);
         
         // Create bottom pin (tall two-part cylinder)
         // Base cylinder for bottom pin
@@ -168,9 +180,20 @@ class STLGenerator {
                 this.boxThickness + this.tallPinBaseHeight + this.tallPinTopHeight / 2
             ]
         });
+
+        // Create pin ridge (tall pin)
+        const bottomPinRidge = primitives.cylinder({
+            height: this.pinRidgeHeight,
+            radius: this.pinRidgeDiameter / 2,
+            center: [
+                bottomBoxPoint.x, 
+                bottomBoxPoint.y, 
+                this.boxThickness + this.tallPinBaseHeight + this.tallPinTopHeight + this.pinRidgeHeight / 2
+            ]
+        });
         
         // Combine the bottom pin parts
-        const bottomPin = booleans.union(bottomBasePin, bottomTopPin);
+        const bottomPin = booleans.union(bottomBasePin, bottomTopPin, bottomPinRidge);
         
         // Check if red point is outside box and add connecting arm if needed
         if (!this.isPointInPolygon(redBoxPoint, vertices)) {
@@ -256,12 +279,22 @@ class STLGenerator {
         const bottomLidPoint = isRedOnTop ? blueLidPoint : redLidPoint;
         
         // Create top pin (short single cylinder)
-        const topPin = primitives.cylinder({
+        const topPinAxle = primitives.cylinder({
             height: this.shortPinHeight,
             radius: this.shortPinDiameter / 2,
             segments: 32,
             center: [topLidPoint.x, topLidPoint.y, this.lidThickness + this.shortPinHeight / 2]
         });
+
+        // Create top pin ridge
+        const topPinRidge = primitives.cylinder({
+            height: this.pinRidgeHeight,
+            radius: this.pinRidgeDiameter / 2,
+            segments: 32,
+            center: [topLidPoint.x, topLidPoint.y, this.lidThickness + this.shortPinHeight + this.pinRidgeHeight / 2]
+        });
+
+        const topPin = booleans.union(topPinAxle, topPinRidge);
         
         // Create bottom pin (tall two-part cylinder)
         // Base cylinder for bottom pin
@@ -283,21 +316,33 @@ class STLGenerator {
                 this.lidThickness + this.tallPinBaseHeight + this.tallPinTopHeight / 2
             ]
         });
+
+        // Create bottom pin ridge
+        const bottomPinRidge = primitives.cylinder({
+            height: this.pinRidgeHeight,
+            radius: this.pinRidgeDiameter / 2,
+            segments: 32,
+            center: [
+                bottomLidPoint.x, 
+                bottomLidPoint.y, 
+                this.lidThickness + this.tallPinBaseHeight + this.tallPinTopHeight + this.pinRidgeHeight / 2
+            ]
+        });
         
         // Combine the bottom pin parts
-        const bottomPin = booleans.union(bottomBasePin, bottomTopPin);
+        const bottomPin = booleans.union(bottomBasePin, bottomTopPin, bottomPinRidge);
         
-        // Check if red point is outside lid and add connecting arm if needed
-        if (!this.isPointInPolygon(redLidPoint, vertices)) {
-            const redArm = this.createConnectingArm(center, redLidPoint);
-            lid = booleans.union(lid, redArm);
-        }
+        // // Check if red point is outside lid and add connecting arm if needed
+        // if (!this.isPointInPolygon(redLidPoint, vertices)) {
+        //     const redArm = this.createConnectingArm(center, redLidPoint);
+        //     lid = booleans.union(lid, redArm);
+        // }
         
-        // Check if blue point is outside lid and add connecting arm if needed
-        if (!this.isPointInPolygon(blueLidPoint, vertices)) {
-            const blueArm = this.createConnectingArm(center, blueLidPoint);
-            lid = booleans.union(lid, blueArm);
-        }
+        // // Check if blue point is outside lid and add connecting arm if needed
+        // if (!this.isPointInPolygon(blueLidPoint, vertices)) {
+        //     const blueArm = this.createConnectingArm(center, blueLidPoint);
+        //     lid = booleans.union(lid, blueArm);
+        // }
         
         // Add pins to lid
         lid = booleans.union(lid, topPin);
