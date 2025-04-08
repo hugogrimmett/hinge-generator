@@ -731,14 +731,18 @@ class STLGenerator {
         const thickness = this.boxThickness;
         const criticalAngle = Math.atan2(height, depth);        
         
-        if (this.closedAngle <= criticalAngle) {
+        let vertices; 
+
+        if (closedAngle <= criticalAngle) {
+            //    depth
             // A -- B -------------------- F
             // |   /                       |
-            // | /                         |
+            // | /                         |  height
             // C                           |
             // |                           |
             // D ------------------------- E
-            return [
+            //             width
+            vertices = [
                 {x: 0, y: height - depth * Math.tan(closedAngle)},      // C
                 {x: 0, y: 0},                                           // D
                 {x: width, y: 0},                                       // E
@@ -749,7 +753,7 @@ class STLGenerator {
                 {x: width-thickness, y: thickness},                     // E'
                 {x: thickness, y: thickness},                           // D' 
                 {x: thickness, y: height - depth * Math.tan(closedAngle) + thickness * Math.tan(closedAngle)}, // C'
-                {x: 0, y: height - depth * Math.tan(closedAngle)},      // C
+                {x: 0, y: height - depth * Math.tan(closedAngle)}      // C
             ];
         } else {
             // A ------- B --------------- F
@@ -758,18 +762,21 @@ class STLGenerator {
             // |      /                    |
             // |     /                     |
             // D -- C -------------------- E
-            return [
-                {x: depth - height / Math.tan(closedAngle), y: 0}, // A
-                {x: width, y: 0},                           // B
-                {x: width, y: height},                      // C
-                {x: depth, y: height},                      // D
+            vertices = [
+                {x: depth - height / Math.tan(closedAngle), y: 0},      // A
+                {x: width, y: 0},                                       // B
+                {x: width, y: height},                                  // C
+                {x: depth, y: height},                                  // D
                 {x: depth - thickness / Math.tan(closedAngle), y: height - thickness}, // D'
-                {x: width - thickness, y: height - thickness}, // C'
-                {x: width - thickness, y: thickness}, // B'
+                {x: width - thickness, y: height - thickness},          // C'
+                {x: width - thickness, y: thickness},                   // B'
                 {x: depth - height / Math.tan(closedAngle) +thickness / Math.tan(closedAngle), y: thickness}, // A'
-                {x: depth - height / Math.tan(closedAngle), y: 0}// A
+                {x: depth - height / Math.tan(closedAngle), y: 0}       // A
             ];
         }
+
+        // console.log("3D Box Vertices:", vertices);
+        return vertices;
     }
     
     // Function to get 3D lid vertices
@@ -780,6 +787,7 @@ class STLGenerator {
         const thickness = this.lidThickness;
         const criticalAngle = Math.atan2(height, depth);
         
+        let vertices;
         if (closedAngle <= criticalAngle) {
             // A -- B -------------------- F
             // |   /                       |
@@ -787,7 +795,7 @@ class STLGenerator {
             // C                           |
             // |                           |
             // D ------------------------- E
-            return [
+            vertices = [
                 {x: depth, y: height},                                  // B
                 {x: 0, y: height},                                      // A
                 {x: 0, y: height - depth * Math.tan(closedAngle)},      // C
@@ -803,7 +811,7 @@ class STLGenerator {
             // |      /                    |
             // |     /                     |
             // D -- C -------------------- E
-            return [
+            vertices = [
                 {x: depth, y: height},                              // B
                 {x: 0, y: height},                                  // A
                 {x: 0, y: 0},                                       // D
@@ -815,5 +823,7 @@ class STLGenerator {
                 {x: depth, y: height}                               // B, closing the polygon
             ];
         }
+        // console.log("3D Lid Vertices:", vertices);
+        return vertices;
     }
 }
