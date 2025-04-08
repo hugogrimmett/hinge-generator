@@ -13,9 +13,11 @@ class STLGenerator {
         
         // All dimensions in mm - these are fixed regardless of units
         // Part thicknesses
-        this.boxThickness = 4;     // Box thickness
+        this.boxThickness = 3;     // Box thickness
         this.lidThickness = this.boxThickness;     // Lid thickness
         this.linkThickness = 2;  // Link thickness
+
+        this.boxWidth = this.geometry.width;  // the width of the 3D box
 
         // Link dimensions
         this.linkWidth = 3.5;        // Width of link arms
@@ -66,6 +68,10 @@ class STLGenerator {
             depth: originalGeometry.depth * this.scaleFactor,
             gap: originalGeometry.gap * this.scaleFactor,
             
+            // Copy angle properties (these don't need scaling as they're in radians)
+            closedAngle: originalGeometry.closedAngle,
+            openAngle: originalGeometry.openAngle,
+            
             // Scale the pivot points
             redBoxPoint: this.scalePoint(originalGeometry.redBoxPoint),
             blueBoxPoint: this.scalePoint(originalGeometry.blueBoxPoint),
@@ -103,16 +109,22 @@ class STLGenerator {
         const zip = new JSZip();
         
         // Generate all STLs
-        const boxStl = await this.generateBoxSTL();
-        const lidStl = await this.generateLidSTL();
+        const { stl: box2DStl } = await this.generate2DBoxSTL();
+        const { stl: lid2DStl } = await this.generate2DLidSTL();
         const linkTopStl = await this.generateLinkSTL("UPPER", true);
         const linkBottomStl = await this.generateLinkSTL("LOWER", false);
         
+        // Generate 3D box and lid STLs
+        const box3DStl = await this.generate3DBoxSTL();
+        const lid3DStl = await this.generate3DLidSTL();
+        
         // Add to zip
-        zip.file("box.stl", boxStl);
-        zip.file("lid.stl", lidStl);
+        zip.file("box2D.stl", box2DStl);
+        zip.file("lid2D.stl", lid2DStl);
         zip.file("linkTop.stl", linkTopStl);
         zip.file("linkBottom.stl", linkBottomStl);
+        zip.file("box3D.stl", box3DStl);
+        zip.file("lid3D.stl", lid3DStl);
         
         // Generate info text file
         const infoText = this.generateInfoText();
@@ -123,7 +135,7 @@ class STLGenerator {
         saveAs(content, "hinge-box.zip");
     }
 
-    async generateBoxSTL() {
+    async generate2DBoxSTL() {
         const { primitives, transforms, booleans, extrusions, geometries } = this.modeling;
         
         // Get box vertices and create 2D shape
@@ -212,7 +224,10 @@ class STLGenerator {
         
         // Convert to STL binary data
         const stlData = this.serializeToStl(box);
-        return new Blob([stlData], {type: 'model/stl'});
+        return { 
+            stl: new Blob([stlData], {type: 'model/stl'}),
+            geometry: box
+        };
     }
 
     createConnectingArm(from, to) {
@@ -252,7 +267,7 @@ class STLGenerator {
         return inside;
     }
 
-    async generateLidSTL() {
+    async generate2DLidSTL() {
         const { primitives, transforms, booleans, extrusions, geometries } = this.modeling;
         
         // Get lid vertices and create 2D shape
@@ -350,7 +365,10 @@ class STLGenerator {
         
         // Convert to STL binary data
         const stlData = this.serializeToStl(lid);
-        return new Blob([stlData], {type: 'model/stl'});
+        return { 
+            stl: new Blob([stlData], {type: 'model/stl'}),
+            geometry: lid
+        };
     }
 
     async generateLinkSTL(labelText, isTop) {
@@ -662,5 +680,123 @@ class STLGenerator {
         finalBufferView.set(new Uint8Array(allTrianglesBuffer), offset);
         
         return finalBuffer;
+    }
+
+    async generate3DBoxSTL() {
+        return this.generate3DSTL('box');
+    }
+    
+    async generate3DLidSTL() {
+        return this.generate3DSTL('lid');
+    }
+    
+    async generate3DSTL(type) {
+        const { primitives, transforms, booleans, extrusions, geometries } = this.modeling;
+        
+        // Get 3D vertices based on type
+        const vertices = type === 'box' ? this.get3DBoxVertices() : this.get3DLidVertices();
+        const points = vertices.map(v => [v.x, v.y]);
+        const polygon = geometries.geom2.fromPoints(points);
+
+        const thickness = type === 'box' ? this.boxThickness : this.lidThickness;
+        
+        // Step 2: Extrude the polygon to a depth of -this.boxWidth/2
+        let geom3D = extrusions.extrudeLinear({height: -this.boxWidth/2 + this.boxThickness}, polygon);
+        
+        // Step 3: Form the union with the result of generate2D STL
+        const { geometry: geom2D } = type === 'box' 
+            ? await this.generate2DBoxSTL()
+            : await this.generate2DLidSTL();
+        geom3D = booleans.union(geom3D, geom2D);
+        
+        // Step 4: Mirror in a plane parallel to XY plane but offset by -this.boxWidth/2
+        // translate lid3D by -this.geometry.width/2 + this.lidThickness in the z direction
+        geom3D = transforms.translate([0, 0, this.geometry.width/2 - thickness], geom3D)
+        let mirroredGeom = transforms.mirrorZ(geom3D);
+        
+        // Step 5: Form the union of these two shapes
+        geom3D = booleans.union(geom3D, mirroredGeom);
+        
+        // Convert to STL binary data
+        const stlData = this.serializeToStl(geom3D);
+        return new Blob([stlData], {type: 'model/stl'});
+    }
+    
+    // Function to get 3D box vertices (to be filled in by user)
+    get3DBoxVertices() {
+        const height = this.geometry.height;
+        const width = this.geometry.width;
+        const depth = this.geometry.depth;
+        const closedAngle = this.geometry.closedAngle;
+        const thickness = this.boxThickness;
+        
+        const criticalAngle = Math.atan2(height, depth);
+        
+        if (this.closedAngle <= criticalAngle) {
+            return [
+                {x: 0, y: 0},                                // A
+                {x: width, y: 0},                           // B
+                {x: width, y: height},                      // C
+                {x: depth, y: height},                      // D
+                {x: 0, y: height - depth * Math.tan(closedAngle)} // E
+            ];
+        } else {
+            return [
+                {x: depth - height / Math.tan(closedAngle), y: 0}, // A
+                {x: width, y: 0},                           // B
+                {x: width, y: height},                      // C
+                {x: depth, y: height},                      // D
+                {x: depth - thickness / Math.tan(closedAngle), y: height - thickness}, // D'
+                {x: width - thickness, y: height - thickness}, // C'
+                {x: width - thickness, y: thickness}, // B'
+                {x: depth - height / Math.tan(closedAngle) +thickness / Math.tan(closedAngle), y: thickness}, // A'
+                {x: depth - height / Math.tan(closedAngle), y: 0}// A
+            ];
+        }
+    }
+    
+    // Function to get 3D lid vertices (to be filled in by user)
+    get3DLidVertices() {
+        const height = this.geometry.height;
+        const depth = this.geometry.depth;
+        const closedAngle = this.geometry.closedAngle;
+        const thickness = this.lidThickness;
+        
+        const criticalAngle = Math.atan2(height, depth);
+        
+        console.log("3D Lid Vertices - Parameters:", {
+            height,
+            depth,
+            closedAngle,
+            thickness,
+            criticalAngle
+        });
+        
+        // Ensure we have at least 3 non-collinear points to form a valid polygon
+        let vertices;
+        
+        if (closedAngle <= criticalAngle) {
+            vertices = [
+                {x: 0, y: height},                     // A
+                {x: depth, y: height},                 // B
+                {x: 0, y: height - depth * Math.tan(closedAngle)}, // C
+                {x: depth/2, y: height - depth/2 * Math.tan(closedAngle)} // Additional point to ensure non-collinearity
+            ];
+        } else {
+            vertices = [
+                {x: depth, y: height},                 // B
+                {x: 0, y: height},                     // A
+                {x: 0, y: 0},                          // D
+                {x: depth - height / Math.tan(closedAngle), y: 0}, // C
+                {x: depth - height / Math.tan(closedAngle) + thickness / Math.tan(closedAngle), y: thickness},   // C'
+                {x: thickness, y: thickness},                  // D'
+                {x: thickness, y: height - thickness},         // A'
+                {x: depth - thickness / Math.tan(closedAngle), y: height - thickness}, // B'
+                {x: depth, y: height}                 // B, closing the polygon
+            ];
+        }
+        
+        console.log("3D Lid Vertices:", vertices);
+        return vertices;
     }
 }
