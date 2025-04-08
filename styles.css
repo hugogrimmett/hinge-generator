@@ -200,8 +200,74 @@ button:hover {
 
 .footer {
     text-align: center;
-    margin-top: auto;
-    padding: 1rem !important;
+    margin-top: 2rem;
+    font-size: 0.875rem;
+    color: #666;
+}
+
+.advanced-settings-container {
+    margin-top: 1rem;
+}
+
+.toggle-button {
+    background: #f0f0f0;
+    color: #444;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 0.5rem 1rem;
+    width: 100%;
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    font-size: 0.875rem;
+    font-weight: 500;
+    cursor: pointer;
+    transition: background-color 0.15s ease;
+}
+
+.toggle-button:hover {
+    background: #e0e0e0;
+}
+
+.toggle-icon {
+    transition: transform 0.3s ease;
+}
+
+.toggle-button.active .toggle-icon {
+    transform: rotate(180deg);
+}
+
+.advanced-settings-panel {
+    background: #f9f9f9;
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 1rem;
+    margin-top: 0.5rem;
+    display: none;
+    overflow: hidden;
+}
+
+.advanced-settings-panel.active {
+    display: block;
+}
+
+.advanced-settings-panel h3 {
+    font-size: 1rem;
+    margin-top: 0;
+    margin-bottom: 1rem;
+    color: #444;
+}
+
+.advanced-settings-panel .control-group {
+    margin-bottom: 0.75rem;
+}
+
+.advanced-settings-panel small {
+    display: block;
+    font-size: 0.75rem;
+    color: #666;
+    margin-top: 0.25rem;
+    margin-left: 0.5rem;
 }
 
 a {

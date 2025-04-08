@@ -87,6 +87,53 @@
                     
                     <button id="generateTemplateButton" class="full-width-button">Generate Template PDF</button>
                     <button id="generateStlButton" class="full-width-button">Generate 3D-printable STL</button>
+                    
+                    <div class="advanced-settings-container">
+                        <button id="advancedSettingsToggle" class="toggle-button">
+                            <span class="toggle-text">Show Advanced Settings</span>
+                            <span class="toggle-icon">▼</span>
+                        </button>
+                        
+                        <div id="advancedSettingsPanel" class="advanced-settings-panel">
+                            <h3>3D Print Settings</h3>
+                            
+                            <div class="control-group">
+                                <label for="boxThicknessInput">Box Thickness (mm):</label>
+                                <input type="number" id="boxThicknessInput" min="0.5" max="10" step="0.5" value="3">
+                            </div>
+                            
+                            <div class="control-group">
+                                <label for="lidThicknessInput">Lid Thickness (mm):</label>
+                                <input type="number" id="lidThicknessInput" min="0.5" max="10" step="0.5" value="3">
+                            </div>
+                            
+                            <div class="control-group">
+                                <label for="linkThicknessInput">Link Thickness (mm):</label>
+                                <input type="number" id="linkThicknessInput" min="0.5" max="5" step="0.5" value="2">
+                            </div>
+                            
+                            <div class="control-group">
+                                <label for="linkWidthInput">Link Width (mm):</label>
+                                <input type="number" id="linkWidthInput" min="2" max="10" step="0.5" value="3.5">
+                            </div>
+                            
+                            <div class="control-group">
+                                <label for="axleToleranceInput">Axle Tolerance (mm):</label>
+                                <input type="number" id="axleToleranceInput" min="0.1" max="1" step="0.1" value="0.2">
+                            </div>
+                            
+                            <div class="control-group">
+                                <label for="holeDiameterInput">Hole Diameter (mm):</label>
+                                <input type="number" id="holeDiameterInput" min="2" max="10" step="0.5" value="4" disabled>
+                                <small>Calculated: 4 + Axle Tolerance</small>
+                            </div>
+                            
+                            <div class="control-group">
+                                <label for="rimDiameterInput">Rim Diameter (mm):</label>
+                                <input type="number" id="rimDiameterInput" min="5" max="15" step="0.5" value="9">
+                            </div>
+                        </div>
+                    </div>
                 </div>
             </div>
             
@@ -397,85 +444,122 @@
             
             // Add STL generation handler
             document.getElementById('generateStlButton').addEventListener('click', async () => {
-                try {
-                    // Get the selected units
-                    const selectedUnits = document.querySelector('input[name="units"]:checked').value;
-                    
-                    // Create the STL generator with the selected units
-                    const generator = new STLGenerator(boxRenderer.geometry, selectedUnits);
-                    
-                    // Get scale factor based on selected units
-                    let scaleFactor;
-                    switch(selectedUnits) {
-                        case 'mm':
-                            scaleFactor = 1;
-                            break;
-                        case 'cm':
-                            scaleFactor = 10; // 1cm = 10mm
-                            break;
-                        case 'in':
-                            scaleFactor = 25.4; // 1in = 25.4mm
-                            break;
-                        default:
-                            scaleFactor = 10; // Default to cm
-                    }
-                    
-                    // Check if pivot points are too close together
-                    // Convert simulation units to mm for comparison
-                    const boxPivotDistance = calculateDistance(
-                        boxRenderer.geometry.redBoxPoint, 
-                        boxRenderer.geometry.blueBoxPoint
-                    ) * scaleFactor;
-                    
-                    const lidPivotDistance = calculateDistance(
-                        boxRenderer.geometry.redClosedPoint, 
-                        boxRenderer.geometry.blueClosedPoint
-                    ) * scaleFactor;
-                    
-                    // The minimum distance is in mm (fixed physical size)
-                    const minDistance = (generator.rimDiameter/2 + generator.tallPinBaseDiameter/2 + 1);
-                    
-                    if (boxPivotDistance < minDistance || lidPivotDistance < minDistance) {
-                        alert("Warning: pivot positions are too close together to allow this 3D printed mechanism to work.");
-                    }
-                    
-                    // Check if lid pivot points are too close to the edge of the lid
-                    const lidVertices = boxRenderer.geometry.getClosedLidVertices();
-                    
-                    // Determine which point is on top (higher Y value)
-                    const isRedOnTop = boxRenderer.geometry.redClosedPoint.y > boxRenderer.geometry.blueClosedPoint.y;
-                    const topLidPoint = isRedOnTop ? boxRenderer.geometry.redClosedPoint : boxRenderer.geometry.blueClosedPoint;
-                    const bottomLidPoint = isRedOnTop ? boxRenderer.geometry.blueClosedPoint : boxRenderer.geometry.redClosedPoint;
-                    
-                    // Calculate minimum distance from each pivot point to the edge of the lid
-                    let topMinDistance = Infinity;
-                    let bottomMinDistance = Infinity;
-                    
-                    // Check distance to each edge of the lid
-                    for (let i = 0; i < lidVertices.length; i++) {
-                        const p1 = lidVertices[i];
-                        const p2 = lidVertices[(i + 1) % lidVertices.length];
-                        
-                        // Calculate distance from point to line segment
-                        const topDist = distanceToLineSegment(topLidPoint, p1, p2) * scaleFactor;
-                        const bottomDist = distanceToLineSegment(bottomLidPoint, p1, p2) * scaleFactor;
-                        
-                        topMinDistance = Math.min(topMinDistance, topDist);
-                        bottomMinDistance = Math.min(bottomMinDistance, bottomDist);
-                    }
-                    
-                    // The minimum safe distances are the pin radii in mm
-                    const topMinSafeDistance = generator.shortPinDiameter / 2;
-                    const bottomMinSafeDistance = generator.tallPinBaseDiameter / 2;
-                    
-                    if (topMinDistance < topMinSafeDistance || bottomMinDistance < bottomMinSafeDistance) {
-                        alert("Warning: lid pivot points are close to the edge of the lid, and the pivot will overhang.");
-                    }                    
-                    await generator.generateZip();
-                } catch (error) {
+                // Get selected units
+                const units = document.querySelector('input[name="units"]:checked').value;
+                
+                // Get advanced settings values if available
+                const advancedSettings = getAdvancedSettings();
+                
+                // Create STL generator with current geometry and settings
+                const generator = new STLGenerator(boxRenderer.geometry, units, advancedSettings);
+                
+                // Generate and download STL files
+                generator.generateZip().then(blob => {
+                    saveAs(blob, 'hinge-box.zip');
+                }).catch(error => {
                     console.error('Error generating STL:', error);
-                    alert('Error generating 3D model: ' + error.message);
+                    alert('Error generating STL files. See console for details.');
+                });
+                
+                // Check if pivot points are too close together
+                // Convert simulation units to mm for comparison
+                let scaleFactor;
+                switch(units) {
+                    case 'mm':
+                        scaleFactor = 1;
+                        break;
+                    case 'in':
+                        scaleFactor = 25.4;
+                        break;
+                    default:
+                        scaleFactor = 10; // Default to cm
                 }
+                
+                // The minimum distance is in mm (fixed physical size)
+                const boxPivotDistance = calculateDistance(
+                    boxRenderer.geometry.redBoxPoint, 
+                    boxRenderer.geometry.blueBoxPoint
+                ) * scaleFactor;
+                
+                const lidPivotDistance = calculateDistance(
+                    boxRenderer.geometry.redClosedPoint, 
+                    boxRenderer.geometry.blueClosedPoint
+                ) * scaleFactor;
+                
+                const minDistance = (generator.rimDiameter/2 + generator.tallPinBaseDiameter/2 + 1);
+                
+                if (boxPivotDistance < minDistance || lidPivotDistance < minDistance) {
+                    alert("Warning: pivot positions are too close together to allow this 3D printed mechanism to work.");
+                }
+                
+                // Check if lid pivot points are too close to the edge of the lid
+                const lidVertices = boxRenderer.geometry.getClosedLidVertices();
+                
+                // Determine which point is on top (higher Y value)
+                const isRedOnTop = boxRenderer.geometry.redClosedPoint.y > boxRenderer.geometry.blueClosedPoint.y;
+                const topLidPoint = isRedOnTop ? boxRenderer.geometry.redClosedPoint : boxRenderer.geometry.blueClosedPoint;
+                const bottomLidPoint = isRedOnTop ? boxRenderer.geometry.blueClosedPoint : boxRenderer.geometry.redClosedPoint;
+                
+                // Calculate minimum distance from each pivot point to the edge of the lid
+                let topMinDistance = Infinity;
+                let bottomMinDistance = Infinity;
+                
+                // Check distance to each edge of the lid
+                for (let i = 0; i < lidVertices.length; i++) {
+                    const p1 = lidVertices[i];
+                    const p2 = lidVertices[(i + 1) % lidVertices.length];
+                    
+                    // Calculate distance from point to line segment
+                    const topDist = distanceToLineSegment(topLidPoint, p1, p2) * scaleFactor;
+                    const bottomDist = distanceToLineSegment(bottomLidPoint, p1, p2) * scaleFactor;
+                    
+                    topMinDistance = Math.min(topMinDistance, topDist);
+                    bottomMinDistance = Math.min(bottomMinDistance, bottomDist);
+                }
+                
+                // The minimum safe distances are the pin radii in mm
+                const topMinSafeDistance = generator.shortPinDiameter / 2;
+                const bottomMinSafeDistance = generator.tallPinBaseDiameter / 2;
+                
+                if (topMinDistance < topMinSafeDistance || bottomMinDistance < bottomMinSafeDistance) {
+                    alert("Warning: lid pivot points are close to the edge of the lid, and the pivot will overhang.");
+                }                    
+            });
+            
+            // Advanced settings toggle
+            document.getElementById('advancedSettingsToggle').addEventListener('click', function() {
+                const panel = document.getElementById('advancedSettingsPanel');
+                const button = this;
+                
+                panel.classList.toggle('active');
+                button.classList.toggle('active');
+                
+                // Update button text
+                const toggleText = button.querySelector('.toggle-text');
+                if (panel.classList.contains('active')) {
+                    toggleText.textContent = 'Hide Advanced Settings';
+                } else {
+                    toggleText.textContent = 'Show Advanced Settings';
+                }
+            });
+            
+            // Function to get advanced settings values
+            function getAdvancedSettings() {
+                return {
+                    boxThickness: parseFloat(document.getElementById('boxThicknessInput').value),
+                    lidThickness: parseFloat(document.getElementById('lidThicknessInput').value),
+                    linkThickness: parseFloat(document.getElementById('linkThicknessInput').value),
+                    linkWidth: parseFloat(document.getElementById('linkWidthInput').value),
+                    axleTolerance: parseFloat(document.getElementById('axleToleranceInput').value),
+                    rimDiameter: parseFloat(document.getElementById('rimDiameterInput').value)
+                };
+            }
+            
+            // Update hole diameter when axle tolerance changes
+            document.getElementById('axleToleranceInput').addEventListener('input', function() {
+                const axleTolerance = parseFloat(this.value);
+                const holeDiameter = 4 + axleTolerance;
+                document.getElementById('holeDiameterInput').value = holeDiameter.toFixed(1);
             });
             
             // Helper function to calculate distance between two points

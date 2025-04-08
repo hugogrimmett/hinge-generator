@@ -1,6 +1,6 @@
 // STL Generator for Hinge Box using JSCAD
 class STLGenerator {
-    constructor(boxGeometry, units = 'cm') {
+    constructor(boxGeometry, units = 'cm', advancedSettings = {}) {
         // Get JSCAD modules from the global jscadModeling object
         this.modeling = jscadModeling;
         
@@ -13,17 +13,17 @@ class STLGenerator {
         
         // All dimensions in mm - these are fixed regardless of units
         // Part thicknesses
-        this.boxThickness = 3;     // Box thickness
-        this.lidThickness = this.boxThickness;     // Lid thickness
-        this.linkThickness = 2;  // Link thickness
+        this.boxThickness = advancedSettings.boxThickness || 3;     // Box thickness
+        this.lidThickness = advancedSettings.lidThickness || this.boxThickness;     // Lid thickness
+        this.linkThickness = advancedSettings.linkThickness || 2;  // Link thickness
 
         this.boxWidth = this.geometry.width;  // the width of the 3D box
 
         // Link dimensions
-        this.linkWidth = 3.5;        // Width of link arms
-        this.axleTolerance = 0.2;  // Tolerance for rotational joint (diameter)
+        this.linkWidth = advancedSettings.linkWidth || 3.5;        // Width of link arms
+        this.axleTolerance = advancedSettings.axleTolerance || 0.2;  // Tolerance for rotational joint (diameter)
         this.holeDiameter = 4 + this.axleTolerance;   // Diameter of holes in links
-        this.rimDiameter = 9;      // Diameter of rims around holes
+        this.rimDiameter = advancedSettings.rimDiameter || 9;      // Diameter of rims around holes
         this.textDepth = 1;        // Depth of text engraving
         this.textHeight = this.linkWidth * 0.8; // Height of text (80% of link width)
         
