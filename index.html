@@ -90,7 +90,7 @@
                     
                     <button id="advancedSettingsToggle" class="toggle-button">
                         <span class="toggle-text">Advanced Settings</span>
-                        <span class="toggle-icon">▼</span>
+                        <span class="toggle-icon">&#9660;</span>
                     </button>
                     
                     <div id="advancedSettingsPanel" class="advanced-settings-panel">
@@ -101,7 +101,7 @@
                                 <input type="number" id="boxWidthInput" min="5" max="1000" step="0.5" value="50">
                             </div>
                             <div class="control-group">
-                                <label for="boxThicknessInput">Box & Lid Thickness (mm):</label>
+                                <label for="boxThicknessInput">Wall thickness (mm):</label>
                                 <input type="number" id="boxThicknessInput" min="0.5" max="20" step="0.5" value="3">
                             </div>
                         </div>
@@ -109,7 +109,7 @@
                         <div class="settings-section">
                             <h4>Pivot Axles</h4>
                             <div class="control-group">
-                                <label for="pivotAxleDiameterInput">Pivot Axle Diameter (mm):</label>
+                                <label for="pivotAxleDiameterInput">Pivot axle diameter (mm):</label>
                                 <input type="number" id="pivotAxleDiameterInput" min="2" max="30" step="0.5" value="4">
                             </div>
                             
@@ -118,30 +118,30 @@
                         <div class="settings-section">
                             <h4>Connecting Rods</h4>
                             <div class="control-group">
-                                <label for="linkThicknessInput">Link Thickness (mm):</label>
+                                <label for="linkThicknessInput">Rod thickness (mm):</label>
                                 <input type="number" id="linkThicknessInput" min="0.5" max="30" step="0.5" value="2">
                             </div>
                             
                             <div class="control-group">
-                                <label for="linkWidthInput">Link Width (mm):</label>
+                                <label for="linkWidthInput">Rod width (mm):</label>
                                 <input type="number" id="linkWidthInput" min="2" max="30" step="0.5" value="3.5">
                             </div>
 
                             <div class="control-group">
-                                <label for="axleToleranceInput">Axle Tolerance (mm):</label>
+                                <label for="axleToleranceInput">Axle tolerance (mm):</label>
                                 <input type="number" id="axleToleranceInput" min="0.1" max="4" step="0.1" value="0.2">
                             </div>
 
                             <div class="control-group">
-                                <label for="holeDiameterInput">Hole Diameter (mm):</label>
+                                <label for="holeDiameterInput">Hole diameter (mm):</label>
                                 <input type="number" id="holeDiameterInput" min="2" max="50" step="0.5" value="4.2" disabled>
-                                <small>Calculated: Pivot Axle Diameter + Tolerance</small>
+                                <small>Calculated: pivot axle diameter + tolerance</small>
                             </div>
                             
                             <div class="control-group">
-                                <label for="rimDiameterInput">Outer Ring Diameter (mm):</label>
+                                <label for="rimDiameterInput">Outer ring diameter (mm):</label>
                                 <input type="number" id="rimDiameterInput" min="5" max="50" step="0.5" value="9">
-                                <small>Must be at least Pivot Axle Diameter + Tolerance + 0.5</small>
+                                <small>Must be at least (pivot axle diameter + tolerance + 0.5)</small>
                             </div>
                         </div>
                     </div>
