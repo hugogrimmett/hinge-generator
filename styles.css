@@ -210,27 +210,29 @@ button:hover {
 }
 
 .toggle-button {
-    background: #f0f0f0;
-    color: #444;
+    background: #f8f8f8;
+    color: #666;
     display: flex;
     justify-content: space-between;
     align-items: center;
-    padding: 0.5rem 1rem;
+    padding: 0.4rem 0.8rem;
     width: 100%;
     border: 1px solid var(--border);
     border-radius: 6px;
-    font-size: 0.875rem;
-    font-weight: 500;
+    font-size: 0.8rem;
+    font-weight: 400;
     cursor: pointer;
     transition: background-color 0.15s ease;
+    margin-top: 0.5rem;
 }
 
 .toggle-button:hover {
-    background: #e0e0e0;
+    background: #f0f0f0;
 }
 
 .toggle-icon {
     transition: transform 0.3s ease;
+    font-size: 0.7rem;
 }
 
 .toggle-button.active .toggle-icon {
@@ -241,25 +243,39 @@ button:hover {
     background: #f9f9f9;
     border: 1px solid var(--border);
     border-radius: 6px;
-    padding: 1rem;
+    padding: 0.8rem;
     margin-top: 0.5rem;
     display: none;
     overflow: hidden;
+    position: absolute;
+    width: calc(100% - 2rem);
+    z-index: 10;
+    box-shadow: 0 4px 6px var(--shadow);
 }
 
 .advanced-settings-panel.active {
     display: block;
 }
 
-.advanced-settings-panel h3 {
-    font-size: 1rem;
+.advanced-settings-panel h4 {
+    font-size: 0.9rem;
     margin-top: 0;
-    margin-bottom: 1rem;
+    margin-bottom: 0.5rem;
     color: #444;
+    border-bottom: 1px solid var(--border);
+    padding-bottom: 0.3rem;
+}
+
+.settings-section {
+    margin-bottom: 1rem;
+}
+
+.settings-section:last-child {
+    margin-bottom: 0;
 }
 
 .advanced-settings-panel .control-group {
-    margin-bottom: 0.75rem;
+    margin-bottom: 0.5rem;
 }
 
 .advanced-settings-panel small {

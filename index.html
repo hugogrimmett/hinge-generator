@@ -46,13 +46,13 @@
                 </div>
                 
                 <div class="control-group">
-                    <label for="widthSlider">Width:</label>
+                    <label for="widthSlider">Depth:</label>
                     <input type="range" id="widthSlider" min="1" max="200" value="40">
                     <input type="number" id="widthInput" value="40">
                 </div>
                 
                 <div class="control-group">
-                    <label for="depthSlider">Depth:</label>
+                    <label for="depthSlider">Lid depth:</label>
                     <input type="range" id="depthSlider" min="1" max="200" value="10">
                     <input type="number" id="depthInput" value="10">
                 </div>
@@ -88,49 +88,60 @@
                     <button id="generateTemplateButton" class="full-width-button">Generate Template PDF</button>
                     <button id="generateStlButton" class="full-width-button">Generate 3D-printable STL</button>
                     
-                    <div class="advanced-settings-container">
-                        <button id="advancedSettingsToggle" class="toggle-button">
-                            <span class="toggle-text">Show Advanced Settings</span>
-                            <span class="toggle-icon">▼</span>
-                        </button>
+                    <button id="advancedSettingsToggle" class="toggle-button">
+                        <span class="toggle-text">Advanced Settings</span>
+                        <span class="toggle-icon">▼</span>
+                    </button>
+                    
+                    <div id="advancedSettingsPanel" class="advanced-settings-panel">
+                        <div class="settings-section">
+                            <h4>Box & Lid</h4>
+                            <div class="control-group">
+                                <label for="boxWidthInput">Width (mm):</label>
+                                <input type="number" id="boxWidthInput" min="5" max="1000" step="0.5" value="50">
+                            </div>
+                            <div class="control-group">
+                                <label for="boxThicknessInput">Box & Lid Thickness (mm):</label>
+                                <input type="number" id="boxThicknessInput" min="0.5" max="20" step="0.5" value="3">
+                            </div>
+                        </div>
                         
-                        <div id="advancedSettingsPanel" class="advanced-settings-panel">
-                            <h3>3D Print Settings</h3>
-                            
+                        <div class="settings-section">
+                            <h4>Pivot Axles</h4>
                             <div class="control-group">
-                                <label for="boxThicknessInput">Box Thickness (mm):</label>
-                                <input type="number" id="boxThicknessInput" min="0.5" max="10" step="0.5" value="3">
+                                <label for="pivotAxleDiameterInput">Pivot Axle Diameter (mm):</label>
+                                <input type="number" id="pivotAxleDiameterInput" min="2" max="30" step="0.5" value="4">
                             </div>
                             
-                            <div class="control-group">
-                                <label for="lidThicknessInput">Lid Thickness (mm):</label>
-                                <input type="number" id="lidThicknessInput" min="0.5" max="10" step="0.5" value="3">
-                            </div>
-                            
+                        </div>
+                        
+                        <div class="settings-section">
+                            <h4>Connecting Rods</h4>
                             <div class="control-group">
                                 <label for="linkThicknessInput">Link Thickness (mm):</label>
-                                <input type="number" id="linkThicknessInput" min="0.5" max="5" step="0.5" value="2">
+                                <input type="number" id="linkThicknessInput" min="0.5" max="30" step="0.5" value="2">
                             </div>
                             
                             <div class="control-group">
                                 <label for="linkWidthInput">Link Width (mm):</label>
-                                <input type="number" id="linkWidthInput" min="2" max="10" step="0.5" value="3.5">
+                                <input type="number" id="linkWidthInput" min="2" max="30" step="0.5" value="3.5">
                             </div>
-                            
+
                             <div class="control-group">
                                 <label for="axleToleranceInput">Axle Tolerance (mm):</label>
-                                <input type="number" id="axleToleranceInput" min="0.1" max="1" step="0.1" value="0.2">
+                                <input type="number" id="axleToleranceInput" min="0.1" max="4" step="0.1" value="0.2">
                             </div>
-                            
+
                             <div class="control-group">
                                 <label for="holeDiameterInput">Hole Diameter (mm):</label>
-                                <input type="number" id="holeDiameterInput" min="2" max="10" step="0.5" value="4" disabled>
-                                <small>Calculated: 4 + Axle Tolerance</small>
+                                <input type="number" id="holeDiameterInput" min="2" max="50" step="0.5" value="4.2" disabled>
+                                <small>Calculated: Pivot Axle Diameter + Tolerance</small>
                             </div>
                             
                             <div class="control-group">
-                                <label for="rimDiameterInput">Rim Diameter (mm):</label>
-                                <input type="number" id="rimDiameterInput" min="5" max="15" step="0.5" value="9">
+                                <label for="rimDiameterInput">Outer Ring Diameter (mm):</label>
+                                <input type="number" id="rimDiameterInput" min="5" max="50" step="0.5" value="9">
+                                <small>Must be at least Pivot Axle Diameter + Tolerance + 0.5</small>
                             </div>
                         </div>
                     </div>
@@ -539,28 +550,49 @@
                 if (panel.classList.contains('active')) {
                     toggleText.textContent = 'Hide Advanced Settings';
                 } else {
-                    toggleText.textContent = 'Show Advanced Settings';
+                    toggleText.textContent = 'Advanced Settings';
                 }
             });
             
             // Function to get advanced settings values
             function getAdvancedSettings() {
                 return {
+                    boxWidth: parseFloat(document.getElementById('boxWidthInput').value),
                     boxThickness: parseFloat(document.getElementById('boxThicknessInput').value),
-                    lidThickness: parseFloat(document.getElementById('lidThicknessInput').value),
-                    linkThickness: parseFloat(document.getElementById('linkThicknessInput').value),
-                    linkWidth: parseFloat(document.getElementById('linkWidthInput').value),
+                    pivotAxleDiameter: parseFloat(document.getElementById('pivotAxleDiameterInput').value),
                     axleTolerance: parseFloat(document.getElementById('axleToleranceInput').value),
-                    rimDiameter: parseFloat(document.getElementById('rimDiameterInput').value)
+                    rimDiameter: parseFloat(document.getElementById('rimDiameterInput').value),
+                    linkThickness: parseFloat(document.getElementById('linkThicknessInput').value),
+                    linkWidth: parseFloat(document.getElementById('linkWidthInput').value)
                 };
             }
             
-            // Update hole diameter when axle tolerance changes
-            document.getElementById('axleToleranceInput').addEventListener('input', function() {
-                const axleTolerance = parseFloat(this.value);
-                const holeDiameter = 4 + axleTolerance;
+            // Update hole diameter when axle tolerance or pivot axle diameter changes
+            function updateHoleDiameter() {
+                const axleTolerance = parseFloat(document.getElementById('axleToleranceInput').value);
+                const pivotAxleDiameter = parseFloat(document.getElementById('pivotAxleDiameterInput').value);
+                const holeDiameter = pivotAxleDiameter + axleTolerance;
                 document.getElementById('holeDiameterInput').value = holeDiameter.toFixed(1);
-            });
+                
+                // Update minimum rim diameter
+                const minRimDiameter = pivotAxleDiameter + axleTolerance + 0.5;
+                const rimDiameterInput = document.getElementById('rimDiameterInput');
+                
+                // Set minimum value for rim diameter
+                rimDiameterInput.min = minRimDiameter.toFixed(1);
+                
+                // If current value is less than minimum, update it
+                if (parseFloat(rimDiameterInput.value) < minRimDiameter) {
+                    rimDiameterInput.value = minRimDiameter.toFixed(1);
+                }
+            }
+            
+            // Add event listeners for parameter changes
+            document.getElementById('axleToleranceInput').addEventListener('input', updateHoleDiameter);
+            document.getElementById('pivotAxleDiameterInput').addEventListener('input', updateHoleDiameter);
+            
+            // Initialize calculated values
+            updateHoleDiameter();
             
             // Helper function to calculate distance between two points
             function calculateDistance(point1, point2) {

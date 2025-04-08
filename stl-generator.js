@@ -14,34 +14,39 @@ class STLGenerator {
         // All dimensions in mm - these are fixed regardless of units
         // Part thicknesses
         this.boxThickness = advancedSettings.boxThickness || 3;     // Box thickness
-        this.lidThickness = advancedSettings.lidThickness || this.boxThickness;     // Lid thickness
+        this.lidThickness = this.boxThickness;     // Lid thickness is same as box thickness
         this.linkThickness = advancedSettings.linkThickness || 2;  // Link thickness
 
-        this.boxWidth = this.geometry.width;  // the width of the 3D box
+        this.boxWidth = advancedSettings.boxWidth;  // the width of the 3D box
 
         // Link dimensions
         this.linkWidth = advancedSettings.linkWidth || 3.5;        // Width of link arms
+        
+        // Pin and hole dimensions
+        this.shortPinDiameter = advancedSettings.pivotAxleDiameter || 4;   // Short pin diameter
         this.axleTolerance = advancedSettings.axleTolerance || 0.2;  // Tolerance for rotational joint (diameter)
-        this.holeDiameter = 4 + this.axleTolerance;   // Diameter of holes in links
-        this.rimDiameter = advancedSettings.rimDiameter || 9;      // Diameter of rims around holes
+        this.holeDiameter = this.shortPinDiameter + this.axleTolerance;   // Diameter of holes in links
+        
+        // Calculate minimum rim diameter
+        const minRimDiameter = this.shortPinDiameter + this.axleTolerance + 0.5;
+        this.rimDiameter = Math.max(minRimDiameter, advancedSettings.rimDiameter || 9);  // Diameter of rims around holes
+        
         this.textDepth = 1;        // Depth of text engraving
         this.textHeight = this.linkWidth * 0.8; // Height of text (80% of link width)
         
-        // Pin dimensions
-        this.shortPinDiameter = 4;   // Short pin diameter
+        // Pin dimensions derived from other settings
         this.shortPinHeight = 0.2 + this.linkThickness;     // Short pin height
-
         this.pinRidgeDiameter = this.holeDiameter;
         this.pinRidgeHeight = 0.5;
         
-        this.tallPinBaseDiameter = 1 +  this.shortPinDiameter;  // Tall pin base diameter
+        this.tallPinBaseDiameter = 1 + this.shortPinDiameter;  // Tall pin base diameter
         this.tallPinBaseHeight = 0.5 + this.pinRidgeHeight + this.shortPinHeight;  // Tall pin base height
         this.tallPinTopDiameter = this.shortPinDiameter;   // Tall pin top diameter
         this.tallPinTopHeight = this.shortPinHeight;     // Tall pin top height
         
         // Connecting arm dimensions
-        this.armWidth = 4;         // Width of connecting arms
-        this.armExtension = 5;     // Extra length to ensure arms reach into box
+        this.armWidth =  this.shortPinDiameter;         // Width of connecting arms
+        this.armExtension = this.armWidth;     // Extra length to ensure arms reach into box
     }
     
     // Helper to get scale factor based on units
@@ -106,136 +111,150 @@ class STLGenerator {
     }
 
     async generateZip() {
-        const zip = new JSZip();
-        
-        // Generate all STLs
-        const { stl: box2DStl } = await this.generate2DBoxSTL();
-        const { stl: lid2DStl } = await this.generate2DLidSTL();
-        const linkTopStl = await this.generateLinkSTL("UPPER", true);
-        const linkBottomStl = await this.generateLinkSTL("LOWER", false);
-        
-        // Generate 3D box and lid STLs
-        const box3DStl = await this.generate3DBoxSTL();
-        const lid3DStl = await this.generate3DLidSTL();
-        
-        // Create 2D and 3D folders
-        const folder2D = zip.folder("2D-model");
-        const folder3D = zip.folder("3D-model");
-        
-        // Add to zip
-        folder2D.file("box2D.stl", box2DStl);
-        folder2D.file("lid2D.stl", lid2DStl);
-        folder2D.file("linkTop.stl", linkTopStl);
-        folder2D.file("linkBottom.stl", linkBottomStl);
-        folder3D.file("box3D.stl", box3DStl);
-        folder3D.file("lid3D.stl", lid3DStl);
-        folder3D.file("linkTop1.stl", linkTopStl);
-        folder3D.file("linkTop2.stl", linkTopStl);
-        folder3D.file("linkBottom1.stl", linkBottomStl);
-        folder3D.file("linkBottom2.stl", linkBottomStl);
-        
-        // Generate info text file
-        const infoText = this.generateInfoText();
-        zip.file("hinge-info.txt", infoText);
-        
-        // Generate and save zip
-        const content = await zip.generateAsync({type: "blob"});
-        saveAs(content, "hinge-box.zip");
+        try {
+            const zip = new JSZip();
+            
+            // Generate all STLs
+            const box2DResult = await this.generate2DBoxSTL();
+            const lid2DResult = await this.generate2DLidSTL();
+            const linkTopStl = await this.generateLinkSTL("UPPER", true);
+            const linkBottomStl = await this.generateLinkSTL("LOWER", false);
+            
+            // Generate 3D box and lid STLs
+            const box3DResult = await this.generate3DBoxSTL();
+            const lid3DResult = await this.generate3DLidSTL();
+            
+            // Create 2D and 3D folders
+            const folder2D = zip.folder("2D-model");
+            const folder3D = zip.folder("3D-model");
+            
+            // Add to zip - extract the STL blobs from the returned objects
+            folder2D.file("box2D.stl", box2DResult.stl);
+            folder2D.file("lid2D.stl", lid2DResult.stl);
+            folder2D.file("linkTop.stl", linkTopStl.stl);
+            folder2D.file("linkBottom.stl", linkBottomStl.stl);
+            folder3D.file("box3D.stl", box3DResult.stl);
+            folder3D.file("lid3D.stl", lid3DResult.stl);
+            folder3D.file("linkTop1.stl", linkTopStl.stl);
+            folder3D.file("linkTop2.stl", linkTopStl.stl);
+            folder3D.file("linkBottom1.stl", linkBottomStl.stl);
+            folder3D.file("linkBottom2.stl", linkBottomStl.stl);
+            
+            // Generate info text file
+            const infoText = this.generateInfoText();
+            zip.file("hinge-info.txt", infoText);
+            
+            // Generate and return zip
+            const content = await zip.generateAsync({type: "blob"});
+            return content;
+        } catch (error) {
+            console.error("Error in generateZip:", error);
+            throw error;
+        }
     }
 
     async generate2DBoxSTL() {
-        const { primitives, transforms, booleans, extrusions, geometries } = this.modeling;
-        
-        // Get box vertices and create 2D shape
-        const vertices = this.geometry.getBoxVertices();
-        const points = vertices.map(v => [v.x, v.y]);
-        const polygon = geometries.geom2.fromPoints(points);
-        
-        // Extrude to thickness
-        let box = extrusions.extrudeLinear({height: this.boxThickness}, polygon);
-        
-        // Add pins and connecting arms where needed
-        const center = this.geometry.getCenterOfRotation();
-        
-        // Get red and blue box points
-        const redBoxPoint = this.geometry.redBoxPoint;
-        const blueBoxPoint = this.geometry.blueBoxPoint;
-        
-        // Determine which point is on top (higher Y value)
-        const isRedOnTop = redBoxPoint.y > blueBoxPoint.y;
-        const topBoxPoint = isRedOnTop ? redBoxPoint : blueBoxPoint;
-        const bottomBoxPoint = isRedOnTop ? blueBoxPoint : redBoxPoint;
-        
-        // Create top pin (short single cylinder)
-        const topPinAxle = primitives.cylinder({
-            height: this.shortPinHeight,
-            radius: this.shortPinDiameter / 2,
-            center: [topBoxPoint.x, topBoxPoint.y, this.boxThickness + this.shortPinHeight / 2]
-        });
+        try {
+            const { primitives, transforms, booleans, extrusions, geometries } = this.modeling;
+            
+            // Get box vertices and create 2D shape
+            const vertices = this.geometry.getBoxVertices();
+            const points = vertices.map(v => [v.x, v.y]);
+            const polygon = geometries.geom2.fromPoints(points);
+            
+            // Extrude to thickness
+            let box = extrusions.extrudeLinear({height: this.boxThickness}, polygon);
+            
+            // Add pins and connecting arms where needed
+            const center = this.geometry.getCenterOfRotation();
+            
+            // Get red and blue box points
+            const redBoxPoint = this.geometry.redBoxPoint;
+            const blueBoxPoint = this.geometry.blueBoxPoint;
+            
+            // Determine which point is on top (higher Y value)
+            const isRedOnTop = redBoxPoint.y > blueBoxPoint.y;
+            const topBoxPoint = isRedOnTop ? redBoxPoint : blueBoxPoint;
+            const bottomBoxPoint = isRedOnTop ? blueBoxPoint : redBoxPoint;
+            
+            // Create top pin (short single cylinder)
+            const topPinAxle = primitives.cylinder({
+                height: this.shortPinHeight,
+                radius: this.shortPinDiameter / 2,
+                center: [topBoxPoint.x, topBoxPoint.y, this.boxThickness + this.shortPinHeight / 2]
+            });
 
-        // Create pin ridge (short pin)
-        const topPinRidge = primitives.cylinder({
-            height: this.pinRidgeHeight,
-            radius: this.pinRidgeDiameter / 2,
-            center: [topBoxPoint.x, topBoxPoint.y, this.boxThickness + this.shortPinHeight + this.pinRidgeHeight / 2]
-        });
+            // Create pin ridge (short pin)
+            const topPinRidge = primitives.cylinder({
+                height: this.pinRidgeHeight,
+                radius: this.pinRidgeDiameter / 2,
+                center: [topBoxPoint.x, topBoxPoint.y, this.boxThickness + this.shortPinHeight + this.pinRidgeHeight / 2]
+            });
 
-        const topPin = booleans.union(topPinAxle, topPinRidge);
-        
-        // Create bottom pin (tall two-part cylinder)
-        // Base cylinder for bottom pin
-        const bottomBasePin = primitives.cylinder({
-            height: this.tallPinBaseHeight,
-            radius: this.tallPinBaseDiameter / 2,
-            center: [bottomBoxPoint.x, bottomBoxPoint.y, this.boxThickness + this.tallPinBaseHeight / 2]
-        });
-        
-        // Top cylinder for bottom pin
-        const bottomTopPin = primitives.cylinder({
-            height: this.tallPinTopHeight,
-            radius: this.tallPinTopDiameter / 2,
-            center: [
-                bottomBoxPoint.x, 
-                bottomBoxPoint.y, 
-                this.boxThickness + this.tallPinBaseHeight + this.tallPinTopHeight / 2
-            ]
-        });
+            const topPin = booleans.union(topPinAxle, topPinRidge);
+            
+            // Create bottom pin (tall two-part cylinder)
+            // Base cylinder for bottom pin
+            const bottomBasePin = primitives.cylinder({
+                height: this.tallPinBaseHeight,
+                radius: this.tallPinBaseDiameter / 2,
+                center: [bottomBoxPoint.x, bottomBoxPoint.y, this.boxThickness + this.tallPinBaseHeight / 2]
+            });
+            
+            // Top cylinder for bottom pin
+            const bottomTopPin = primitives.cylinder({
+                height: this.tallPinTopHeight,
+                radius: this.tallPinTopDiameter / 2,
+                center: [
+                    bottomBoxPoint.x, 
+                    bottomBoxPoint.y, 
+                    this.boxThickness + this.tallPinBaseHeight + this.tallPinTopHeight / 2
+                ]
+            });
 
-        // Create pin ridge (tall pin)
-        const bottomPinRidge = primitives.cylinder({
-            height: this.pinRidgeHeight,
-            radius: this.pinRidgeDiameter / 2,
-            center: [
-                bottomBoxPoint.x, 
-                bottomBoxPoint.y, 
-                this.boxThickness + this.tallPinBaseHeight + this.tallPinTopHeight + this.pinRidgeHeight / 2
-            ]
-        });
-        
-        // Combine the bottom pin parts
-        const bottomPin = booleans.union(bottomBasePin, bottomTopPin, bottomPinRidge);
-        
-        // Check if red point is outside box and add connecting arm if needed
-        if (!this.isPointInPolygon(redBoxPoint, vertices)) {
-            const redArm = this.createConnectingArm(center, redBoxPoint);
-            box = booleans.union(box, redArm);
+            // Create pin ridge (tall pin)
+            const bottomPinRidge = primitives.cylinder({
+                height: this.pinRidgeHeight,
+                radius: this.pinRidgeDiameter / 2,
+                center: [
+                    bottomBoxPoint.x, 
+                    bottomBoxPoint.y, 
+                    this.boxThickness + this.tallPinBaseHeight + this.tallPinTopHeight + this.pinRidgeHeight / 2
+                ]
+            });
+            
+            // Combine the bottom pin parts
+            const bottomPin = booleans.union(bottomBasePin, bottomTopPin, bottomPinRidge);
+            
+            // Check if red point is outside box and add connecting arm if needed
+            if (!this.isPointInPolygon(redBoxPoint, vertices)) {
+                const redArm = this.createConnectingArm(center, redBoxPoint);
+                box = booleans.union(box, redArm);
+            }
+            
+            // Check if blue point is outside box and add connecting arm if needed
+            if (!this.isPointInPolygon(blueBoxPoint, vertices)) {
+                const blueArm = this.createConnectingArm(center, blueBoxPoint);
+                box = booleans.union(box, blueArm);
+            }
+            
+            // Add pins to box
+            box = booleans.union(box, topPin, bottomPin);
+            
+            // Convert to STL binary data
+            const stlData = this.serializeToStl(box);
+            if (!stlData || stlData.length === 0) {
+                throw new Error("Failed to generate STL data for 2D box");
+            }
+            
+            return { 
+                stl: new Blob([stlData], {type: 'model/stl'}),
+                geometry: box
+            };
+        } catch (error) {
+            console.error("Error in generate2DBoxSTL:", error);
+            throw error;
         }
-        
-        // Check if blue point is outside box and add connecting arm if needed
-        if (!this.isPointInPolygon(blueBoxPoint, vertices)) {
-            const blueArm = this.createConnectingArm(center, blueBoxPoint);
-            box = booleans.union(box, blueArm);
-        }
-        
-        // Add pins to box
-        box = booleans.union(box, topPin, bottomPin);
-        
-        // Convert to STL binary data
-        const stlData = this.serializeToStl(box);
-        return { 
-            stl: new Blob([stlData], {type: 'model/stl'}),
-            geometry: box
-        };
     }
 
     createConnectingArm(from, to) {
@@ -276,167 +295,174 @@ class STLGenerator {
     }
 
     async generate2DLidSTL() {
-        const { primitives, transforms, booleans, extrusions, geometries } = this.modeling;
-        
-        // Get lid vertices and create 2D shape
-        const vertices = this.geometry.getClosedLidVertices();
-        
-        // Reverse the vertex order to fix inverted normals
-        const reversedVertices = [...vertices].reverse();
-        const points = reversedVertices.map(v => [v.x, v.y]);
-        
-        // Create the 2D polygon and extrude
-        const polygon = geometries.geom2.fromPoints(points);
-        let lid = extrusions.extrudeLinear({height: this.lidThickness}, polygon);
-        
-        // Add pins and connecting arms where needed
-        const center = this.geometry.getCenterOfRotation();
-        
-        // Get red and blue lid points
-        const redLidPoint = this.geometry.redClosedPoint;
-        const blueLidPoint = this.geometry.blueClosedPoint;
-        
-        // Determine which point is on top (higher Y value)
-        const isRedOnTop = redLidPoint.y > blueLidPoint.y;
-        const topLidPoint = isRedOnTop ? redLidPoint : blueLidPoint;
-        const bottomLidPoint = isRedOnTop ? blueLidPoint : redLidPoint;
-        
-        // Create top pin (short single cylinder)
-        const topPinAxle = primitives.cylinder({
-            height: this.shortPinHeight,
-            radius: this.shortPinDiameter / 2,
-            segments: 32,
-            center: [topLidPoint.x, topLidPoint.y, this.lidThickness + this.shortPinHeight / 2]
-        });
+        try {
+            const { primitives, transforms, booleans, extrusions, geometries } = this.modeling;
+            
+            // Get lid vertices and create 2D shape
+            const vertices = this.geometry.getClosedLidVertices();
+            
+            // Reverse the vertex order to fix inverted normals
+            const reversedVertices = [...vertices].reverse();
+            const points = reversedVertices.map(v => [v.x, v.y]);
+            
+            // Create the 2D polygon and extrude
+            const polygon = geometries.geom2.fromPoints(points);
+            let lid = extrusions.extrudeLinear({height: this.lidThickness}, polygon);
+            
+            // Add pins and connecting arms where needed
+            const center = this.geometry.getCenterOfRotation();
+            
+            // Get red and blue lid points
+            const redLidPoint = this.geometry.redClosedPoint;
+            const blueLidPoint = this.geometry.blueClosedPoint;
+            
+            // Determine which point is on top (higher Y value)
+            const isRedOnTop = redLidPoint.y > blueLidPoint.y;
+            const topLidPoint = isRedOnTop ? redLidPoint : blueLidPoint;
+            const bottomLidPoint = isRedOnTop ? blueLidPoint : redLidPoint;
+            
+            // Create top pin (short single cylinder)
+            const topPinAxle = primitives.cylinder({
+                height: this.shortPinHeight,
+                radius: this.shortPinDiameter / 2,
+                segments: 32,
+                center: [topLidPoint.x, topLidPoint.y, this.lidThickness + this.shortPinHeight / 2]
+            });
 
-        // Create top pin ridge
-        const topPinRidge = primitives.cylinder({
-            height: this.pinRidgeHeight,
-            radius: this.pinRidgeDiameter / 2,
-            segments: 32,
-            center: [topLidPoint.x, topLidPoint.y, this.lidThickness + this.shortPinHeight + this.pinRidgeHeight / 2]
-        });
+            // Create top pin ridge
+            const topPinRidge = primitives.cylinder({
+                height: this.pinRidgeHeight,
+                radius: this.pinRidgeDiameter / 2,
+                segments: 32,
+                center: [topLidPoint.x, topLidPoint.y, this.lidThickness + this.shortPinHeight + this.pinRidgeHeight / 2]
+            });
 
-        const topPin = booleans.union(topPinAxle, topPinRidge);
-        
-        // Create bottom pin (tall two-part cylinder)
-        // Base cylinder for bottom pin
-        const bottomBasePin = primitives.cylinder({
-            height: this.tallPinBaseHeight,
-            radius: this.tallPinBaseDiameter / 2,
-            segments: 32,
-            center: [bottomLidPoint.x, bottomLidPoint.y, this.lidThickness + this.tallPinBaseHeight / 2]
-        });
-        
-        // Top cylinder for bottom pin
-        const bottomTopPin = primitives.cylinder({
-            height: this.tallPinTopHeight,
-            radius: this.tallPinTopDiameter / 2,
-            segments: 32,
-            center: [
-                bottomLidPoint.x, 
-                bottomLidPoint.y, 
-                this.lidThickness + this.tallPinBaseHeight + this.tallPinTopHeight / 2
-            ]
-        });
+            const topPin = booleans.union(topPinAxle, topPinRidge);
+            
+            // Create bottom pin (tall two-part cylinder)
+            // Base cylinder for bottom pin
+            const bottomBasePin = primitives.cylinder({
+                height: this.tallPinBaseHeight,
+                radius: this.tallPinBaseDiameter / 2,
+                segments: 32,
+                center: [bottomLidPoint.x, bottomLidPoint.y, this.lidThickness + this.tallPinBaseHeight / 2]
+            });
+            
+            // Top cylinder for bottom pin
+            const bottomTopPin = primitives.cylinder({
+                height: this.tallPinTopHeight,
+                radius: this.tallPinTopDiameter / 2,
+                segments: 32,
+                center: [
+                    bottomLidPoint.x, 
+                    bottomLidPoint.y, 
+                    this.lidThickness + this.tallPinBaseHeight + this.tallPinTopHeight / 2
+                ]
+            });
 
-        // Create bottom pin ridge
-        const bottomPinRidge = primitives.cylinder({
-            height: this.pinRidgeHeight,
-            radius: this.pinRidgeDiameter / 2,
-            segments: 32,
-            center: [
-                bottomLidPoint.x, 
-                bottomLidPoint.y, 
-                this.lidThickness + this.tallPinBaseHeight + this.tallPinTopHeight + this.pinRidgeHeight / 2
-            ]
-        });
-        
-        // Combine the bottom pin parts
-        const bottomPin = booleans.union(bottomBasePin, bottomTopPin, bottomPinRidge);
-        
-        // Add pins to lid
-        lid = booleans.union(lid, topPin);
-        lid = booleans.union(lid, bottomPin);
-        
-        // Convert to STL binary data
-        const stlData = this.serializeToStl(lid);
-        return { 
-            stl: new Blob([stlData], {type: 'model/stl'}),
-            geometry: lid
-        };
+            // Create bottom pin ridge
+            const bottomPinRidge = primitives.cylinder({
+                height: this.pinRidgeHeight,
+                radius: this.pinRidgeDiameter / 2,
+                segments: 32,
+                center: [
+                    bottomLidPoint.x, 
+                    bottomLidPoint.y, 
+                    this.lidThickness + this.tallPinBaseHeight + this.tallPinTopHeight + this.pinRidgeHeight / 2
+                ]
+            });
+            
+            // Combine the bottom pin parts
+            const bottomPin = booleans.union(bottomBasePin, bottomTopPin, bottomPinRidge);
+            
+            // Add pins to lid
+            lid = booleans.union(lid, topPin);
+            lid = booleans.union(lid, bottomPin);
+            
+            // Convert to STL binary data
+            const stlData = this.serializeToStl(lid);
+            if (!stlData || stlData.length === 0) {
+                throw new Error("Failed to generate STL data for 2D lid");
+            }
+            return { 
+                stl: new Blob([stlData], {type: 'model/stl'}),
+                geometry: lid
+            };
+        } catch (error) {
+            console.error("Error in generate2DLidSTL:", error);
+            throw error;
+        }
     }
 
     async generateLinkSTL(labelText, isTop) {
-        const { primitives, transforms, booleans, extrusions, geometries } = this.modeling;
-        
-        // Get red and blue box points to determine which is on top
-        const redBoxPoint = this.geometry.redBoxPoint;
-        const blueBoxPoint = this.geometry.blueBoxPoint;
-        
-        // Determine which point is on top (higher Y value)
-        const isRedOnTop = redBoxPoint.y > blueBoxPoint.y;
-        
-        // Get points for the link based on whether it's top or bottom
-        let boxPoint, lidPoint;
-        if (isTop) {
-            boxPoint = isRedOnTop ? redBoxPoint : blueBoxPoint;
-            lidPoint = isRedOnTop ? this.geometry.redOpenPoint : this.geometry.blueOpenPoint;
-        } else {
-            boxPoint = isRedOnTop ? blueBoxPoint : redBoxPoint;
-            lidPoint = isRedOnTop ? this.geometry.blueOpenPoint : this.geometry.redOpenPoint;
+        try {
+            const { primitives, transforms, booleans, extrusions } = this.modeling;
+            
+            // Get points and calculate length and angle
+            const boxPoint = isTop ? this.geometry.redBoxPoint : this.geometry.blueBoxPoint;
+            const lidPoint = isTop ? this.geometry.redClosedPoint : this.geometry.blueClosedPoint;
+            
+            // Calculate length and angle
+            const dx = lidPoint.x - boxPoint.x;
+            const dy = lidPoint.y - boxPoint.y;
+            const length = Math.sqrt(dx * dx + dy * dy);
+            const angle = Math.atan2(dy, dx);
+            
+            // Create link body
+            const rect = primitives.rectangle({
+                size: [length, this.linkWidth],
+                center: [length / 2, 0]
+            });
+            
+            // Create solid rims for holes
+            const boxRim = primitives.circle({
+                radius: this.rimDiameter / 2,
+                center: [0, 0]
+            });
+            
+            const lidRim = primitives.circle({
+                radius: this.rimDiameter / 2,
+                center: [length, 0]
+            });
+            
+            // Union the rims with the link body
+            const linkWithRims = booleans.union(rect, boxRim, lidRim);
+            
+            // Create holes for pins
+            const boxHole = primitives.circle({
+                radius: this.holeDiameter / 2,
+                center: [0, 0]
+            });
+            
+            const lidHole = primitives.circle({
+                radius: this.holeDiameter / 2,
+                center: [length, 0]
+            });
+            
+            // Subtract holes from link
+            const linkWithHoles = booleans.subtract(linkWithRims, boxHole, lidHole);
+            
+            // Extrude to thickness
+            let link = extrusions.extrudeLinear({height: this.linkThickness}, linkWithHoles);
+            
+            // Rotate and position link
+            link = transforms.rotateZ(angle, link);
+            link = transforms.translate([boxPoint.x, boxPoint.y, 0], link);
+            
+            // Convert to STL binary data
+            const stlData = this.serializeToStl(link);
+            if (!stlData || stlData.length === 0) {
+                throw new Error("Failed to generate STL data for link");
+            }
+            
+            return { 
+                stl: new Blob([stlData], {type: 'model/stl'}),
+                geometry: link
+            };
+        } catch (error) {
+            console.error("Error in generateLinkSTL:", error);
+            throw error;
         }
-        
-        // Calculate link dimensions
-        const dx = lidPoint.x - boxPoint.x;
-        const dy = lidPoint.y - boxPoint.y;
-        const length = Math.sqrt(dx * dx + dy * dy);
-        const angle = Math.atan2(dy, dx);
-        
-        // Create link body
-        const rect = primitives.rectangle({
-            size: [length, this.linkWidth],
-            center: [length / 2, 0]
-        });
-        
-        // Create solid rims for holes
-        const boxRim = primitives.circle({
-            radius: this.rimDiameter / 2,
-            center: [0, 0]
-        });
-        
-        const lidRim = primitives.circle({
-            radius: this.rimDiameter / 2,
-            center: [length, 0]
-        });
-        
-        // Union the rims with the link body
-        const linkWithRims = booleans.union(rect, boxRim, lidRim);
-        
-        // Create holes for pins
-        const boxHole = primitives.circle({
-            radius: this.holeDiameter / 2,
-            center: [0, 0]
-        });
-        
-        const lidHole = primitives.circle({
-            radius: this.holeDiameter / 2,
-            center: [length, 0]
-        });
-        
-        // Subtract holes from link
-        const linkWithHoles = booleans.subtract(linkWithRims, boxHole, lidHole);
-        
-        // Extrude to thickness
-        let link = extrusions.extrudeLinear({height: this.linkThickness}, linkWithHoles);
-        
-        // Rotate and position link
-        link = transforms.rotateZ(angle, link);
-        link = transforms.translate([boxPoint.x, boxPoint.y, 0], link);
-        
-        // Convert to STL binary data
-        const stlData = this.serializeToStl(link);
-        return new Blob([stlData], {type: 'model/stl'});
     }
     
     // Generate information text file
@@ -656,35 +682,51 @@ class STLGenerator {
     }
     
     async generate3DSTL(type) {
-        const { primitives, transforms, booleans, extrusions, geometries } = this.modeling;
-        
-        // Get 3D vertices based on type
-        const vertices = type === 'box' ? this.get3DBoxVertices() : this.get3DLidVertices();
-        const points = vertices.map(v => [v.x, v.y]);
-        const polygon = geometries.geom2.fromPoints(points);
+        try {
+            const { primitives, transforms, booleans, extrusions, geometries } = this.modeling;
+            
+            // Get 3D vertices based on type
+            const vertices = type === 'box' ? this.get3DBoxVertices() : this.get3DLidVertices();
+            const points = vertices.map(v => [v.x, v.y]);
+            const polygon = geometries.geom2.fromPoints(points);
 
-        const thickness = type === 'box' ? this.boxThickness : this.lidThickness;
-        
-        // Step 2: Extrude the polygon to a depth of -this.boxWidth/2
-        let geom3D = extrusions.extrudeLinear({height: -this.boxWidth/2 + this.boxThickness}, polygon);
-        
-        // Step 3: Form the union with the result of generate2D STL
-        const { geometry: geom2D } = type === 'box' 
-            ? await this.generate2DBoxSTL()
-            : await this.generate2DLidSTL();
-        geom3D = booleans.union(geom3D, geom2D);
-        
-        // Step 4: Mirror in a plane parallel to XY plane but offset by -this.boxWidth/2
-        // translate lid3D by -this.geometry.width/2 + this.lidThickness in the z direction
-        geom3D = transforms.translate([0, 0, this.geometry.width/2 - thickness], geom3D)
-        let mirroredGeom = transforms.mirrorZ(geom3D);
-        
-        // Step 5: Form the union of these two shapes
-        geom3D = booleans.union(geom3D, mirroredGeom);
-        
-        // Convert to STL binary data
-        const stlData = this.serializeToStl(geom3D);
-        return new Blob([stlData], {type: 'model/stl'});
+            const thickness = type === 'box' ? this.boxThickness : this.lidThickness;
+            
+            // Step 2: Extrude the polygon to a depth of -this.boxWidth/2
+            let geom3D = extrusions.extrudeLinear({height: -this.boxWidth/2 + thickness}, polygon);
+            
+            // Step 3: Form the union with the geometry result of generate2D STL
+            const result2D = type === 'box' 
+                ? await this.generate2DBoxSTL()
+                : await this.generate2DLidSTL();
+            
+            // Extract the geometry from the result
+            const geom2D = result2D.geometry;
+            
+            geom3D = booleans.union(geom3D, geom2D);
+
+            // Step 4: Mirror in a plane parallel to XY plane but offset by -this.boxWidth/2
+            // translate lid3D by -this.geometry.width/2 + this.lidThickness in the z direction
+            geom3D = transforms.translate([0, 0, this.boxWidth/2 - thickness], geom3D)
+            let mirroredGeom = transforms.mirrorZ(geom3D);
+            
+            // // Step 5: Form the union of these two shapes
+            geom3D = booleans.union(geom3D, mirroredGeom);
+            
+            // Convert to STL binary data
+            const stlData = this.serializeToStl(geom3D);
+            if (!stlData || stlData.length === 0) {
+                throw new Error("Failed to generate STL data for 3D " + type);
+            }
+            
+            return { 
+                stl: new Blob([stlData], {type: 'model/stl'}),
+                geometry: geom3D
+            };
+        } catch (error) {
+            console.error("Error in generate3DSTL:", error, "type:", type);
+            throw error;
+        }
     }
     
     // Function to get 3D box vertices
