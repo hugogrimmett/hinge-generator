@@ -355,18 +355,6 @@ class STLGenerator {
         // Combine the bottom pin parts
         const bottomPin = booleans.union(bottomBasePin, bottomTopPin, bottomPinRidge);
         
-        // // Check if red point is outside lid and add connecting arm if needed
-        // if (!this.isPointInPolygon(redLidPoint, vertices)) {
-        //     const redArm = this.createConnectingArm(center, redLidPoint);
-        //     lid = booleans.union(lid, redArm);
-        // }
-        
-        // // Check if blue point is outside lid and add connecting arm if needed
-        // if (!this.isPointInPolygon(blueLidPoint, vertices)) {
-        //     const blueArm = this.createConnectingArm(center, blueLidPoint);
-        //     lid = booleans.union(lid, blueArm);
-        // }
-        
         // Add pins to lid
         lid = booleans.union(lid, topPin);
         lid = booleans.union(lid, bottomPin);
@@ -441,37 +429,6 @@ class STLGenerator {
         
         // Extrude to thickness
         let link = extrusions.extrudeLinear({height: this.linkThickness}, linkWithHoles);
-        
-        // Add text if available - use a simple engraved rectangle with the label
-        if (labelText) {
-            // Create a simple rectangle for the text
-            const textWidth = length * 0.6;
-            const textHeight = this.linkWidth * 0.6;
-            
-            // Create a smaller rectangle for the text area
-            const textRect = primitives.rectangle({
-                size: [textWidth, textHeight],
-                center: [length / 2, 0]
-            });
-            
-            // Create a smaller rectangle for the actual text (engraved)
-            const textEngraving = primitives.rectangle({
-                size: [textWidth * 0.8, textHeight * 0.6],
-                center: [length / 2, 0]
-            });
-            
-            // Extrude the text area to create a raised platform
-            const textPlatform = extrusions.extrudeLinear({height: this.textDepth * 0.5}, textRect);
-            
-            // Extrude the text engraving deeper
-            const textCutout = extrusions.extrudeLinear({height: this.textDepth}, textEngraving);
-            
-            // Add the platform to the link
-            link = booleans.union(link, textPlatform);
-            
-            // Subtract the text cutout to create the engraved effect
-            link = booleans.subtract(link, textCutout);
-        }
         
         // Rotate and position link
         link = transforms.rotateZ(angle, link);

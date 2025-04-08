@@ -470,8 +470,7 @@
                     
                     if (topMinDistance < topMinSafeDistance || bottomMinDistance < bottomMinSafeDistance) {
                         alert("Warning: lid pivot points are close to the edge of the lid, and the pivot will overhang.");
-                    }
-                    
+                    }                    
                     await generator.generateZip();
                 } catch (error) {
                     console.error('Error generating STL:', error);
