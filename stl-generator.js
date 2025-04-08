@@ -722,25 +722,42 @@ class STLGenerator {
         return new Blob([stlData], {type: 'model/stl'});
     }
     
-    // Function to get 3D box vertices (to be filled in by user)
+    // Function to get 3D box vertices
     get3DBoxVertices() {
         const height = this.geometry.height;
         const width = this.geometry.width;
         const depth = this.geometry.depth;
         const closedAngle = this.geometry.closedAngle;
         const thickness = this.boxThickness;
-        
-        const criticalAngle = Math.atan2(height, depth);
+        const criticalAngle = Math.atan2(height, depth);        
         
         if (this.closedAngle <= criticalAngle) {
+            // A -- B -------------------- F
+            // |   /                       |
+            // | /                         |
+            // C                           |
+            // |                           |
+            // D ------------------------- E
             return [
-                {x: 0, y: 0},                                // A
-                {x: width, y: 0},                           // B
-                {x: width, y: height},                      // C
-                {x: depth, y: height},                      // D
-                {x: 0, y: height - depth * Math.tan(closedAngle)} // E
+                {x: 0, y: height - depth * Math.tan(closedAngle)},      // C
+                {x: 0, y: 0},                                           // D
+                {x: width, y: 0},                                       // E
+                {x: width, y: height},                                  // F
+                {x: depth, y: height},                                  // B
+                {x: depth - thickness / Math.tan(closedAngle), y: height - thickness},  // B'
+                {x: width-thickness, y: height-thickness},              // F'
+                {x: width-thickness, y: thickness},                     // E'
+                {x: thickness, y: thickness},                           // D' 
+                {x: thickness, y: height - depth * Math.tan(closedAngle) + thickness * Math.tan(closedAngle)}, // C'
+                {x: 0, y: height - depth * Math.tan(closedAngle)},      // C
             ];
         } else {
+            // A ------- B --------------- F
+            // |        /                  |
+            // |       /                   |
+            // |      /                    |
+            // |     /                     |
+            // D -- C -------------------- E
             return [
                 {x: depth - height / Math.tan(closedAngle), y: 0}, // A
                 {x: width, y: 0},                           // B
@@ -755,48 +772,48 @@ class STLGenerator {
         }
     }
     
-    // Function to get 3D lid vertices (to be filled in by user)
+    // Function to get 3D lid vertices
     get3DLidVertices() {
         const height = this.geometry.height;
         const depth = this.geometry.depth;
         const closedAngle = this.geometry.closedAngle;
         const thickness = this.lidThickness;
-        
         const criticalAngle = Math.atan2(height, depth);
         
-        console.log("3D Lid Vertices - Parameters:", {
-            height,
-            depth,
-            closedAngle,
-            thickness,
-            criticalAngle
-        });
-        
-        // Ensure we have at least 3 non-collinear points to form a valid polygon
-        let vertices;
-        
         if (closedAngle <= criticalAngle) {
-            vertices = [
-                {x: 0, y: height},                     // A
-                {x: depth, y: height},                 // B
-                {x: 0, y: height - depth * Math.tan(closedAngle)}, // C
-                {x: depth/2, y: height - depth/2 * Math.tan(closedAngle)} // Additional point to ensure non-collinearity
+            // A -- B -------------------- F
+            // |   /                       |
+            // | /                         |
+            // C                           |
+            // |                           |
+            // D ------------------------- E
+            return [
+                {x: depth, y: height},                                  // B
+                {x: 0, y: height},                                      // A
+                {x: 0, y: height - depth * Math.tan(closedAngle)},      // C
+                {x: thickness, y: height - depth * Math.tan(closedAngle) + thickness * Math.tan(closedAngle)},  // C'
+                {x: thickness, y: height-thickness},                     // A'
+                {x: depth - thickness / Math.tan(closedAngle), y: height - thickness},                     // B'
+                {x: depth, y: height}                                   // B
             ];
         } else {
-            vertices = [
-                {x: depth, y: height},                 // B
-                {x: 0, y: height},                     // A
-                {x: 0, y: 0},                          // D
-                {x: depth - height / Math.tan(closedAngle), y: 0}, // C
+            // A ------- B --------------- F
+            // |        /                  |
+            // |       /                   |
+            // |      /                    |
+            // |     /                     |
+            // D -- C -------------------- E
+            return [
+                {x: depth, y: height},                              // B
+                {x: 0, y: height},                                  // A
+                {x: 0, y: 0},                                       // D
+                {x: depth - height / Math.tan(closedAngle), y: 0},  // C
                 {x: depth - height / Math.tan(closedAngle) + thickness / Math.tan(closedAngle), y: thickness},   // C'
-                {x: thickness, y: thickness},                  // D'
-                {x: thickness, y: height - thickness},         // A'
+                {x: thickness, y: thickness},                       // D'
+                {x: thickness, y: height - thickness},              // A'
                 {x: depth - thickness / Math.tan(closedAngle), y: height - thickness}, // B'
-                {x: depth, y: height}                 // B, closing the polygon
+                {x: depth, y: height}                               // B, closing the polygon
             ];
         }
-        
-        console.log("3D Lid Vertices:", vertices);
-        return vertices;
     }
 }
