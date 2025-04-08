@@ -118,13 +118,21 @@ class STLGenerator {
         const box3DStl = await this.generate3DBoxSTL();
         const lid3DStl = await this.generate3DLidSTL();
         
+        // Create 2D and 3D folders
+        const folder2D = zip.folder("2D-model");
+        const folder3D = zip.folder("3D-model");
+        
         // Add to zip
-        zip.file("box2D.stl", box2DStl);
-        zip.file("lid2D.stl", lid2DStl);
-        zip.file("linkTop.stl", linkTopStl);
-        zip.file("linkBottom.stl", linkBottomStl);
-        zip.file("box3D.stl", box3DStl);
-        zip.file("lid3D.stl", lid3DStl);
+        folder2D.file("box2D.stl", box2DStl);
+        folder2D.file("lid2D.stl", lid2DStl);
+        folder2D.file("linkTop.stl", linkTopStl);
+        folder2D.file("linkBottom.stl", linkBottomStl);
+        folder3D.file("box3D.stl", box3DStl);
+        folder3D.file("lid3D.stl", lid3DStl);
+        folder3D.file("linkTop1.stl", linkTopStl);
+        folder3D.file("linkTop2.stl", linkTopStl);
+        folder3D.file("linkBottom1.stl", linkBottomStl);
+        folder3D.file("linkBottom2.stl", linkBottomStl);
         
         // Generate info text file
         const infoText = this.generateInfoText();
