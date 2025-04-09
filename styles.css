@@ -209,30 +209,37 @@ button:hover {
     margin-top: 1rem;
 }
 
+/* Toggle button for advanced settings */
 .toggle-button {
-    background: #f8f8f8;
-    color: #666;
     display: flex;
-    justify-content: space-between;
     align-items: center;
-    padding: 0.4rem 0.8rem;
+    justify-content: space-between;
     width: 100%;
-    border: 1px solid var(--border);
-    border-radius: 6px;
-    font-size: 0.8rem;
-    font-weight: 400;
+    padding: 8px 12px;
+    margin: 10px 0;
+    background-color: transparent;
+    border: 1px solid #ccc;
+    border-radius: 4px;
     cursor: pointer;
-    transition: background-color 0.15s ease;
-    margin-top: 0.5rem;
+    font-size: 14px;
+    color: #666;
+    transition: all 0.2s;
 }
 
 .toggle-button:hover {
-    background: #f0f0f0;
+    background-color: #f0f0f0;
+    border-color: #ccc;
+    color: #666;
+}
+
+.toggle-button.active {
+    background-color: #f0f0f0;
+    border-color: #ccc;
+    color: #666;
 }
 
 .toggle-icon {
-    transition: transform 0.3s ease;
-    font-size: 0.7rem;
+    transition: transform 0.3s;
 }
 
 .toggle-button.active .toggle-icon {
