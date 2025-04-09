@@ -155,6 +155,22 @@
         <div class="footer">
             <p>Found a bug or have a feature request? <a id="githubIssueLink" href="https://github.com/hugogrimmett/hinge-generator/issues/new" target="_blank">Open an issue on GitHub</a></p>
         </div>
+        <div id="notificationContainer" class="notification-container"></div>
+        <div id="warningModal" class="modal-overlay">
+            <div class="modal-dialog">
+                <div class="modal-header">
+                    <h3 class="modal-title">Warning</h3>
+                </div>
+                <div class="modal-body">
+                    <div class="modal-message">The following issues were detected with your design:</div>
+                    <ol id="warningList" class="modal-list"></ol>
+                </div>
+                <div class="modal-footer">
+                    <button id="cancelButton" class="modal-button primary">Cancel</button>
+                    <button id="generateButton" class="modal-button secondary">Generate STLs</button>
+                </div>
+            </div>
+        </div>
         <script src="geometry.js"></script>
         <script src="renderer.js"></script>
         <script src="thirdparty/jscad/modeling/dist/jscad-modeling.min.js"></script>
@@ -536,11 +552,6 @@
                 const rodToLidPivotDistance = boxRenderer.minDistFromShortLinkToTallPivot;
                 let warningMessage = "";
                 
-                // console.log("isRedBoxPivotHigher?:", isRedBoxPivotHigher);
-                // console.log("minSafeRodDistance:", minSafeRodDistance);
-                // console.log("minDistFromShortLinkToTallPivot:", boxRenderer.minDistFromShortLinkToTallPivot);
-                // console.log("rodToLidPivotDistance:", rodToLidPivotDistance);
-                
                 if (isRedBoxPivotHigher) {
                     // Red is short pivot, blue is tall pivot
                     warningMessage = "The red connecting rod collides with the blue lid pivot. Move the pivot points or decrease the pivot axle diameter or rod width.";
@@ -587,20 +598,24 @@
                 
                 // Display all warnings in a single popup if there are any
                 if (warnings.length > 0) {
-                    let warningText = "Warning:\n\n";
-                    warnings.forEach((warning, index) => {
-                        warningText += `${index + 1}. ${warning}\n\n`;
+                    showWarningModal(warnings, function() {
+                        // This function will be called if the user clicks "Generate STLs"
+                        generator.generateZip().then(blob => {
+                            saveAs(blob, 'hinge-box.zip');
+                        }).catch(error => {
+                            console.error('Error generating STL:', error);
+                            showNotification('Error', ['Error generating STL: ' + error.message]);
+                        });
                     });
-                    alert(warningText);
+                } else {
+                    // No warnings, generate STL directly
+                    generator.generateZip().then(blob => {
+                        saveAs(blob, 'hinge-box.zip');
+                    }).catch(error => {
+                        console.error('Error generating STL:', error);
+                        showNotification('Error', ['Error generating STL: ' + error.message]);
+                    });
                 }
-                
-                // Generate and download STL files
-                generator.generateZip().then(blob => {
-                    saveAs(blob, 'hinge-box.zip');
-                }).catch(error => {
-                    console.error('Error generating STL:', error);
-                    alert('Error generating STL: ' + error.message);
-                });
                 
             });
             
@@ -700,6 +715,172 @@
                 const dy = point.y - yy;
                 
                 return Math.sqrt(dx * dx + dy * dy);
+            }
+            
+            // Add notification system
+            function showNotification(title, messages) {
+                const container = document.getElementById('notificationContainer');
+                
+                // Create notification element
+                const notification = document.createElement('div');
+                notification.className = 'notification';
+                
+                // Add close button
+                const closeButton = document.createElement('button');
+                closeButton.className = 'notification-close';
+                closeButton.innerHTML = '&times;';
+                closeButton.onclick = function() {
+                    notification.style.opacity = '0';
+                    notification.style.transform = 'translateX(30px)';
+                    setTimeout(() => {
+                        container.removeChild(notification);
+                    }, 300);
+                };
+                
+                // Add title
+                const titleElement = document.createElement('div');
+                titleElement.className = 'notification-title';
+                titleElement.textContent = title;
+                
+                // Add messages
+                const messageList = document.createElement('ol');
+                messageList.className = 'notification-list';
+                
+                messages.forEach(message => {
+                    const item = document.createElement('li');
+                    item.textContent = message;
+                    messageList.appendChild(item);
+                });
+                
+                // Add actions
+                const actions = document.createElement('div');
+                actions.className = 'notification-actions';
+                
+                const dismissButton = document.createElement('button');
+                dismissButton.className = 'notification-button primary';
+                dismissButton.textContent = 'Dismiss';
+                dismissButton.onclick = closeButton.onclick;
+                
+                // Assemble notification
+                notification.appendChild(closeButton);
+                notification.appendChild(titleElement);
+                notification.appendChild(messageList);
+                actions.appendChild(dismissButton);
+                notification.appendChild(actions);
+                
+                // Add to container
+                container.appendChild(notification);
+                
+                // Trigger animation
+                setTimeout(() => {
+                    notification.classList.add('show');
+                }, 10);
+                
+                // Auto-dismiss after 10 seconds
+                setTimeout(() => {
+                    if (container.contains(notification)) {
+                        closeButton.onclick();
+                    }
+                }, 10000);
+            }
+            
+            // Function to show warning modal
+            function showWarningModal(warnings, onConfirm) {
+                // Get modal elements
+                const modal = document.getElementById('warningModal');
+                const warningList = document.getElementById('warningList');
+                const cancelButton = document.getElementById('cancelButton');
+                const generateButton = document.getElementById('generateButton');
+                
+                // Clear previous warnings
+                warningList.innerHTML = '';
+                
+                // Add warnings to the list
+                warnings.forEach(warning => {
+                    const li = document.createElement('li');
+                    li.textContent = warning;
+                    warningList.appendChild(li);
+                });
+                
+                // Function to close the modal
+                const closeModal = function() {
+                    modal.classList.remove('show');
+                };
+                
+                // Set up button handlers
+                cancelButton.onclick = closeModal;
+                
+                generateButton.onclick = function() {
+                    modal.classList.remove('show');
+                    if (typeof onConfirm === 'function') {
+                        onConfirm();
+                    }
+                };
+                
+                // Add keyboard event listener for Escape key
+                const handleKeyDown = function(event) {
+                    if (event.key === 'Escape') {
+                        closeModal();
+                        document.removeEventListener('keydown', handleKeyDown);
+                    }
+                };
+                
+                document.addEventListener('keydown', handleKeyDown);
+                
+                // Show the modal
+                modal.classList.add('show');
+            }
+            
+            // Function to show error modal
+            function showErrorModal(errorMessage) {
+                // Get modal elements
+                const modal = document.getElementById('warningModal');
+                const modalTitle = modal.querySelector('.modal-title');
+                const warningList = document.getElementById('warningList');
+                const cancelButton = document.getElementById('cancelButton');
+                const generateButton = document.getElementById('generateButton');
+                
+                // Set title to Error
+                modalTitle.textContent = 'Error';
+                
+                // Clear previous content
+                warningList.innerHTML = '';
+                
+                // Add error message
+                const li = document.createElement('li');
+                li.textContent = errorMessage;
+                warningList.appendChild(li);
+                
+                // Hide generate button
+                generateButton.style.display = 'none';
+                
+                // Change cancel button to OK
+                cancelButton.textContent = 'OK';
+                
+                // Function to close the modal
+                const closeModal = function() {
+                    modal.classList.remove('show');
+                    // Reset modal for future use
+                    modalTitle.textContent = 'Warning';
+                    generateButton.style.display = '';
+                    cancelButton.textContent = 'Cancel';
+                };
+                
+                // Set up button handlers
+                cancelButton.onclick = closeModal;
+                
+                // Add keyboard event listener for Escape key
+                const handleKeyDown = function(event) {
+                    if (event.key === 'Escape') {
+                        closeModal();
+                        document.removeEventListener('keydown', handleKeyDown);
+                    }
+                };
+                
+                document.addEventListener('keydown', handleKeyDown);
+                
+                // Show the modal
+                modal.classList.add('show');
             }
         </script>
     </body>
