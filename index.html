@@ -464,13 +464,95 @@
                 // Create STL generator with current geometry and settings
                 const generator = new STLGenerator(boxRenderer.geometry, units, advancedSettings);
                 
-                // Generate and download STL files
-                generator.generateZip().then(blob => {
-                    saveAs(blob, 'hinge-box.zip');
-                }).catch(error => {
-                    console.error('Error generating STL:', error);
-                    alert('Error generating STL files. See console for details.');
-                });
+                // Collection of warnings
+                const warnings = [];
+                
+                // Check if the box and lid pivots are too close to the edges
+                // Get the box pivot points
+                const boxPivotPoints = [
+                    boxRenderer.geometry.redBoxPoint, 
+                    boxRenderer.geometry.blueBoxPoint
+                ];
+                
+                // Get the lid pivot points
+                const lidPivotPoints = [
+                    boxRenderer.geometry.redClosedPoint, 
+                    boxRenderer.geometry.blueClosedPoint
+                ];
+                
+                // Get the lid vertices
+                const lidVertices = boxRenderer.geometry.getClosedLidVertices();
+                
+                // Calculate minimum distances from pivot points to lid edges
+                let topMinDistance = Infinity;
+                let bottomMinDistance = Infinity;
+                
+                // Determine which pivot is on top
+                const isRedOnTop = boxRenderer.geometry.redClosedPoint.y > boxRenderer.geometry.blueClosedPoint.y;
+                const topLidPoint = isRedOnTop ? boxRenderer.geometry.redClosedPoint : boxRenderer.geometry.blueClosedPoint;
+                const bottomLidPoint = isRedOnTop ? boxRenderer.geometry.blueClosedPoint : boxRenderer.geometry.redClosedPoint;
+                
+                // Check each lid edge
+                for (let i = 0; i < lidVertices.length; i++) {
+                    const start = lidVertices[i];
+                    const end = lidVertices[(i + 1) % lidVertices.length];
+                    
+                    // Skip the bottom edge (where the hinge is)
+                    if (start.y === 0 && end.y === 0) continue;
+                    
+                    // Calculate distance from top pivot to this edge
+                    const topDist = distanceToLineSegment(topLidPoint, start, end);
+                    
+                    // Calculate distance from bottom pivot to this edge
+                    const bottomDist = distanceToLineSegment(bottomLidPoint, start, end);
+                    
+                    // Keep track of minimum distances
+                    topMinDistance = Math.min(topMinDistance, topDist);
+                    bottomMinDistance = Math.min(bottomMinDistance, bottomDist);
+                }
+                
+                // The minimum safe distances are the pin radii in mm
+                const topMinSafeDistance = generator.shortPinDiameter / 2;
+                const bottomMinSafeDistance = generator.tallPinBaseDiameter / 2;
+                
+                if (topMinDistance < topMinSafeDistance || bottomMinDistance < bottomMinSafeDistance) {
+                    warnings.push("Lid pivot points are close to the edge of the lid, and the pivot will overhang.");
+                }
+                
+                // CHECK: Check if connecting rods will collide with lid pivot points
+                // Get the points for the connecting rods
+                const redBoxPoint = boxRenderer.geometry.redBoxPoint;
+                const blueBoxPoint = boxRenderer.geometry.blueBoxPoint;
+                const redLidPoint = boxRenderer.geometry.redClosedPoint;
+                const blueLidPoint = boxRenderer.geometry.blueClosedPoint;
+                
+                // Determine which box pivot has greater Y value (is higher)
+                const isRedBoxPivotHigher = redBoxPoint.y > blueBoxPoint.y;
+                
+                // Calculate the minimum safe distance between a rod and a pivot point in mm
+                const minSafeRodDistance = generator.tallPinBaseDiameter/2 + generator.linkWidth/2;
+                
+                // Check distance from short rod to tall lid pivot
+                const rodToLidPivotDistance = boxRenderer.minDistFromShortLinkToTallPivot;
+                let warningMessage = "";
+                
+                // console.log("isRedBoxPivotHigher?:", isRedBoxPivotHigher);
+                // console.log("minSafeRodDistance:", minSafeRodDistance);
+                // console.log("minDistFromShortLinkToTallPivot:", boxRenderer.minDistFromShortLinkToTallPivot);
+                // console.log("rodToLidPivotDistance:", rodToLidPivotDistance);
+                
+                if (isRedBoxPivotHigher) {
+                    // Red is short pivot, blue is tall pivot
+                    warningMessage = "The red connecting rod collides with the blue lid pivot. Move the pivot points or decrease the pivot axle diameter or rod width.";
+                } else {
+                    // Blue is short pivot, red is tall pivot
+                    warningMessage = "The blue connecting rod collides with the red lid pivot. Move the pivot points or decrease the pivot axle diameter or rod width.";
+                }
+                
+                // Show warning if distance is too small
+                if (rodToLidPivotDistance < minSafeRodDistance) {
+                    warnings.push(warningMessage);
+                }
                 
                 // Check if pivot points are too close together
                 // Convert simulation units to mm for comparison
@@ -500,83 +582,27 @@
                 const minDistance = (generator.rimDiameter/2 + generator.tallPinBaseDiameter/2 + 1);
                 
                 if (boxPivotDistance < minDistance || lidPivotDistance < minDistance) {
-                    alert("Warning: pivot positions are too close together to allow this 3D printed mechanism to work.");
+                    warnings.push("Pivot positions are too close together to allow this 3D printed mechanism to work.");
                 }
                 
-                // Check if lid pivot points are too close to the edge of the lid
-                const lidVertices = boxRenderer.geometry.getClosedLidVertices();
-                
-                // Determine which point is on top (higher Y value)
-                const isRedOnTop = boxRenderer.geometry.redClosedPoint.y > boxRenderer.geometry.blueClosedPoint.y;
-                const topLidPoint = isRedOnTop ? boxRenderer.geometry.redClosedPoint : boxRenderer.geometry.blueClosedPoint;
-                const bottomLidPoint = isRedOnTop ? boxRenderer.geometry.blueClosedPoint : boxRenderer.geometry.redClosedPoint;
-                
-                // Calculate minimum distance from each pivot point to the edge of the lid
-                let topMinDistance = Infinity;
-                let bottomMinDistance = Infinity;
-                
-                // Check distance to each edge of the lid
-                for (let i = 0; i < lidVertices.length; i++) {
-                    const p1 = lidVertices[i];
-                    const p2 = lidVertices[(i + 1) % lidVertices.length];
-                    
-                    // Calculate distance from point to line segment
-                    const topDist = distanceToLineSegment(topLidPoint, p1, p2) * scaleFactor;
-                    const bottomDist = distanceToLineSegment(bottomLidPoint, p1, p2) * scaleFactor;
-                    
-                    topMinDistance = Math.min(topMinDistance, topDist);
-                    bottomMinDistance = Math.min(bottomMinDistance, bottomDist);
+                // Display all warnings in a single popup if there are any
+                if (warnings.length > 0) {
+                    let warningText = "Warning:\n\n";
+                    warnings.forEach((warning, index) => {
+                        warningText += `${index + 1}. ${warning}\n\n`;
+                    });
+                    alert(warningText);
                 }
                 
-                // The minimum safe distances are the pin radii in mm
-                const topMinSafeDistance = generator.shortPinDiameter / 2;
-                const bottomMinSafeDistance = generator.tallPinBaseDiameter / 2;
+                // Generate and download STL files
+                generator.generateZip().then(blob => {
+                    saveAs(blob, 'hinge-box.zip');
+                }).catch(error => {
+                    console.error('Error generating STL:', error);
+                    alert('Error generating STL: ' + error.message);
+                });
                 
-                if (topMinDistance < topMinSafeDistance || bottomMinDistance < bottomMinSafeDistance) {
-                    alert("Warning: lid pivot points are close to the edge of the lid, and the pivot will overhang.");
-                }
-                
-                // CHECK: Check if connecting rods will collide with lid pivot points
-                // Get the points for the connecting rods
-                const redBoxPoint = boxRenderer.geometry.redBoxPoint;
-                const blueBoxPoint = boxRenderer.geometry.blueBoxPoint;
-                const redLidPoint = boxRenderer.geometry.redClosedPoint;
-                const blueLidPoint = boxRenderer.geometry.blueClosedPoint;
-                
-                // Determine which box pivot has greater Y value (is higher)
-                const isRedBoxPivotHigher = redBoxPoint.y > blueBoxPoint.y;
-                
-                // Calculate the minimum safe distance between a rod and a pivot point in mm
-                const minSafeRodDistance = generator.tallPinBaseDiameter/2 + generator.linkWidth/2;
-                
-                // Check distance from short rod to tall lid pivot
-                const rodToLidPivotDistance = boxRenderer.minDistFromShortLinkToTallPivot * scaleFactor;
-                let warningMessage = "";
-                
-                // console.log("isRedBoxPivotHigher?:", isRedBoxPivotHigher);
-                // console.log("minSafeRodDistance:", minSafeRodDistance);
-                // console.log("minDistFromShortLinkToTallPivot:", boxRenderer.minDistFromShortLinkToTallPivot);
-                // console.log("rodToLidPivotDistance:", rodToLidPivotDistance);
-                
-                if (isRedBoxPivotHigher) {
-                    // Red is short pivot, blue is tall pivot
-                    warningMessage = "Warning: the red connecting rod will collide with the blue lid pivot with this configuration. Move the pivot points or decrease the pivot axle diameter or rod width.";
-                } else {
-                    // Blue is short pivot, red is tall pivot
-                    warningMessage = "Warning: the blue connecting rod will collide with the red lid pivot with this configuration. Move the pivot points or decrease the pivot axle diameter or rod width.";
-                }
-                
-                // Show warning if distance is too small
-                if (rodToLidPivotDistance < minSafeRodDistance) {
-                    alert(warningMessage);
-                }
             });
-            
-            // Function to calculate distance from a point to a line segment
-            function distanceFromPointToLineSegment(point, lineStart, lineEnd) {
-                // Same as distanceToLineSegment but with a different name for clarity
-                return distanceToLineSegment(point, lineStart, lineEnd);
-            }
             
             // Advanced settings toggle
             document.getElementById('advancedSettingsToggle').addEventListener('click', function() {

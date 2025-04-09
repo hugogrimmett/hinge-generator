@@ -16,11 +16,13 @@ Project plan:
 
 
 - [ ] Better legibility on "open lid" and "closed lid" text
-- [ ] Moving lid and box collision detection
-- [ ] Clearance between moving lid and box pivot points
 - [ ] Animation restarts when scrolling - looks ungraceful
 - [ ] Lock the pivot points in proportionally to the lid when changing the box parameters
-
+- [ ] Throw a canvas warning when minDistFromShortLinkToTallPivot is close to zero
+- [ ] Check for collisions and minDistFromShortLinkToTallPivot issues instantly when config is changed, rather than waiting for animation to finish
+- [ ] Merge all STL pop-up warnings into a single warning
+- [ ] Make default starting configuration valid to all checks
+ 
 Interesting case where box rotates the wrong way: http://localhost:8000/?height=30&width=40&depth=15&alpha=75&gap=6&redBoxX=28.04&redBoxY=20.64&redClosedX=8.09&redClosedY=19.49&blueBoxX=15.90&blueBoxY=39.63&blueClosedX=10.03&blueClosedY=29.20
 
 
@@ -32,5 +34,3 @@ http://localhost:8000/?height=30.000&width=40.000&depth=10.000&alpha=1.309&gap=1
 http://localhost:8000/?height=30.000&width=40.000&depth=10.000&alpha=1.309&gap=1.000&rcx=3.333&rcy=20.000&bcx=5.000&bcy=26.667&rbd=-3.000&bbd=3.000
 
 This one can't be manufactured because the rod collides with the axle: https://grimmett.io/hinge-generator/?height=35.000&width=50.000&depth=21.000&alpha=1.309&gap=1.000&rcx=16.313&rcy=24.138&bcx=4.861&bcy=31.641&rbd=-5.063&bbd=2.693
-
-the constraint for this is: the line segment between the top pivots should never get closer than (tallpivotbasediameter/2 + rodwidth/2) from the bottom lid pivot point
