@@ -51,6 +51,7 @@ class BoxRenderer {
         this.lastAngle = null;
         this.lastValidConfig = null;
         this.isTouchDevice = 'ontouchstart' in window;  // Detect touch device
+        this.minDistFromShortLinkToTallPivot = Infinity;
         
         // Set up event listeners
         this.canvas.addEventListener('mousedown', this.handleMouseDown.bind(this));
@@ -178,6 +179,9 @@ class BoxRenderer {
         
         // Clear collision state when parameters change
         this.geometry.clearCollisionState();
+
+        // Clear minDistFromShortLinkToTallPivot when parameters change
+        this.minDistFromShortLinkToTallPivot = Infinity;
         
         // Recalculate viewport bounds and scale
         const margin = Math.max(h, w) * 0.1;
@@ -474,20 +478,6 @@ class BoxRenderer {
     // Draw accumulated collision area if there has been a collision
     drawCollisionArea() {
         this.ctx.save();
-
-        // // Draw checked pixels in green
-        // this.ctx.fillStyle = 'rgba(0, 255, 0, 0.3)';  // Semi-transparent green
-        // for (const pixelStr of this.geometry.checkedPixels) {
-        //     const [x, y] = pixelStr.split(',').map(Number);
-        //     const point = this.transform({x, y});
-        //     this.ctx.fillRect(
-        //         point.x - 1,  // Make checked pixels small (2x2)
-        //         point.y - 1,
-        //         2,
-        //         2
-        //     );
-        // }
-
         // Draw total collision pixels in red
         if (this.geometry.totalCollisionPoints.size > 0) {
             this.ctx.fillStyle = 'rgba(255, 0, 0, 0.3)';  // Semi-transparent red
@@ -576,6 +566,7 @@ class BoxRenderer {
         
         // Draw four-bar linkage if initialized and animating
         const fb = this.geometry.fourBarConfig;
+        
         if (fb && this.geometry.isAnimating) {
             // Draw ground line
             ctx.beginPath();
@@ -632,6 +623,53 @@ class BoxRenderer {
             this.drawCircle(blueLine.start, 5, 'blue');
             this.drawCircle(blueLine.end, 5, 'blue');
             this.drawCircle(blueLine.boxPoint, 5, 'blue');
+        }
+
+        // Calculate which pivot is short/tall and maintain minDistFromShortLinkToTallPivot
+        // Determine which point is on top (higher Y value)
+        // const fb = this.geometry.fourBarConfig;
+        // Future improvement: run this very fast any time any configuration is changed, rather than in-time with the animation. 
+        // Currently it's possible to click "generate STL" too quickly and not receive the warning if the animation is not complete
+        if (fb) {
+            const inputFollower = fb.inputFollower;
+            const outputFollower = fb.outputFollower;
+            const redBoxPoint = this.geometry.redBoxPoint;
+            const blueBoxPoint = this.geometry.blueBoxPoint;
+            
+            const isRedBoxPointOnTop = this.geometry.redClosedPoint.y > this.geometry.blueClosedPoint.y;
+            const shortBoxPoint = isRedBoxPointOnTop ? redBoxPoint : blueBoxPoint;
+            const shortLidPoint = isRedBoxPointOnTop ? inputFollower : outputFollower;
+            const tallLidPoint = isRedBoxPointOnTop ? outputFollower : inputFollower;
+            
+            const currentDistance = this.geometry.getDistanceFromPointToLineSegment(
+                tallLidPoint, shortLidPoint, shortBoxPoint
+            );
+            this.minDistFromShortLinkToTallPivot = Math.min(
+                this.minDistFromShortLinkToTallPivot,
+                currentDistance
+            );
+        
+            // // Display the minDistFromShortLinkToTallPivot value for debugging
+            // ctx.save();
+            // ctx.font = '12px monospace';
+            // ctx.fillStyle = 'black';
+            // ctx.textAlign = 'left';
+            // ctx.textBaseline = 'top';
+            // ctx.fillText(`Current distance: ${currentDistance.toFixed(2)}`, 10, 10);
+            // ctx.fillText(`Min distance: ${this.minDistFromShortLinkToTallPivot.toFixed(2)}`, 10, 30);
+            // ctx.restore();
+
+            // const shortLidPointTransformed = this.transform(shortLidPoint);
+            // const shortBoxPointTransformed = this.transform(shortBoxPoint);
+            // ctx.beginPath();
+            // ctx.strokeStyle = '#3CB371';
+            // ctx.lineWidth = 3;
+            // ctx.moveTo(shortLidPointTransformed.x, shortLidPointTransformed.y);
+            // ctx.lineTo(shortBoxPointTransformed.x, shortBoxPointTransformed.y);
+            // ctx.stroke();
+
+            // // note: can't use tallLidPoint because it's transformed (again) in the drawCircle function
+            // this.drawCircle(tallLidPoint, 8, 'green');
         }
         
         // Draw warning text
@@ -749,6 +787,9 @@ class BoxRenderer {
         
         // Clear collision state when moving points
         this.geometry.clearCollisionState();
+
+        // Clear minDistFromShortLinkToTallPivot when parameters change
+        this.minDistFromShortLinkToTallPivot = Infinity;
         
         // Check red points
         if (this.geometry.isPointNearRedOpenPoint(point, hitArea)) {
@@ -781,6 +822,9 @@ class BoxRenderer {
         
         // Clear collision state when moving points
         this.geometry.clearCollisionState();
+
+        // Clear minDistFromShortLinkToTallPivot when parameters change
+        this.minDistFromShortLinkToTallPivot = Infinity;
         
         // Handle existing point dragging
         const [color, pointType] = this.selectedPoint.split('-');
@@ -869,6 +913,9 @@ class BoxRenderer {
             
             // Clear collision state when moving points
             this.geometry.clearCollisionState();
+
+            // Clear minDistFromShortLinkToTallPivot when parameters change
+            this.minDistFromShortLinkToTallPivot = Infinity;
             
             // Check red points
             if (this.geometry.isPointNearRedOpenPoint(point, hitArea)) {
@@ -902,6 +949,9 @@ class BoxRenderer {
             
             // Clear collision state when moving points
             this.geometry.clearCollisionState();
+
+            // Clear minDistFromShortLinkToTallPivot when parameters change
+            this.minDistFromShortLinkToTallPivot = Infinity;
             
             // Handle existing point dragging
             const [color, pointType] = this.selectedPoint.split('-');

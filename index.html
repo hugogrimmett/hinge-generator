@@ -534,8 +534,49 @@
                 
                 if (topMinDistance < topMinSafeDistance || bottomMinDistance < bottomMinSafeDistance) {
                     alert("Warning: lid pivot points are close to the edge of the lid, and the pivot will overhang.");
-                }                    
+                }
+                
+                // CHECK: Check if connecting rods will collide with lid pivot points
+                // Get the points for the connecting rods
+                const redBoxPoint = boxRenderer.geometry.redBoxPoint;
+                const blueBoxPoint = boxRenderer.geometry.blueBoxPoint;
+                const redLidPoint = boxRenderer.geometry.redClosedPoint;
+                const blueLidPoint = boxRenderer.geometry.blueClosedPoint;
+                
+                // Determine which box pivot has greater Y value (is higher)
+                const isRedBoxPivotHigher = redBoxPoint.y > blueBoxPoint.y;
+                
+                // Calculate the minimum safe distance between a rod and a pivot point in mm
+                const minSafeRodDistance = generator.tallPinBaseDiameter/2 + generator.linkWidth/2;
+                
+                // Check distance from short rod to tall lid pivot
+                const rodToLidPivotDistance = boxRenderer.minDistFromShortLinkToTallPivot * scaleFactor;
+                let warningMessage = "";
+                
+                // console.log("isRedBoxPivotHigher?:", isRedBoxPivotHigher);
+                // console.log("minSafeRodDistance:", minSafeRodDistance);
+                // console.log("minDistFromShortLinkToTallPivot:", boxRenderer.minDistFromShortLinkToTallPivot);
+                // console.log("rodToLidPivotDistance:", rodToLidPivotDistance);
+                
+                if (isRedBoxPivotHigher) {
+                    // Red is short pivot, blue is tall pivot
+                    warningMessage = "Warning: the red connecting rod will collide with the blue lid pivot with this configuration. Move the pivot points or decrease the pivot axle diameter or rod width.";
+                } else {
+                    // Blue is short pivot, red is tall pivot
+                    warningMessage = "Warning: the blue connecting rod will collide with the red lid pivot with this configuration. Move the pivot points or decrease the pivot axle diameter or rod width.";
+                }
+                
+                // Show warning if distance is too small
+                if (rodToLidPivotDistance < minSafeRodDistance) {
+                    alert(warningMessage);
+                }
             });
+            
+            // Function to calculate distance from a point to a line segment
+            function distanceFromPointToLineSegment(point, lineStart, lineEnd) {
+                // Same as distanceToLineSegment but with a different name for clarity
+                return distanceToLineSegment(point, lineStart, lineEnd);
+            }
             
             // Advanced settings toggle
             document.getElementById('advancedSettingsToggle').addEventListener('click', function() {

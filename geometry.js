@@ -831,6 +831,39 @@ class BoxGeometry {
         const distance = Math.abs((line_b.y - line_a.y) * point.x - (line_b.x - line_a.x) * point.y + (line_b.x * line_a.y - line_a.x * line_b.y)) / Math.sqrt((line_b.y - line_a.y) ** 2 + (line_b.x - line_a.x) ** 2);
         return distance;
     }
+
+    // Helper function to calculate distance from a point to a line segment
+    getDistanceFromPointToLineSegment(point, lineStart, lineEnd) {
+        const A = point.x - lineStart.x;
+        const B = point.y - lineStart.y;
+        const C = lineEnd.x - lineStart.x;
+        const D = lineEnd.y - lineStart.y;
+        
+        const dot = A * C + B * D;
+        const lenSq = C * C + D * D;
+        let param = -1;
+        
+        if (lenSq !== 0) // To avoid division by zero
+            param = dot / lenSq;
+        
+        let xx, yy;
+        
+        if (param < 0) {
+            xx = lineStart.x;
+            yy = lineStart.y;
+        } else if (param > 1) {
+            xx = lineEnd.x;
+            yy = lineEnd.y;
+        } else {
+            xx = lineStart.x + param * C;
+            yy = lineStart.y + param * D;
+        }
+        
+        const dx = point.x - xx;
+        const dy = point.y - yy;
+        
+        return Math.sqrt(dx * dx + dy * dy);
+    }
     
     getConstraintDotProducts() {
         const center = this.getCenterOfRotation();
