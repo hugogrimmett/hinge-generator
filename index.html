@@ -483,6 +483,16 @@
                 // Collection of warnings
                 const warnings = [];
                 
+                // Check if the current configuration is valid
+                if (!boxRenderer.geometry.isValidRangeReachable()) {
+                    warnings.push("The lid cannot reach the open position with the current configuration. Try adjusting the pivot points.");
+                }
+                
+                // Check if there are any collisions in the current animation
+                if (boxRenderer.geometry.hasCollided) {
+                    warnings.push("The lid collides with the box during opening/closing. Adjust the pivot points to prevent collision.");
+                }
+                
                 // Check if the box and lid pivots are too close to the edges
                 // Get the box pivot points
                 const boxPivotPoints = [
