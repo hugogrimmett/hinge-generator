@@ -264,8 +264,8 @@ class BoxGeometry {
         
         // Initialize red closed points at default positions
         this.redClosedPoint = {
-            x: this.depth/3,
-            y: this.height - this.height/3
+            x: this.depth/4,
+            y: this.height/2
         };
         
         // Initialize blue closed points at default positions (different location)
@@ -281,13 +281,13 @@ class BoxGeometry {
         // Initialize box points at default positions only if they don't exist
         // This allows setBoxPivotPositions to restore them properly
         if (!this.redBoxPoint && !this.blueBoxPoint) {
-            const redLen = this.height * 0.1;
+            const redLen = this.height * 0.2;
             this.redBoxPoint = {
                 x: this.centerOfRotation.x,
                 y: this.centerOfRotation.y - redLen
             };
             
-            const blueLen = this.height * -0.1;
+            const blueLen = this.height * -0.2;
             this.blueBoxPoint = {
                 x: this.centerOfRotation.x,
                 y: this.centerOfRotation.y - blueLen
