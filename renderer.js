@@ -68,7 +68,31 @@ class BoxRenderer {
         // Add template generation button listener
         const generateButton = document.getElementById('generateTemplateButton');
         if (generateButton) {
-            generateButton.addEventListener('click', () => this.generateTemplate());
+            generateButton.addEventListener('click', () => {
+                // Collection of warnings
+                const warnings = [];
+                
+                // Check if the current configuration is valid
+                if (!this.geometry.isValidRangeReachable()) {
+                    warnings.push("The lid cannot reach the open position with the current configuration. Try adjusting the pivot points.");
+                }
+                
+                // Check if there are any collisions in the current animation
+                if (this.geometry.totalCollisionPoints.size > 0) {
+                    warnings.push("The lid collides with the box during opening/closing. Adjust the pivot points to prevent collision.");
+                }
+                
+                // If there are warnings, show the modal
+                if (warnings.length > 0) {
+                    window.showWarningModal(warnings, () => {
+                        // This function will be called if the user clicks "Generate Template"
+                        this.generateTemplate();
+                    });
+                } else {
+                    // No warnings, generate template directly
+                    this.generateTemplate();
+                }
+            });
         }
         
         // Add link length constraint checkbox listener

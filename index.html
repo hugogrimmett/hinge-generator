@@ -489,8 +489,9 @@
                     warnings.push("The lid cannot reach the open position with the current configuration. Try adjusting the pivot points.");
                 }
                 
+                
                 // Check if there are any collisions in the current animation
-                if (boxRenderer.geometry.hasCollided) {
+                if (boxRenderer.geometry.totalCollisionPoints.size > 0) {
                     warnings.push("The lid collides with the box during opening/closing. Adjust the pivot points to prevent collision.");
                 }
                 
@@ -629,6 +630,9 @@
                 }
                 
             });
+            
+            // Make showWarningModal available globally for the renderer.js file to use
+            window.showWarningModal = showWarningModal;
             
             // Advanced settings toggle
             document.getElementById('advancedSettingsToggle').addEventListener('click', function() {
@@ -799,9 +803,13 @@
             function showWarningModal(warnings, onConfirm) {
                 // Get modal elements
                 const modal = document.getElementById('warningModal');
+                const modalTitle = modal.querySelector('.modal-title');
                 const warningList = document.getElementById('warningList');
                 const cancelButton = document.getElementById('cancelButton');
                 const generateButton = document.getElementById('generateButton');
+                
+                // Set title to Warning
+                modalTitle.textContent = 'Warning';
                 
                 // Clear previous warnings
                 warningList.innerHTML = '';
