@@ -521,6 +521,64 @@ class BoxRenderer {
         this.ctx.restore();
     }
     
+    // Draw rod length feedback
+    drawRodLengthFeedback() {
+        const redLine = this.geometry.getRedConnectionLine();
+        const blueLine = this.geometry.getBlueConnectionLine();
+        
+        // Draw length for both rods
+        if (redLine) {
+            this.drawRodLength(redLine.boxPoint, redLine.start, 'red');
+        }
+        
+        if (blueLine) {
+            this.drawRodLength(blueLine.boxPoint, blueLine.start, 'blue');
+        }
+    }
+    
+    // Draw the length of a rod
+    drawRodLength(point1, point2, color) {
+        const ctx = this.ctx;
+        const length = this.geometry.distance(point1, point2);
+        
+        // Format length to 2 decimal places without units
+        const formattedLength = length.toFixed(2);
+        
+        // Calculate midpoint and angle of the rod
+        const midpoint = {
+            x: (point1.x + point2.x) / 2,
+            y: (point1.y + point2.y) / 2
+        };
+        
+        // Calculate angle in world coordinates
+        const dx = point2.x - point1.x;
+        const dy = point2.y - point1.y;
+        
+        // Transform points to screen coordinates to get the correct angle
+        const p1Screen = this.transform(point1);
+        const p2Screen = this.transform(point2);
+        const angleScreen = Math.atan2(p2Screen.y - p1Screen.y, p2Screen.x - p1Screen.x);
+        
+        // Draw the text
+        ctx.save();
+        const transformedMidpoint = this.transform(midpoint);
+        ctx.translate(transformedMidpoint.x, transformedMidpoint.y);
+        ctx.rotate(angleScreen + Math.PI); // Add 180 degrees (PI radians) to flip the text
+        
+        // Draw background for better visibility
+        ctx.font = '14px -apple-system, BlinkMacSystemFont, system-ui, sans-serif';
+        const textWidth = ctx.measureText(formattedLength).width;
+        ctx.fillStyle = 'rgba(255, 255, 255, 0.8)';
+        ctx.fillRect(-textWidth/2 - 4, -10, textWidth + 8, 20);
+        
+        // Draw text
+        ctx.fillStyle = color === 'red' ? '#ff6666' : '#4d94ff';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillText(formattedLength, 0, 0);
+        ctx.restore();
+    }
+    
     // Main draw function
     draw() {
         const ctx = this.ctx;
@@ -647,6 +705,11 @@ class BoxRenderer {
             this.drawCircle(blueLine.start, 5, 'blue');
             this.drawCircle(blueLine.end, 5, 'blue');
             this.drawCircle(blueLine.boxPoint, 5, 'blue');
+        }
+
+        // Draw rod length feedback if any pivot is being dragged
+        if (this.isDragging && this.selectedPoint) {
+            this.drawRodLengthFeedback();
         }
 
         // Calculate which pivot is short/tall and maintain minDistFromShortLinkToTallPivot
