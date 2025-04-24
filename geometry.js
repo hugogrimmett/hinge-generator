@@ -702,8 +702,8 @@ class BoxGeometry {
         
         return {
             boxPoint: this.redBoxPoint,
-            start: this.redClosedPoint,
-            end: this.redOpenPoint,
+            closedPoint: this.redClosedPoint,
+            openPoint: this.redOpenPoint,
             perpStart: this.redConstraintLine ? this.redConstraintLine.perpStart : null,
             perpEnd: this.redConstraintLine ? this.redConstraintLine.perpEnd : null
         };
@@ -715,8 +715,8 @@ class BoxGeometry {
         
         return {
             boxPoint: this.blueBoxPoint,
-            start: this.blueClosedPoint,
-            end: this.blueOpenPoint,
+            closedPoint: this.blueClosedPoint,
+            openPoint: this.blueOpenPoint,
             perpStart: this.blueConstraintLine ? this.blueConstraintLine.perpStart : null,
             perpEnd: this.blueConstraintLine ? this.blueConstraintLine.perpEnd : null
         };

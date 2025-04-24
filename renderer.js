@@ -365,8 +365,8 @@ class BoxRenderer {
     drawConnectionLine(line, color) {
         const ctx = this.ctx;
         
-        const start = this.transform(line.start);
-        const end = this.transform(line.end);
+        const start = this.transform(line.closedPoint);
+        const end = this.transform(line.openPoint);
         
         // Reset line dash
         ctx.setLineDash([]);
@@ -401,7 +401,7 @@ class BoxRenderer {
         // Draw dashed line from box point to open point
         ctx.beginPath();
         ctx.setLineDash([8, 8]);  // Larger dashes for thicker line
-        const openPoint = this.transform(line.end);
+        const openPoint = this.transform(line.openPoint);
         ctx.moveTo(boxPoint.x, boxPoint.y);
         ctx.lineTo(openPoint.x, openPoint.y);
         ctx.stroke();
@@ -409,7 +409,7 @@ class BoxRenderer {
         // Draw solid line from box point to closed point
         ctx.beginPath();
         ctx.setLineDash([]);  // Reset to solid line
-        const closedPoint = this.transform(line.start);
+        const closedPoint = this.transform(line.closedPoint);
         ctx.moveTo(boxPoint.x, boxPoint.y);
         ctx.lineTo(closedPoint.x, closedPoint.y);
         ctx.stroke();
@@ -528,11 +528,11 @@ class BoxRenderer {
         
         // Draw length for both rods
         if (redLine) {
-            this.drawRodLength(redLine.boxPoint, redLine.start, 'red');
+            this.drawRodLength(redLine.boxPoint, redLine.closedPoint, 'red');
         }
         
         if (blueLine) {
-            this.drawRodLength(blueLine.boxPoint, blueLine.start, 'blue');
+            this.drawRodLength(blueLine.boxPoint, blueLine.closedPoint, 'blue');
         }
     }
     
@@ -696,14 +696,14 @@ class BoxRenderer {
         const blueLine = this.geometry.getBlueConnectionLine();
         
         if (redLine) {
-            this.drawCircle(redLine.start, 5, 'red');
-            this.drawCircle(redLine.end, 5, 'red');
+            this.drawCircle(redLine.closedPoint, 5, 'red');
+            this.drawCircle(redLine.openPoint, 5, 'red');
             this.drawCircle(redLine.boxPoint, 5, 'red');
         }
         
         if (blueLine) {
-            this.drawCircle(blueLine.start, 5, 'blue');
-            this.drawCircle(blueLine.end, 5, 'blue');
+            this.drawCircle(blueLine.closedPoint, 5, 'blue');
+            this.drawCircle(blueLine.openPoint, 5, 'blue');
             this.drawCircle(blueLine.boxPoint, 5, 'blue');
         }
 
