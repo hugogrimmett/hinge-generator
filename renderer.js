@@ -365,32 +365,25 @@ class BoxRenderer {
     drawConnectionLine(line, color) {
         const ctx = this.ctx;
         
-        const start = this.transform(line.closedPoint);
-        const end = this.transform(line.openPoint);
+        const closedPoint = this.transform(line.closedPoint);
+        const openPoint = this.transform(line.openPoint);
         
         // Reset line dash
         ctx.setLineDash([]);
         
-        // Draw perpendicular line from box pivot point to constraint line
+        // Draw perpendicular line from box pivot point directly to center of rotation
         ctx.beginPath();
         ctx.setLineDash([2, 2]);  // Dotted line
         ctx.strokeStyle = color === 'red' ? '#ff8080' : color === 'blue' ? '#80b3ff' : `${color}33`;  // Lighter but still vibrant
         
         const boxPoint = this.transform(line.boxPoint);
         
-        // Calculate perpendicular line endpoint on the constraint line
-        // First, get vector from start to end of constraint line
-        const dx = end.x - start.x;
-        const dy = end.y - start.y;
+        // Get center of rotation (now stored directly in the constraint line)
+        const centerOfRotation = this.transform(line.perpStart); // Using perpStart which now contains the center
         
-        // Calculate projection of box point onto constraint line
-        const t = ((boxPoint.x - start.x) * dx + (boxPoint.y - start.y) * dy) / (dx * dx + dy * dy);
-        const projX = start.x + t * dx;
-        const projY = start.y + t * dy;
-        
-        // Draw perpendicular line from box point to projection point
+        // Draw perpendicular line from box point directly to center of rotation
         ctx.moveTo(boxPoint.x, boxPoint.y);
-        ctx.lineTo(projX, projY);
+        ctx.lineTo(centerOfRotation.x, centerOfRotation.y);
         ctx.stroke();
         ctx.setLineDash([]);  // Reset dash
         
@@ -401,7 +394,7 @@ class BoxRenderer {
         // Draw dashed line from box point to open point
         ctx.beginPath();
         ctx.setLineDash([8, 8]);  // Larger dashes for thicker line
-        const openPoint = this.transform(line.openPoint);
+        // const openPoint = this.transform(line.openPoint);
         ctx.moveTo(boxPoint.x, boxPoint.y);
         ctx.lineTo(openPoint.x, openPoint.y);
         ctx.stroke();
@@ -409,7 +402,7 @@ class BoxRenderer {
         // Draw solid line from box point to closed point
         ctx.beginPath();
         ctx.setLineDash([]);  // Reset to solid line
-        const closedPoint = this.transform(line.closedPoint);
+        // const closedPoint = this.transform(line.closedPoint);
         ctx.moveTo(boxPoint.x, boxPoint.y);
         ctx.lineTo(closedPoint.x, closedPoint.y);
         ctx.stroke();

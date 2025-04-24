@@ -309,18 +309,11 @@ class BoxGeometry {
         const redPerpX = -redDirY;
         const redPerpY = redDirX;
         
-        // Store perpendicular direction for box point initialization
+        // Store perpendicular direction and center of rotation
         this.redConstraintLine = {
             perpX: redPerpX,
             perpY: redPerpY,
-            perpStart: {
-                x: center.x - redPerpX * this.height,
-                y: center.y - redPerpY * this.height
-            },
-            perpEnd: {
-                x: center.x + redPerpX * this.height,
-                y: center.y + redPerpY * this.height
-            },
+            center: center, // Store center of rotation directly
             dirX: redDirX,
             dirY: redDirY
         };
@@ -335,18 +328,11 @@ class BoxGeometry {
         const bluePerpX = -blueDirY;
         const bluePerpY = blueDirX;
         
-        // Store perpendicular direction for box point initialization
+        // Store perpendicular direction and center of rotation
         this.blueConstraintLine = {
             perpX: bluePerpX,
             perpY: bluePerpY,
-            perpStart: {
-                x: center.x - bluePerpX * this.height,
-                y: center.y - bluePerpY * this.height
-            },
-            perpEnd: {
-                x: center.x + bluePerpX * this.height,
-                y: center.y + bluePerpY * this.height
-            },
+            center: center, // Store center of rotation directly
             dirX: blueDirX,
             dirY: blueDirY
         };
@@ -602,73 +588,46 @@ class BoxGeometry {
     }
     
     moveBoxPoint(point, type) {
-        // Get the points we're working with based on type: 'redBox' or 'blueBox'
-        const points = {
-            redBox: {
-                self: this.redBoxPoint,
-                closed: this.redClosedPoint,
-                other: this.blueClosedPoint,
-                otherBox: this.blueBoxPoint,
-                updateOpen: () => this.updateRedOpenPoint(),
-                constraintLine: this.redConstraintLine,
-                updateBox: (p) => { this.redBoxPoint = p; }
-            },
-            blueBox: {
-                self: this.blueBoxPoint,
-                closed: this.blueClosedPoint,
-                other: this.redClosedPoint,
-                otherBox: this.redBoxPoint,
-                updateOpen: () => this.updateBlueOpenPoint(),
-                constraintLine: this.blueConstraintLine,
-                updateBox: (p) => { this.blueBoxPoint = p; }
-            }
+        // Get current point data
+        const current = type === 'redBox' ? {
+            box: this.redBoxPoint,
+            closed: this.redClosedPoint,
+            constraintLine: this.redConstraintLine,
+            updateBox: (p) => { this.redBoxPoint = p; },
+            updateOpen: () => { this.updateRedOpenPoint(); },
+            other: this.blueClosedPoint,
+            otherBox: this.blueBoxPoint
+        } : {
+            box: this.blueBoxPoint,
+            closed: this.blueClosedPoint,
+            constraintLine: this.blueConstraintLine,
+            updateBox: (p) => { this.blueBoxPoint = p; },
+            updateOpen: () => { this.updateBlueOpenPoint(); },
+            other: this.redClosedPoint,
+            otherBox: this.redBoxPoint
         };
-        
-        const current = points[type];
-        if (!current || !current.constraintLine) return;
-        
-        // Store current positions and lengths
-        const prevSelfLength = this.distance(current.self, current.closed);
-        const prevBoxPoint = { ...current.self };
         
         // Project point onto constraint line
         const line = current.constraintLine;
-        const newBoxPoint = this.projectPointOntoLineSegment(point, line.perpStart, line.perpEnd);
+        
+        // Create two points along the perpendicular line for projection
+        const center = line.center;
+        const perpX = line.perpX;
+        const perpY = line.perpY;
+        const perpStart = {
+            x: center.x - perpX * this.height,
+            y: center.y - perpY * this.height
+        };
+        const perpEnd = {
+            x: center.x + perpX * this.height,
+            y: center.y + perpY * this.height
+        };
+        
+        // Project the point onto the perpendicular line
+        const newBoxPoint = this.projectPointOntoLineSegment(point, perpStart, perpEnd);
         current.updateBox(newBoxPoint);
         current.updateOpen();
         this.updateConstraintLines();
-        
-        // If link lengths should be constrained, update other points to match
-        if (this.constrainLinkLengths) {
-            const newLength = this.distance(newBoxPoint, current.closed);
-            const lidVertices = this.getOpenLidVertices();
-            
-            // Try to adjust other points to match new length while staying in bounds
-            const result = this.adjustPointWithConstraints(
-                current.other,
-                current.otherBox,
-                newLength,
-                lidVertices
-            );
-            
-            if (result) {
-                if (type === 'redBox') {
-                    this.blueClosedPoint = result.openPoint;
-                    this.blueBoxPoint = result.boxPoint;
-                    this.updateBlueOpenPoint();
-                } else {
-                    this.redClosedPoint = result.openPoint;
-                    this.redBoxPoint = result.boxPoint;
-                    this.updateRedOpenPoint();
-                }
-                this.updateConstraintLines();
-            } else {
-                // If no valid solution found, revert changes
-                current.updateBox(prevBoxPoint);
-                current.updateOpen();
-                this.updateConstraintLines();
-            }
-        }
     }
     
     moveRedBoxPoint(point) {
@@ -704,8 +663,8 @@ class BoxGeometry {
             boxPoint: this.redBoxPoint,
             closedPoint: this.redClosedPoint,
             openPoint: this.redOpenPoint,
-            perpStart: this.redConstraintLine ? this.redConstraintLine.perpStart : null,
-            perpEnd: this.redConstraintLine ? this.redConstraintLine.perpEnd : null
+            perpStart: this.redConstraintLine ? this.redConstraintLine.center : null,
+            perpEnd: this.redConstraintLine ? this.redConstraintLine.center : null
         };
     }
     
@@ -717,8 +676,8 @@ class BoxGeometry {
             boxPoint: this.blueBoxPoint,
             closedPoint: this.blueClosedPoint,
             openPoint: this.blueOpenPoint,
-            perpStart: this.blueConstraintLine ? this.blueConstraintLine.perpStart : null,
-            perpEnd: this.blueConstraintLine ? this.blueConstraintLine.perpEnd : null
+            perpStart: this.blueConstraintLine ? this.blueConstraintLine.center : null,
+            perpEnd: this.blueConstraintLine ? this.blueConstraintLine.center : null
         };
     }
     
@@ -869,21 +828,21 @@ class BoxGeometry {
         const center = this.getCenterOfRotation();
         if (!center || !this.redConstraintLine || !this.blueConstraintLine) return null;
 
-        const red_point = this.redConstraintLine.perpEnd;
-        const blue_point = this.blueConstraintLine.perpEnd;
+        const red_point = this.redConstraintLine.center;
+        const blue_point = this.blueConstraintLine.center;
 
-        const red_point2 = this.redConstraintLine.perpStart;
-        const blue_point2 = this.blueConstraintLine.perpStart;
+        const red_point2 = this.redConstraintLine.center;
+        const blue_point2 = this.blueConstraintLine.center;
 
         const distance_red = this.getDistanceFromPointToLine(
             this.redBoxPoint,
-            this.redConstraintLine.perpStart, 
-            this.redConstraintLine.perpEnd);
+            this.redConstraintLine.center, 
+            this.redConstraintLine.center);
         
         const distance_blue = this.getDistanceFromPointToLine(
             this.blueBoxPoint,
-            this.blueConstraintLine.perpStart, 
-            this.blueConstraintLine.perpEnd);
+            this.blueConstraintLine.center, 
+            this.blueConstraintLine.center);
         
         return { distance_red, distance_blue, center, red_point, blue_point, red_point2, blue_point2};
     }
