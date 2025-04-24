@@ -828,25 +828,18 @@ class BoxGeometry {
         const center = this.getCenterOfRotation();
         if (!center || !this.redConstraintLine || !this.blueConstraintLine) return null;
 
-        const red_point = this.redConstraintLine.center;
-        const blue_point = this.blueConstraintLine.center;
-
-        const red_point2 = this.redConstraintLine.center;
-        const blue_point2 = this.blueConstraintLine.center;
-
-        const distance_red = this.getDistanceFromPointToLine(
-            this.redBoxPoint,
-            this.redConstraintLine.center, 
-            this.redConstraintLine.center);
+        // Calculate the distance from each box pivot to the center of rotation
+        const redDistance = this.distance(this.redBoxPoint, center);
+        const blueDistance = this.distance(this.blueBoxPoint, center);
         
-        const distance_blue = this.getDistanceFromPointToLine(
-            this.blueBoxPoint,
-            this.blueConstraintLine.center, 
-            this.blueConstraintLine.center);
-        
-        return { distance_red, distance_blue, center, red_point, blue_point, red_point2, blue_point2};
+        return { 
+            redDistance, 
+            blueDistance, 
+            center 
+        };
     }
     
+    // Point in polygon test (ray casting algorithm)
     isPointInPolygon(point, vertices) {
         let inside = false;
         let minDistance = Infinity;
